@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { Theme } from '../lib/types';
 import { AppProvider, useApp } from '../store/AppContext';
 import { Header } from './Header';
+import { MarketRateBar } from './MarketRateBar';
 import { PartnerStrip } from './PartnerStrip';
 import { PartnerTotalsCard } from './PartnerTotalsCard';
 import { PropertyList } from './PropertyList';
@@ -18,6 +19,7 @@ export default function App() {
       <ThemeSync />
       <Header />
       <Toolbar />
+      <MarketRateBar />
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_348px] min-h-[calc(100vh-110px)]">
         <main className="px-6 py-5 lg:border-r border-border overflow-x-auto">
           <PartnerStrip />

@@ -153,12 +153,6 @@
            text-[0.77rem] px-1.5 py-[3px] text-right w-16 shrink-0;
   }
 
-  /* Header (dark bar) inputs */
-  .hdr-input {
-    @apply w-14 bg-hdr-input-bg border border-hdr-input-brd rounded-[3px] text-white font-mono
-           text-[0.84rem] px-1.5 py-[3px] text-right outline-none focus:border-yellow;
-  }
-
   /* Underlined inputs on the partner cards */
   .underline-input {
     @apply bg-transparent border-0 border-b-[1.5px] border-border text-text py-0.5 outline-none

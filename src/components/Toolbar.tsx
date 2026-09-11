@@ -79,7 +79,7 @@ export function Toolbar() {
 
       <Divider />
 
-      <span className={`font-mono text-[0.63rem] ${STATUS_CLASS[state.upload.kind]}`} role="status">
+      <span className={`ml-auto font-mono text-[0.63rem] ${STATUS_CLASS[state.upload.kind]}`} role="status">
         {state.upload.message}
       </span>
 
