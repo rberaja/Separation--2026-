@@ -13,9 +13,9 @@
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|
 | 2 | Name | **name** | ↑ Uploaded | Y | Property name or address. Used as the display label throughout the tool. |
-| 3 | Assign | **assign** | ↑ Uploaded | | "a" or "b" — which partner receives this property. Controls partner panel totals and proportionality meters. |
+| 3 | Assign | **assign** | ↑ Uploaded | | "A" or "B" — which partner receives this property. Controls partner panel totals and proportionality meters. |
 | 4 | Market Discount Rate | **discount_rate** | Tool input | Y | Set once in the tool header. Applied to every property's loan to compute Debt NPV. Represents today's market rate for comparable debt. |
-| 5 | Cash & Cash Equivalents | *cash_equivalents* | ↑ Uploaded | Y | |
+| 5 | Cash & Cash Equivalents | *cash_equivalents* | ↑ Uploaded | Y |Cash and cash equivalents that will be uploaded to be inserted into the common pot value.  |
 
 ## PROPERTY CARD
 
