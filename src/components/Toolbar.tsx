@@ -1,0 +1,91 @@
+import { useCallback, useRef, useState, type ChangeEvent } from 'react';
+import { downloadTemplate, loadExcel } from '../lib/excel-lazy';
+import { SORT_OPTIONS } from '../lib/sort';
+import { useApp } from '../store/AppContext';
+import type { UploadKind } from '../store/reducer';
+import { ColumnGuideModal } from './ColumnGuideModal';
+import { DownloadIcon, InfoIcon, TrashIcon, UploadIcon } from './ui/Icons';
+
+const STATUS_CLASS: Record<UploadKind, string> = {
+  idle: 'text-muted',
+  busy: 'text-muted',
+  ok: 'text-green font-semibold',
+  err: 'text-red font-semibold',
+};
+
+export function Toolbar() {
+  const { state, dispatch } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const closeGuide = useCallback(() => setGuideOpen(false), []);
+
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    dispatch({ type: 'upload/status', status: { kind: 'busy', message: `Reading ${file.name}…` } });
+    try {
+      const { parseWorkbook } = await loadExcel();
+      const result = parseWorkbook(await file.arrayBuffer());
+      dispatch({ type: 'import/apply', result, fileName: file.name });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      dispatch({ type: 'upload/status', status: { kind: 'err', message: `Error: ${message}` } });
+      console.error(err);
+    } finally {
+      input.value = ''; // allow re-uploading the same file
+    }
+  };
+
+  const clearAll = () => {
+    if (state.properties.length > 0 && !window.confirm('Clear all properties? This cannot be undone.')) return;
+    dispatch({ type: 'properties/clear' });
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2.5 bg-surface border-b border-border px-7 py-2">
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+
+      <button type="button" className="tool-btn tool-btn-primary" onClick={() => fileRef.current?.click()}>
+        <UploadIcon /> Upload Excel
+      </button>
+      <button type="button" className="tool-btn" onClick={() => setGuideOpen(true)}>
+        <InfoIcon /> Column Guide
+      </button>
+      <button type="button" className="tool-btn" onClick={() => void downloadTemplate()}>
+        <DownloadIcon /> Download Template
+      </button>
+      <button type="button" className="tool-btn tool-btn-danger" onClick={clearAll}>
+        <TrashIcon /> Clear All
+      </button>
+
+      <Divider />
+
+      <span className="caption text-[0.6rem] whitespace-nowrap">Sort</span>
+      {SORT_OPTIONS.map(({ key, label }) => {
+        const active = state.sort.key === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`sort-btn ${active ? 'sort-btn-active' : ''}`}
+            onClick={() => dispatch({ type: 'sort/set', key })}
+          >
+            <span>{label}</span>
+            <span className="text-[0.68rem]">{active && !state.sort.asc ? '↓' : '↑'}</span>
+          </button>
+        );
+      })}
+
+      <Divider />
+
+      <span className={`font-mono text-[0.63rem] ${STATUS_CLASS[state.upload.kind]}`} role="status">
+        {state.upload.message}
+      </span>
+
+      <ColumnGuideModal open={guideOpen} onClose={closeGuide} />
+    </div>
+  );
+}
+
+const Divider = () => <div className="w-px h-[18px] bg-border shrink-0" />;
