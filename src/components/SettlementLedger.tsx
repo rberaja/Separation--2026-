@@ -60,6 +60,16 @@ export function SettlementLedger() {
           </tr>
         </thead>
         <tbody>
+          <tr>
+            <td colSpan={3} className={GROUP_TEXT}>Reference only — not part of the settlement</td>
+          </tr>
+          {REFERENCE_ROWS.map(({ label, key }) => (
+            <GapRow key={key} label={label} gap={gaps[key]} />
+          ))}
+
+          <tr>
+            <td colSpan={3} className={GROUP_TEXT}>Metrics used for settlement</td>
+          </tr>
           {SETTLEMENT_ROWS.map(({ label, key }) => (
             <GapRow key={key} label={label} gap={gaps[key]} />
           ))}
@@ -80,13 +90,6 @@ export function SettlementLedger() {
             <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.b)}</td>
           </tr>
           <GapRow label="Total True-Up" gap={gaps.total} grand />
-
-          <tr>
-            <td colSpan={3} className={GROUP_TEXT}>Reference only — not part of the settlement</td>
-          </tr>
-          {REFERENCE_ROWS.map(({ label, key }) => (
-            <GapRow key={key} label={label} gap={gaps[key]} />
-          ))}
         </tbody>
       </table>
 
