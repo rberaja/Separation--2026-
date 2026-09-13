@@ -32,11 +32,21 @@ export interface Gaps {
   total: number;
 }
 
+/** Properties not yet assigned to either partner — outside the split until they are. */
+export interface Unassigned {
+  count: number;
+  amv: number;
+  npvEquity: number;
+}
+
 export interface Settlement {
   totals: Record<Partner, PartnerTotals>;
   gaps: Gaps;
   /** Cash & equivalents split by ownership percentage. */
   cash: Record<Partner, number>;
+  unassigned: Unassigned;
+  /** True while every property is assigned; otherwise the settlement is provisional. */
+  complete: boolean;
 }
 
 const emptyTotals = (): PartnerTotals => ({
@@ -55,16 +65,6 @@ const emptyTotals = (): PartnerTotals => ({
 });
 
 /**
- * Bucket a property into a partner's totals.
- * NOTE: mirrors v7.5 exactly — anything not assigned to A (including unassigned
- * properties) rolls into Partner B. Change to `p.assign` if unassigned
- * properties should be excluded from both partners.
- */
-function bucketOf(p: Property): Partner {
-  return p.assign === 'a' ? 'a' : 'b';
-}
-
-/**
  * @param discountRate annual market rate as a fraction (0.065)
  * @param pctA         Partner A's ownership share as a fraction (0.4)
  */
@@ -75,10 +75,19 @@ export function computeSettlement(
   cashEquiv: number,
 ): Settlement {
   const totals: Record<Partner, PartnerTotals> = { a: emptyTotals(), b: emptyTotals() };
+  const unassigned: Unassigned = { count: 0, amv: 0, npvEquity: 0 };
 
   for (const p of properties) {
     const m = computeMetrics(p, discountRate);
-    const t = totals[bucketOf(p)];
+    // An unassigned property belongs to neither partner (v7.5 silently gave it to B);
+    // it is left out of both totals and of the portfolio the targets are taken from.
+    if (p.assign === 'none') {
+      unassigned.count += 1;
+      unassigned.amv += m.amv;
+      unassigned.npvEquity += m.npvEquity;
+      continue;
+    }
+    const t = totals[p.assign];
     t.marketVal += nv(p.marketVal);
     t.capex += nv(p.capex);
     t.amv += m.amv;
@@ -123,6 +132,8 @@ export function computeSettlement(
     totals,
     gaps,
     cash: { a: cashEquiv * pctA, b: cashEquiv * (1 - pctA) },
+    unassigned,
+    complete: unassigned.count === 0,
   };
 }
 

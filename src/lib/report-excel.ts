@@ -72,7 +72,7 @@ function summarySheet(r: Report, generatedAt: Date): XLSX.WorkSheet {
     [GAP_LABELS.settlementTitle],
     ...r.gaps.settlement.map((g): Cell[] => [g.note ? `${g.label} (${g.note})` : g.label, signed(g.a), signed(g.b)]),
     [],
-    [GAP_LABELS.final, r.finalSettlement],
+    [GAP_LABELS.final, r.finalSettlement, r.complete ? '' : `PROVISIONAL — ${r.unassigned.count} unassigned`],
     [],
     ['NOTES'],
     ...r.notes.map((n): Cell[] => [n]),

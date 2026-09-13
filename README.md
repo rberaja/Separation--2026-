@@ -53,7 +53,7 @@ src/
   components/
     App.tsx            root island + theme sync
     Header.tsx         title, version, theme toggle
-    MarketRateBar.tsx  discount rate, cash & equivalents
+    MarketRateBar.tsx  discount rate, cash & equivalents, unassigned-properties indicator
     Toolbar.tsx        upload / column guide / template / print-export / clear / sort / status
     ColumnGuideModal.tsx
     ExportModal.tsx    Print / Export chooser (Excel workbook or PDF report)

@@ -64,6 +64,11 @@ export function PrintReport() {
           <div className="rpt-final">
             <div className="rpt-final-label">{GAP_LABELS.final}</div>
             <div className="rpt-final-value">{report.finalSettlement || DASH}</div>
+            {!report.complete && (
+              <div className="rpt-final-flag">
+                Provisional — {report.unassigned.count} {report.unassigned.count === 1 ? 'property' : 'properties'} unassigned
+              </div>
+            )}
           </div>
         </section>
       </div>

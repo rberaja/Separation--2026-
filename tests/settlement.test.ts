@@ -65,10 +65,23 @@ describe('computeSettlement', () => {
     expect(isBalanced(gaps.total)).toBe(true);
   });
 
-  it('rolls unassigned properties into Partner B (v7.5 behaviour)', () => {
-    const { totals } = computeSettlement([createProperty(1, { marketVal: 100 })], DR, 0.4, 0);
-    expect(totals.a.count).toBe(0);
+  it('keeps unassigned properties out of both partners and out of the targets', () => {
+    const { totals, gaps, unassigned, complete } = computeSettlement(
+      [...props, createProperty(3, { name: 'Loose', marketVal: 1000000, capex: 50000 })],
+      DR, 0.4, 0,
+    );
+    expect(totals.a.count).toBe(1);
     expect(totals.b.count).toBe(1);
+    expect(unassigned).toEqual({ count: 1, amv: 950000, npvEquity: 950000 });
+    expect(complete).toBe(false);
+    // Gaps are identical to the two-property case: the loose property is not in the portfolio yet.
+    expect(gaps).toEqual(computeSettlement(props, DR, 0.4, 0).gaps);
+  });
+
+  it('is complete once every property is assigned', () => {
+    const { unassigned, complete } = computeSettlement(props, DR, 0.4, 0);
+    expect(unassigned.count).toBe(0);
+    expect(complete).toBe(true);
   });
 });
 

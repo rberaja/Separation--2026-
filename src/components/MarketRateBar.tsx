@@ -1,12 +1,18 @@
 import type { ReactNode } from 'react';
-import { useApp } from '../store/AppContext';
+import { fmtMoney } from '../lib/format';
+import { useApp, useSettlement } from '../store/AppContext';
 import type { RefKey } from '../lib/glossary';
 import { NumberInput } from './ui/NumberInput';
 import { Term } from './ui/Term';
 
-/** Portfolio-wide settings set once beneath the toolbar: market discount rate and cash & equivalents. */
+/**
+ * Portfolio-wide settings set once beneath the toolbar: market discount rate and
+ * cash & equivalents, plus a read-only count of properties not yet in the split.
+ */
 export function MarketRateBar() {
   const { state, dispatch } = useApp();
+  const { unassigned } = useSettlement();
+  const hasData = state.properties.length > 0;
 
   return (
     <div className="flex flex-wrap items-center gap-5 bg-surface border-b border-border px-7 py-2">
@@ -30,6 +36,21 @@ export function MarketRateBar() {
           onChange={(value) => dispatch({ type: 'settings/cashEquiv', value })}
         />
       </Setting>
+
+      {hasData && (
+        <div className="flex items-center gap-1.5 sm:ml-auto" role="status" aria-live="polite">
+          <Term term="unassigned" className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold whitespace-nowrap">
+            Unassigned
+          </Term>
+          {unassigned.count === 0 ? (
+            <span className="font-mono text-[0.75rem] font-bold text-green">0 — split complete</span>
+          ) : (
+            <span className="font-mono text-[0.75rem] font-bold text-red">
+              {unassigned.count} {unassigned.count === 1 ? 'property' : 'properties'} · {fmtMoney(unassigned.amv)} Adj. Net Value not in the split
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

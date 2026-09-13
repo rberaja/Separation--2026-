@@ -19,7 +19,7 @@ const HEAD_TEXT = 'font-mono uppercase text-[0.7rem] tracking-[0.08em] font-bold
  */
 export function SettlementLedger() {
   const { state } = useApp();
-  const { gaps, cash } = useSettlement();
+  const { gaps, cash, unassigned, complete } = useSettlement();
   const names = usePartnerNames();
   const share = useOwnership();
 
@@ -72,6 +72,11 @@ export function SettlementLedger() {
         <div className={`font-mono font-bold ${hasData ? 'text-[1.1rem] text-gold' : 'text-[0.8rem] text-hdr-muted'}`}>
           {settlement}
         </div>
+        {hasData && !complete && (
+          <div className="font-mono text-[0.66rem] tracking-[0.05em] text-red mt-1.5">
+            Provisional — {unassigned.count} {unassigned.count === 1 ? 'property' : 'properties'} unassigned ({fmtMoney(unassigned.npvEquity)} NPV Equity not yet in the split)
+          </div>
+        )}
       </div>
 
       <p className="font-serif italic text-[0.75rem] leading-snug text-muted2 mt-2.5">
@@ -79,7 +84,9 @@ export function SettlementLedger() {
         whichever partner&rsquo;s total is negative pays the other. Cash &amp; Equivalents is split by ownership, so
         its gap is zero. The {TAX.basisTrueUp} (present value of lost depreciation) is calculated in the separate{' '}
         {TAX.tool} from the {TAX.basisShortfall} above (White Paper §11.3–11.4) and must be added to the figure shown. Debt Service is a burden,
-        so in that reference row carrying more than your share is what shows as positive.
+        so in that reference row carrying more than your share is what shows as positive. Unassigned properties belong to
+        neither partner and are left out of the portfolio the targets are taken from, so the settlement is provisional
+        until every property is assigned.
       </p>
     </section>
   );

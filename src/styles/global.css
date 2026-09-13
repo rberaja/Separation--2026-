@@ -473,6 +473,14 @@
   font-size: 12pt;
   font-weight: 700;
 }
+.rpt-final-flag {
+  margin-top: 3pt;
+  font-size: 7pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rpt-neg);
+  font-weight: 700;
+}
 .rpt-sign {
   margin-top: 16pt;
 }

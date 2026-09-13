@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.4
+# RE Partition Tool — Field Reference V1.5
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -18,6 +18,7 @@
 | 3 | Assign | **assign** | ↑ Uploaded | | "A" or "B" — which partner receives this property. Controls partner panel totals and proportionality meters. |
 | 4 | Market Discount Rate | **discount_rate** | Tool input | Y | Set once in the tool header. Applied to every property's loan to compute Debt NPV. Represents today's market rate for comparable debt. |
 | 5 | Cash & Cash Equivalents | **cash_equivalents** | ↑ Uploaded (`_meta` sheet) / Tool input | Y | Portfolio-wide cash and cash equivalents entered once in the settings row, or read from the `_meta` sheet on import. Split by ownership % in the settlement (row 63). |
+| 6 | Unassigned | *unassigned* | Calculated | N | Read-only count (and Adj. Net Value) of properties not yet assigned to Partner A or B. Unassigned properties belong to neither partner: they are left out of both partners' totals and of the portfolio total the proportional targets are taken from, so the gaps describe only the assigned portion. While the count is above zero the Final Settlement is marked *Provisional*; assign every property to complete the split. |
 
 ## PROPERTY CARD
 
@@ -83,7 +84,7 @@
 | 41 | NOI / yr (total) | *noi_total* | Calculated | N | Sum of noi for all properties assigned to this partner. |
 | 42 | Ann. Debt Service (total) | *annual_debt_service_total* | Calculated | N | Sum of Annual Debt Service for all properties assigned to this partner. |
 | 43 | Net CF / yr (total) | *net_cash_flow_total* | Calculated | N | Sum of Net Cash Flow / yr for all properties assigned to this partner. |
-| 44 | Properties | *properties_count* | Calculated | N | Number of properties assigned to this partner. A property not yet assigned to A or B is counted with Partner B until it is assigned, so assign every property before reading the settlement. |
+| 44 | Properties | *properties_count* | Calculated | N | Number of properties assigned to this partner. Properties not yet assigned to A or B are counted in neither column (see row 6, Unassigned). |
 | 45 | Remaining Tax Basis (total) | *remaining_tax_basis_total* | Calculated | N | Sum of remaining_tax_basis for all properties assigned to this partner. Compared to each partner's proportional target to compute the Basis Shortfall (row 59). |
 | 46 | Bid Difference (total) | *bid_difference_total* | Calculated | N | Sum of Bid Difference for all properties assigned to this partner. |
 
@@ -124,7 +125,7 @@
 | 62 | Bid Difference | *bid_difference_gap* | Calculated | N | (Portfolio total Bid Difference × ownership %) − Partner's Bid Difference (total). Positive means the partner received less than their proportional share of the total Bid Difference adjustment and is owed cash; negative means the partner received more than their proportional share and pays cash. Settled through the shared account, split by ownership %. |
 | 63 | Cash & Equivalents | *cash_equivalents_gap* | Calculated | N | (Portfolio total Cash & Equivalents × ownership %) − Cash allocated to the partner. Positive means the partner received less cash than their proportional share and is owed; negative means the partner received more and owes. The Partition Tool allocates cash by ownership %, so it displays each partner's share (row 5 × ownership %) and the gap is zero by construction. |
 | 64 | Total True-Up | *total_true_up* | Calculated | N | NPV Equity gap (60) + Basis True-Up (61) + Bid Difference gap (62) + Cash & Equivalents gap (63). Positive means the partner is owed that amount; negative means the partner pays it. By construction the two partners' totals net to zero. |
-| 65 | Final Settlement | *final_settlement* | Calculated | N | The partner whose Total True-Up is negative pays the other partner the absolute amount. Displayed as "Partner X pays Partner Y $N". When both totals are within $1 of zero the split is balanced and no payment is due. |
+| 65 | Final Settlement | *final_settlement* | Calculated | N | The partner whose Total True-Up is negative pays the other partner the absolute amount. Displayed as "Partner X pays Partner Y $N". When both totals are within $1 of zero the split is balanced and no payment is due. Marked *Provisional* while any property is unassigned (row 6). |
 
 ## PRINT / EXPORT
 
@@ -141,6 +142,7 @@
 
 | Version | Change |
 |---|---|
+| V1.5 | Unassigned properties no longer default to Partner B: they are excluded from both partners and from the targets, shown in the new Unassigned indicator (row 6), and the Final Settlement is marked Provisional until every property is assigned (rows 44, 65). |
 | V1.4 | Tax-basis vocabulary aligned with the White Paper: rows 31/45 *Remaining Tax Basis*, row 59 *Basis Shortfall* (§11.3), row 61 *Basis True-Up* (§11.4, §14.1); the separate tool is the *Tax Basis Tool*. Import header confirmed as `remaining_tax_basis` and now actually accepted (V1.3 listed it as confirmed, but the v7.5 tool used `remaining_basis`, which is still accepted). Row 33 is now `depreciation` with the year supplied via `_meta` `depreciation_year` (legacy `depreciation_2025` accepted). `cash_equivalents` added to the `_meta` import sheet (row 5). Added the Print / Export section. |
 | V1.3 | Aligned with White Paper v6.10. Gap sign convention is now uniformly target − actual (positive = owed) — the former "Proportionality vs Target" rows 48–54 had the subtraction reversed and contradicted rows 56–62. Total True-Up now consists of NPV Equity gap + Basis True-Up + Bid Difference gap + Cash & Equivalents gap only (§14.1); Adj. Market Value, Debt Service and Net Cash Flow gaps are reference only. "Proportionality vs Target" rows rewritten to describe the section C bars (actual shares vs target tick) rather than duplicating the gap formulas. Reference rows are listed first (56–59), then the settlement metrics (60–65), matching the tool. Added Final Settlement (row 65). |
 | V1.2 | Previous version. |

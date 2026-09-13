@@ -57,6 +57,7 @@ export const REF = {
   assign: 3,
   discountRate: 4,
   cashEquiv: 5,
+  unassigned: 6,
   // Property card — inputs
   marketVal: 8,
   bidDiff: 9,

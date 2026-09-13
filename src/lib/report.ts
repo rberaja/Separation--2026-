@@ -121,6 +121,9 @@ export interface Report {
   gaps: { reference: ReportGapRow[]; settlement: ReportGapRow[] };
   /** "Partner B pays Partner A $104,000" / "Balanced at 40 / 60 — no payment due". */
   finalSettlement: string;
+  /** False while any property is unassigned; the verdict is then provisional. */
+  complete: boolean;
+  unassigned: { count: number; amv: number; npvEquity: number };
   notes: string[];
 }
 
@@ -161,7 +164,7 @@ function propertyRow(p: Property, discountRate: number): ReportPropertyRow {
 
 export function buildReport(input: ReportInput): Report {
   const { properties, settlement, partnerNames, pctA, discountRate, cashEquiv, depreciationYear } = input;
-  const { totals, gaps, cash } = settlement;
+  const { totals, gaps, cash, unassigned, complete } = settlement;
   const dr = nv(discountRate) / 100;
   const split = splitLabel(pctA);
 
@@ -200,9 +203,9 @@ export function buildReport(input: ReportInput): Report {
     'Debt NPV is the present value of each loan’s remaining payments at the market discount rate; NPV Equity = Adj. Net Value − Debt NPV. Debt Service is a burden, so in that reference row carrying more than your share shows as positive.',
     'Adj. Market Value, Debt Service, Net Cash Flow and the Basis Shortfall are reference only (White Paper §9.1–9.2): debt can be re-set by refinancing after the split and cash flow is measured as NOI before loan payments.',
   ];
-  if (counts.none > 0) {
+  if (!complete) {
     notes.unshift(
-      `${counts.none} ${counts.none === 1 ? 'property is' : 'properties are'} not assigned to a partner and ${counts.none === 1 ? 'is' : 'are'} counted with ${partnerNames.b}. Assign every property before signing.`,
+      `PROVISIONAL — ${unassigned.count} ${unassigned.count === 1 ? 'property is' : 'properties are'} not assigned to a partner (${fmtMoney(unassigned.npvEquity)} of NPV Equity). Unassigned properties belong to neither partner and are excluded from the totals and targets above. Assign every property before signing.`,
     );
   }
 
@@ -220,6 +223,8 @@ export function buildReport(input: ReportInput): Report {
     totals: totalsRows,
     gaps: { reference, settlement: settlementRows },
     finalSettlement: properties.length === 0 ? '' : settlementSentence(gaps.total, partnerNames, pctA),
+    complete,
+    unassigned,
     notes,
   };
 }
