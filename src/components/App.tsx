@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import type { Theme } from '../lib/types';
 import { AppProvider, useApp } from '../store/AppContext';
 import { Header } from './Header';
@@ -9,6 +9,7 @@ import { PropertyList } from './PropertyList';
 import { ProportionalityMeters } from './ProportionalityMeters';
 import { SettlementLedger } from './SettlementLedger';
 import { Toolbar } from './Toolbar';
+import { SplitHandle, useAsideWidth } from './ui/SplitHandle';
 
 export const THEME_STORAGE_KEY = 'partition-tool:theme';
 
@@ -20,19 +21,32 @@ export default function App() {
       <Header />
       <Toolbar />
       <MarketRateBar />
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_348px] min-h-[calc(100vh-110px)]">
-        <main className="px-6 py-5 lg:border-r border-border overflow-x-auto">
-          <PartnerStrip />
-          <PropertyList />
-        </main>
-        <aside className="p-4 flex flex-col gap-[13px] [&>*]:shrink-0 bg-bg lg:sticky lg:top-0 lg:h-[calc(100vh-110px)] lg:overflow-y-auto">
-          <PartnerTotalsCard partner="a" />
-          <PartnerTotalsCard partner="b" />
-          <ProportionalityMeters />
-          <SettlementLedger />
-        </aside>
-      </div>
+      <Workspace />
     </AppProvider>
+  );
+}
+
+/** Main column + resizable right-hand pane. Below the lg breakpoint they simply stack. */
+function Workspace() {
+  const [asideWidth, setAsideWidth, resetAsideWidth] = useAsideWidth();
+
+  return (
+    <div
+      className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_var(--aside-w)] min-h-[calc(100vh-110px)]"
+      style={{ '--aside-w': `${asideWidth}px` } as CSSProperties}
+    >
+      <main className="px-6 py-5 overflow-x-auto min-w-0">
+        <PartnerStrip />
+        <PropertyList />
+      </main>
+      <SplitHandle width={asideWidth} onResize={setAsideWidth} onReset={resetAsideWidth} />
+      <aside className="p-4 flex flex-col gap-[13px] [&>*]:shrink-0 bg-bg lg:sticky lg:top-0 lg:h-[calc(100vh-110px)] lg:overflow-y-auto min-w-0">
+        <PartnerTotalsCard partner="a" />
+        <PartnerTotalsCard partner="b" />
+        <ProportionalityMeters />
+        <SettlementLedger />
+      </aside>
+    </div>
   );
 }
 

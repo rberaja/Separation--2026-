@@ -122,8 +122,8 @@ export function PropertyCard({ property: p }: { property: Property }) {
       <Strip title="Tax and Compliance">
         <Cell label="Next 40-Yr Certification" tone="neu">{fmtText(p.cert40yr)}</Cell>
         <Cell label="Zoning" tone="neu">{fmtText(p.zoning)}</Cell>
-        <Cell label="Tax Basis" tone="neu">{fmtMoney(p.remainingBasis ?? 0)}</Cell>
         <Cell label="" tone="neu" />
+        <Cell label="Remaining Tax Basis" tone="neu">{fmtMoney(p.remainingBasis ?? 0)}</Cell>
         <Cell label="Depreciation 2025" tone="yel">{fmtMoney(p.depreciation2025 ?? 0)}</Cell>
       </Strip>
     </article>
