@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { Theme } from '../lib/types';
 import { AppProvider, useApp } from '../store/AppContext';
 import { Header } from './Header';
@@ -12,21 +12,26 @@ import { SettlementLedger } from './SettlementLedger';
 import { Toolbar } from './Toolbar';
 import { SectionHeading } from './ui/SectionHeading';
 import { SplitHandle, useAsideWidth } from './ui/SplitHandle';
+import { TaxBasisMockup } from './TaxBasisMockup';
 
 export const THEME_STORAGE_KEY = 'partition-tool:theme';
 
 /** Root React island. Wraps the layout in the app store. */
 export default function App() {
+  const [workspace, setWorkspace] = useState<'basis' | 'partition'>('basis');
+
   return (
     <AppProvider>
       <ThemeSync />
-      {/* Everything on screen lives in #app-screen so the print stylesheet can swap it for the report. */}
-      <div id="app-screen">
-        <Header />
-        <Toolbar />
-        <MarketRateBar />
-        <Workspace />
-      </div>
+      {workspace === 'basis' ? <TaxBasisMockup onOpenPartition={() => setWorkspace('partition')} /> : <>
+        {/* Everything on screen lives in #app-screen so the print stylesheet can swap it for the report. */}
+        <div id="app-screen">
+          <Header />
+          <Toolbar />
+          <MarketRateBar />
+          <Workspace />
+        </div>
+      </>}
       <PrintReport />
     </AppProvider>
   );
