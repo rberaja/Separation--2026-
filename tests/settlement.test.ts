@@ -22,12 +22,32 @@ describe('computeSettlement', () => {
     expect(totals.b.bidDiff).toBe(-5000);
   });
 
-  it('computes gaps as A actual − A target', () => {
+  it('computes value gaps as A target − A actual (positive = A is owed)', () => {
     const { gaps, totals } = computeSettlement(props, DR, 0.4, 0);
     const totalAmv = totals.a.amv + totals.b.amv;
-    expect(gaps.amv).toBeCloseTo(totals.a.amv - totalAmv * 0.4, 6);
-    expect(gaps.bidDiff).toBeCloseTo(10000 - 5000 * 0.4, 6);
-    expect(gaps.total).toBeCloseTo(gaps.npvEquity + gaps.amv + gaps.ads + gaps.ncf + gaps.bidDiff, 6);
+    expect(gaps.amv).toBeCloseTo(totalAmv * 0.4 - totals.a.amv, 6);
+    // A holds $10,000 of bid difference against a $2,000 share of the $5,000 total → A is over, so A pays.
+    expect(gaps.bidDiff).toBeCloseTo(5000 * 0.4 - 10000, 6);
+    expect(gaps.bidDiff).toBeLessThan(0);
+    expect(gaps.total).toBeCloseTo(gaps.npvEquity + gaps.bidDiff, 6);
+  });
+
+  it('computes the debt-service gap as A actual − A target (burden: carrying more = owed)', () => {
+    const { gaps, totals } = computeSettlement(props, DR, 0.4, 0);
+    const totalAds = totals.a.ads + totals.b.ads;
+    expect(gaps.ads).toBeCloseTo(totals.a.ads - totalAds * 0.4, 6);
+  });
+
+  it('matches the v1.8 mockup worked example for NPV Equity', () => {
+    // A: $4,440,000 vs B: $6,920,000 at 40/60 → A's target is $4,544,000, so A is owed $104,000.
+    const totalEq = 4440000 + 6920000;
+    expect(totalEq * 0.4 - 4440000).toBeCloseTo(104000, 0);
+  });
+
+  it('totals only the settlement items (NPV Equity + Bid Difference), per White Paper §14.1', () => {
+    const { gaps } = computeSettlement(props, DR, 0.4, 0);
+    expect(gaps.remainingBasis).not.toBe(0);
+    expect(gaps.total).toBeCloseTo(gaps.npvEquity + gaps.bidDiff, 6);
   });
 
   it('splits cash & equivalents by ownership', () => {

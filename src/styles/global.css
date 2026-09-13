@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* `dark:` follows the [data-theme] toggle rather than the OS preference. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* Bundled fonts (self-hosted via @fontsource) so the tool renders identically on every machine —
    DejaVu is what the v1.8 mockup was drawn with. Headings keep Georgia. */
 @import "@fontsource/dejavu-mono/latin-400.css";
@@ -47,11 +50,11 @@
   --surface2:  #211f1c;
   --border:    #2e2c28;
   --border2:   #3d3a34;
-  --text:      #e8e4dc;
-  --text2:     #ccc8be;
-  --muted:     #9a9080;
-  --muted2:    #7a7060;
-  --ink:       #e8e4dc;
+  --text:      #ffffff;
+  --text2:     #ece8e0;
+  --muted:     #c4bcac;
+  --muted2:    #aaa294;
+  --ink:       #ffffff;
   --a:         #d4915a;
   --a-light:   #2a1a0a;
   --b:         #5a9fd4;
@@ -61,8 +64,8 @@
   --yellow:    #d4c05a;
   --proj:      #d4b84a;
   --hdr-bg:    #111110;
-  --hdr-text:  #e8e4dc;
-  --hdr-muted: #9a9080;
+  --hdr-text:  #ffffff;
+  --hdr-muted: #b8b0a0;
   --hdr-accent: #c9a54e;
   --gold:      #f4c15c;
   --hdr-input-bg:  #1e1c18;

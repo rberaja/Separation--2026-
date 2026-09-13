@@ -1,6 +1,6 @@
-# RE Partition Tool — Field Reference V1.2
+# RE Partition Tool — Field Reference V1.3
 
-*Every field the tool uses, its source, and the formula applied — v7.2*
+*Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
 **Source key:** ↑ Uploaded = value comes from the Excel import table. Calculated = derived by the tool from uploaded values. Tool input = entered by the user in the tool interface, not imported.
 
@@ -87,24 +87,48 @@
 
 ### Proportionality vs Target
 
+*Section C of the tool. Each bar shows how the portfolio total for a metric is actually divided between the partners (orange = Partner A's actual share, blue = Partner B's). The tick marks the target split (ownership %). These bars are a visual check only — the dollar gaps and the settlement are in the Gap Analysis section below.*
+
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|
-| 48 | NPV Equity gap | *npv_equity_gap* | Calculated | N | Partner's NPV Equity (total) − (portfolio total NPV Equity × ownership %). Positive = partner is under-allocated and is owed; negative = over-allocated and owes. |
-| 49 | Adj. Market Value gap | *adj_market_value_gap* | Calculated | N | Partner's Adj. Market Value (total) − (portfolio total Adj. Market Value × ownership %). |
-| 50 | Debt Service gap | *debt_service_gap* | Calculated | N | Partner's Ann. Debt Service (total) − (portfolio total Ann. Debt Service × ownership %). |
-| 51 | Net Cash Flow gap | *net_cash_flow_gap* | Calculated | N | Partner's Net CF / yr (total) − (portfolio total Net CF / yr × ownership %). |
-| 52 | Basis True-Up | *basis_true_up* | Calculated | N | (Portfolio total Remaining Tax Basis × ownership %) − Partner's Remaining Tax Basis (total). Positive means the partner received less remaining tax basis than their proportional share and is owed compensation. The dollar value is the present value of the lost future depreciation benefit, calculated from the depreciation schedule and not discounted a second time. |
-| 53 | Bid Difference gap | *bid_difference_gap* | Calculated | N | Sum of Bid Differences for properties won by this partner minus the partner's ownership percentage of the total portfolio Bid Differences. Split according to ownership percentage through the shared settlement pot. |
-| 54 | Total True-Up | *total_true_up* | Calculated | N | Sum of all gap line items above. The partner whose Total True-Up is negative is the one who pays cash to close the gap. By construction the two partners' totals net to zero. |
+| 48 | Adj. Market Value (share) | *adj_market_value_share* | Calculated | N | Partner's Adj. Market Value (total) ÷ portfolio total Adj. Market Value. Negative partner totals are floored at zero before drawing the bar. |
+| 49 | NPV Equity (share) | *npv_equity_share* | Calculated | N | Partner's NPV Equity (total) ÷ portfolio total NPV Equity. Negative partner totals are floored at zero. |
+| 50 | Debt Service (share) | *debt_service_share* | Calculated | N | Partner's Ann. Debt Service (total) ÷ portfolio total Ann. Debt Service. |
+| 51 | Net Cash Flow (share) | *net_cash_flow_share* | Calculated | N | Partner's Net CF / yr (total) ÷ portfolio total Net CF / yr. Negative partner totals are floored at zero. |
+| 52 | Bid Difference (share) | *bid_difference_share* | Calculated | N | Partner's Bid Difference (total) ÷ portfolio total Bid Difference. Negative partner totals are floored at zero. |
+| 53 | Target split (tick) | *target_split* | Tool input | Y | Partner A's ownership % (Partner B = 100% − A). Where the orange edge lands relative to the tick shows the gap at a glance. |
 
 ## GAP ANALYSIS & SETTLEMENT
 
+*Section D of the tool. Follows White Paper v6.10 §14.1. **Sign convention for every gap: target − actual. A positive number means the partner is under-allocated and is owed cash; a negative number means the partner holds more than their share and pays.** Each gap is shown from Partner A's side in the Partner A column and as its negative in the Partner B column, so every row nets to zero.*
+
+*Only rows 56–59 are settlement items and feed Total True-Up. Rows 62–65 are shown for reference and are not part of the settlement (White Paper §9.1–9.2: debt can be re-set by refinancing after the split, and cash flow is measured as NOI before loan payments, so neither controls the settlement).*
+
+### Settlement items
+
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|
-| 56 | NPV Equity | *npv_equity_gap* | Calculated | N | (Portfolio total NPV Equity × ownership %) − Partner's NPV Equity (total). Positive means the partner received less NPV Equity than their proportional target and is owed cash; negative means the partner received more than target and pays cash. |
-| 57 | Adjusted Market Value | *adj_market_value_gap* | Calculated | N | (Portfolio total Adj. Market Value × ownership %) − Partner's Adj. Market Value (total). Positive means the partner received less adjusted property value than their proportional target and is owed cash; negative means the partner received more than target and pays cash. |
-| 58 | Debt Service | *debt_service_gap* | Calculated | N | Partner's Annual Debt Service (total) − (portfolio total Annual Debt Service × ownership %). Debt service is a burden, so the sign is intentionally reversed from value metrics. Positive means the partner carries more debt-service burden than their proportional target and is owed cash; negative means the partner carries less burden and pays cash. |
-| 59 | Net Cash Flow | *net_cash_flow_gap* | Calculated | N | (Portfolio total Net Cash Flow / yr × ownership %) − Partner's Net Cash Flow / yr (total). Positive means the partner receives less annual net cash flow than their proportional target and is owed cash; negative means the partner receives more than target and pays cash. |
-| 60 | Basis True-Up | *basis_true_up* | Calculated | N | (Portfolio total Remaining Tax Basis × ownership %) − Partner's Remaining Tax Basis (total). Positive means the partner received less remaining tax basis than their proportional share. The compensation amount is the present value of the lost future depreciation benefit, calculated from the depreciation schedule and not discounted a second time. |
-| 61 | Bid Difference | *bid_difference_gap* | Calculated | N | (Portfolio total Bid Difference × ownership %) − Partner's Bid Difference (total). Positive means the partner received less than their proportional share of the total Bid Difference adjustment and is owed cash; negative means the partner received more than their proportional share and pays cash through the shared settlement pot. |
-| 62 | Cash Equivalents | *cash_equivalents_gap* | Calculated | N | (Portfolio total Cash Equivalents × ownership %) − Partner's Cash Equivalents allocated. Positive means the partner received less cash or cash-equivalent value than their proportional share and is owed cash; negative means the partner received more than their proportional share and pays or offsets through the final settlement. |
+| 56 | NPV Equity | *npv_equity_gap* | Calculated | N | (Portfolio total NPV Equity × ownership %) − Partner's NPV Equity (total). Positive means the partner received less NPV Equity than their proportional target and is owed cash; negative means the partner received more than target and pays cash. Shared by ownership % automatically because NPV Equity already reflects the market value of each loan (Debt NPV). |
+| 57 | Basis True-Up | *basis_true_up* | Calculated (Tax Basis Depreciation tool) | N | Step 1 — shortfall in basis dollars: (Portfolio total Remaining Tax Basis × ownership %) − Partner's Remaining Tax Basis (total) (White Paper §11.3). Step 2 — convert the shortfall to cash: the present value of the lost annual depreciation benefit, discounted year by year from the real depreciation schedule and not discounted a second time (White Paper §11.4). Positive means the partner received less remaining tax basis than their share and is owed compensation. Paid 100% partner to partner. The Partition Tool shows Step 1 only (row 65); Step 2 is calculated in the separate Tax Basis Depreciation tool and the result is added to Total True-Up. |
+| 58 | Bid Difference | *bid_difference_gap* | Calculated | N | (Portfolio total Bid Difference × ownership %) − Partner's Bid Difference (total). Positive means the partner received less than their proportional share of the total Bid Difference adjustment and is owed cash; negative means the partner received more than their proportional share and pays cash. Settled through the shared account, split by ownership %. |
+| 59 | Cash & Equivalents | *cash_equivalents_gap* | Calculated | N | (Portfolio total Cash & Equivalents × ownership %) − Cash allocated to the partner. Positive means the partner received less cash than their proportional share and is owed; negative means the partner received more and owes. The Partition Tool allocates cash by ownership %, so it displays each partner's share (row 5 × ownership %) and the gap is zero by construction. |
+| 60 | Total True-Up | *total_true_up* | Calculated | N | NPV Equity gap (56) + Basis True-Up (57) + Bid Difference gap (58) + Cash & Equivalents gap (59). Positive means the partner is owed that amount; negative means the partner pays it. By construction the two partners' totals net to zero. |
+| 61 | Final Settlement | *final_settlement* | Calculated | N | The partner whose Total True-Up is negative pays the other partner the absolute amount. Displayed as "Partner X pays Partner Y $N". When both totals are within $1 of zero the split is balanced and no payment is due. |
+
+### Reference only — not part of the settlement
+
+| # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
+|---|---|---|---|---|---|
+| 62 | Adj. Market Value | *adj_market_value_gap* | Calculated | N | (Portfolio total Adj. Market Value × ownership %) − Partner's Adj. Market Value (total). Positive means the partner received less adjusted property value than their proportional target. Reference only: property value is already captured in NPV Equity (row 56). |
+| 63 | Debt Service | *debt_service_gap* | Calculated | N | Partner's Ann. Debt Service (total) − (portfolio total Ann. Debt Service × ownership %). Debt service is a burden, so the subtraction is reversed to keep "positive = owed": positive means the partner carries more debt-service burden than their proportional target. Reference only: debt is valued in NPV Equity via Debt NPV and can be re-set by refinancing after the split (White Paper §9.1). |
+| 64 | Net Cash Flow | *net_cash_flow_gap* | Calculated | N | (Portfolio total Net CF / yr × ownership %) − Partner's Net CF / yr (total). Positive means the partner receives less levered cash flow than their proportional target. Reference only: the split measures cash flow as NOI before loan payments, not levered cash flow (White Paper §9.2, §10.3). |
+| 65 | Remaining Tax Basis (shortfall) | *remaining_tax_basis_gap* | Calculated | N | (Portfolio total Remaining Tax Basis × ownership %) − Partner's Remaining Tax Basis (total), in basis dollars. This is Step 1 of the Basis True-Up (row 57). Reference only until converted to cash in the Tax Basis Depreciation tool. |
+
+---
+
+### Change log
+
+| Version | Change |
+|---|---|
+| V1.3 | Aligned with White Paper v6.10. Gap sign convention is now uniformly target − actual (positive = owed) — the former "Proportionality vs Target" rows 48–54 had the subtraction reversed and contradicted rows 56–62. Total True-Up now consists of NPV Equity gap + Basis True-Up + Bid Difference gap + Cash & Equivalents gap only (§14.1); Adj. Market Value, Debt Service and Net Cash Flow gaps are reference only. "Proportionality vs Target" rows rewritten to describe the section C bars (actual shares vs target tick) rather than duplicating the gap formulas. Added Final Settlement (row 61). |
+| V1.2 | Previous version. |

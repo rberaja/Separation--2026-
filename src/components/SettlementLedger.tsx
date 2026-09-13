@@ -1,32 +1,29 @@
-import { fmtMoney } from '../lib/format';
+import { DASH, fmtMoney } from '../lib/format';
 import { isBalanced, type Gaps } from '../lib/settlement';
 import { useApp, useOwnership, usePartnerNames, useSettlement } from '../store/AppContext';
 
-interface GapRowSpec {
-  label: string;
-  key: keyof Omit<Gaps, 'total'>;
-  /** Reference-only rows are shown but not added into Total True-Up. */
-  reference?: boolean;
-}
-
-const GAP_ROWS: readonly GapRowSpec[] = [
+const SETTLEMENT_ROWS: readonly { label: string; key: keyof Omit<Gaps, 'total'> }[] = [
   { label: 'NPV Equity', key: 'npvEquity' },
+  { label: 'Bid Difference', key: 'bidDiff' },
+];
+
+const REFERENCE_ROWS: readonly { label: string; key: keyof Omit<Gaps, 'total'> }[] = [
   { label: 'Adj. Market Value', key: 'amv' },
   { label: 'Debt Service', key: 'ads' },
   { label: 'Net Cash Flow', key: 'ncf' },
-  { label: 'Remaining Tax Basis', key: 'remainingBasis', reference: true },
-  { label: 'Bid Difference', key: 'bidDiff' },
+  { label: 'Remaining Tax Basis (shortfall)', key: 'remainingBasis' },
 ];
 
 /* Type scale sampled from the v1.8 mockup's Gap Analysis table. */
 const METRIC_TEXT = 'font-mono text-[0.77rem] font-bold text-text';
 const VALUE_TEXT = 'font-mono text-[0.75rem] font-bold text-right py-2 pl-4';
 const HEAD_TEXT = 'font-mono uppercase text-[0.7rem] tracking-[0.08em] font-bold pb-1.5';
+const GROUP_TEXT = 'font-mono uppercase text-[0.62rem] tracking-[0.1em] text-muted2 pt-2.5 pb-1 pl-1.5';
 
 /**
- * Gap analysis table. A gap is Partner A's actual total minus their proportional
- * target, so A's column shows the gap as-is and B's column shows its negative —
- * every row nets to zero across the two columns.
+ * Gap analysis per White Paper v6.10 §14.1. A gap is Partner A's target minus actual
+ * (positive = A is owed), so A's column shows the gap as-is and B's column shows its
+ * negative — every row nets to zero. Only the settlement rows feed Total True-Up.
  */
 export function SettlementLedger() {
   const { state } = useApp();
@@ -49,29 +46,47 @@ export function SettlementLedger() {
     <section className="card px-4 pt-3.5 pb-3">
       <div className="font-mono uppercase text-[0.77rem] tracking-[0.08em] text-muted font-bold mb-1.5">Gap Analysis</div>
       <p className="font-serif text-[0.8rem] leading-snug text-text mb-3">
-        For each metric: a positive number in a partner&rsquo;s column means that partner is under-allocated and is owed
-        that amount; negative means they hold more than their target and owe it. Every row nets to zero across the two
-        columns — one partner&rsquo;s credit is the other&rsquo;s debit.
+        Each gap is a partner&rsquo;s proportional target minus what they actually received. A positive number means
+        that partner is under-allocated and is owed cash; negative means they hold more than their share and owe it.
+        Every row nets to zero across the two columns.
       </p>
 
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b-2 border-ink">
             <th className={`${HEAD_TEXT} text-left text-muted pl-1.5`}>Metric</th>
-            <th className={`${HEAD_TEXT} text-right font-bold text-a pl-4`}>{names.a}</th>
-            <th className={`${HEAD_TEXT} text-right font-bold text-b pl-4`}>{names.b}</th>
+            <th className={`${HEAD_TEXT} text-right text-a pl-4`}>{names.a}</th>
+            <th className={`${HEAD_TEXT} text-right text-b pl-4`}>{names.b}</th>
           </tr>
         </thead>
         <tbody>
-          {GAP_ROWS.map(({ label, key, reference }) => (
-            <GapRow key={key} label={label} gap={gaps[key]} reference={reference} />
+          {SETTLEMENT_ROWS.map(({ label, key }) => (
+            <GapRow key={key} label={label} gap={gaps[key]} />
           ))}
           <tr className="border-b border-border">
-            <td className={`${METRIC_TEXT} pl-1.5 py-2`}>Cash &amp; Equivalents (ownership split)</td>
+            <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
+              Basis True-Up
+              <Tag>from Tax Basis Depreciation tool</Tag>
+            </td>
+            <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
+            <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
+              Cash &amp; Equivalents
+              <Tag>split {splitLabel}</Tag>
+            </td>
             <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.a)}</td>
             <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.b)}</td>
           </tr>
           <GapRow label="Total True-Up" gap={gaps.total} grand />
+
+          <tr>
+            <td colSpan={3} className={GROUP_TEXT}>Reference only — not part of the settlement</td>
+          </tr>
+          {REFERENCE_ROWS.map(({ label, key }) => (
+            <GapRow key={key} label={label} gap={gaps[key]} />
+          ))}
         </tbody>
       </table>
 
@@ -83,22 +98,24 @@ export function SettlementLedger() {
       </div>
 
       <p className="font-serif italic text-[0.75rem] leading-snug text-muted2 mt-2.5">
-        Each row is that partner&rsquo;s own total − (that partner&rsquo;s ownership % × the portfolio total for that
-        metric). The Total row adds them all, and whichever partner&rsquo;s total comes out negative is the one who
-        pays. Remaining Tax Basis is shown for reference only — the Basis True-Up is calculated in the separate Tax
-        Basis Depreciation tool and is not included in the total.
+        Total True-Up = NPV Equity gap + Bid Difference gap + Basis True-Up (White Paper §14.1); whichever
+        partner&rsquo;s total is negative pays the other. Cash &amp; Equivalents is split by ownership, so its gap is
+        zero. The Basis True-Up (present value of lost depreciation) is calculated in the separate Tax Basis
+        Depreciation tool and must be added to the figure above. Debt Service is a burden, so in that reference row
+        carrying more than your share is what shows as positive.
       </p>
     </section>
   );
 }
 
-function GapRow({ label, gap, grand, reference }: { label: string; gap: number; grand?: boolean; reference?: boolean }) {
+function Tag({ children }: { children: string }) {
+  return <span className="font-mono text-[0.66rem] font-normal text-muted2 ml-1.5">({children})</span>;
+}
+
+function GapRow({ label, gap, grand }: { label: string; gap: number; grand?: boolean }) {
   return (
-    <tr className={grand ? 'border-t-2 border-ink' : 'border-b border-border'}>
-      <td className={`${METRIC_TEXT} pl-1.5 py-2 ${grand ? 'font-bold' : ''}`}>
-        {label}
-        {reference && <span className="font-mono text-[0.66rem] font-normal text-muted2 ml-1.5">(reference — not in total)</span>}
-      </td>
+    <tr className={grand ? 'border-t-2 border-b border-ink' : 'border-b border-border'}>
+      <td className={`${METRIC_TEXT} pl-1.5 py-2`}>{label}</td>
       <SignedCell value={gap} />
       <SignedCell value={-gap} />
     </tr>

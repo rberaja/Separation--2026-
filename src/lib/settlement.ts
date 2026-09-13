@@ -27,7 +27,7 @@ export interface Gaps {
   ads: number;
   ncf: number;
   bidDiff: number;
-  /** Shown for reference in the ledger; basis true-up is settled in the separate tax tool, so it is NOT in total. */
+  /** Basis shortfall in basis dollars — reference only; the Basis True-Up ($) comes from the separate tax tool. */
   remainingBasis: number;
   total: number;
 }
@@ -94,17 +94,30 @@ export function computeSettlement(
   }
 
   const { a, b } = totals;
-  const gap = (key: keyof Omit<PartnerTotals, 'count'>): number => a[key] - (a[key] + b[key]) * pctA;
+  /**
+   * Gaps are Partner A's; Partner B's are the negative. Sign convention (White Paper
+   * v6.10 §14.1): positive = A is owed cash, negative = A pays.
+   *  - Value metrics use target − actual: getting less than your share means you are owed.
+   *  - Debt service is a burden, so it uses actual − target: carrying more than your
+   *    share means you are owed.
+   *
+   * Only NPV Equity and Bid Difference feed `total` (plus the Basis True-Up from the
+   * separate tax tool and the cash split, neither of which is a gap here). Adj. Market
+   * Value, Debt Service, Net Cash Flow and the basis shortfall are reference only.
+   */
+  const targetA = (key: keyof Omit<PartnerTotals, 'count'>): number => (a[key] + b[key]) * pctA;
+  const shortfall = (key: keyof Omit<PartnerTotals, 'count'>): number => targetA(key) - a[key];
+  const excessBurden = (key: keyof Omit<PartnerTotals, 'count'>): number => a[key] - targetA(key);
   const gaps: Gaps = {
-    npvEquity: gap('npvEquity'),
-    amv: gap('amv'),
-    ads: gap('ads'),
-    ncf: gap('ncf'),
-    bidDiff: gap('bidDiff'),
-    remainingBasis: gap('remainingBasis'),
+    npvEquity: shortfall('npvEquity'),
+    amv: shortfall('amv'),
+    ads: excessBurden('ads'),
+    ncf: shortfall('ncf'),
+    bidDiff: shortfall('bidDiff'),
+    remainingBasis: shortfall('remainingBasis'),
     total: 0,
   };
-  gaps.total = gaps.npvEquity + gaps.amv + gaps.ads + gaps.ncf + gaps.bidDiff;
+  gaps.total = gaps.npvEquity + gaps.bidDiff;
 
   return {
     totals,

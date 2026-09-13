@@ -35,9 +35,9 @@ export function MarketRateBar() {
 function Setting({ label, suffix, children }: { label: string; suffix: string; children: ReactNode }) {
   return (
     <label className="flex items-center gap-1.5">
-      <span className="caption text-[0.62rem] whitespace-nowrap">{label}</span>
+      <span className="caption text-[0.62rem] whitespace-nowrap dark:text-text">{label}</span>
       {children}
-      <span className="font-mono text-muted text-[0.68rem]">{suffix}</span>
+      <span className="font-mono text-muted text-[0.68rem] dark:text-text">{suffix}</span>
     </label>
   );
 }
