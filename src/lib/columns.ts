@@ -121,14 +121,14 @@ export const COLUMNS: readonly ColumnSpec[] = [
   },
   {
     key: 'remaining_tax_basis', field: 'remainingBasis', width: 17,
-    description: 'Remaining depreciable tax basis ($) — White Paper §11', notes: 'Optional — feeds the Tax Basis Tool',
-    instruction: 'Remaining tax basis — remaining depreciable basis in dollars (White Paper §11); feeds the Tax Basis Tool',
+    description: 'Remaining depreciable tax basis ($) — White Paper §11', notes: 'Optional — feeds the Remaining Depreciation Tool',
+    instruction: 'Remaining tax basis — remaining depreciable basis in dollars (White Paper §11); feeds the Remaining Depreciation Tool',
     // remaining_basis was the v7.5 header; residual_* were used briefly in v8.0.
     aliases: ['remaining tax basis', 'remaining_basis', 'remaining basis', 'residual_tax_basis', 'residual tax basis', 'residual_basis', 'residual basis', 'tax basis'],
   },
   {
     key: 'depreciation', field: 'depreciation', width: 16,
-    description: 'Annual depreciation expense for the depreciation year ($)', notes: 'Year set by the Tax Basis Tool (_meta depreciation_year)',
+    description: 'Annual depreciation expense for the depreciation year ($)', notes: 'Year set by the Remaining Depreciation Tool (_meta depreciation_year)',
     instruction: 'Annual depreciation expense in dollars for the depreciation year (the year is read from the _meta sheet, depreciation_year)',
     aliases: ['depreciation_2025', 'depreciation 2025', 'annual depreciation'],
   },
@@ -158,6 +158,6 @@ export const META_COLUMNS = {
   partnerAPct: 'partner_a_pct',
   discountRate: 'discount_rate',
   cashEquiv: 'cash_equivalents',
-  /** Tax year the `depreciation` column refers to — written by the Tax Basis Tool. */
+  /** Tax year the `depreciation` column refers to — written by the Remaining Depreciation Tool. */
   depreciationYear: 'depreciation_year',
 } as const;

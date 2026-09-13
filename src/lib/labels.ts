@@ -5,7 +5,7 @@
  * Tax-basis terms follow White Paper v6.10 §11 and §14.1: the per-property
  * input is the Remaining Tax Basis; step 1 of the adjustment is the Basis
  * Shortfall (basis dollars); step 2 is the Basis True-Up (cash), calculated in
- * the separate Tax Basis Tool.
+ * the separate Remaining Depreciation Tool.
  */
 import type { RefKey } from './glossary';
 import type { Gaps, PartnerTotals } from './settlement';
@@ -20,10 +20,10 @@ export const TAX = {
   /** Step 2 — the shortfall converted to cash: PV of lost depreciation (§11.4, §14.1). */
   basisTrueUp: 'Basis True-Up',
   /** The separate web tool that performs step 2 (placeholder name until it is built). */
-  tool: 'Tax Basis Tool',
+  tool: 'Remaining Depreciation Tool',
 } as const;
 
-/** "Depreciation 2025" — the year is a setting supplied by the Tax Basis Tool. */
+/** "Depreciation 2025" — the year is a setting supplied by the Remaining Depreciation Tool. */
 export const depreciationLabel = (year: number): string => `Depreciation ${year}`;
 
 export interface TotalsRow {

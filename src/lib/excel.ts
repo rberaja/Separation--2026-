@@ -119,9 +119,9 @@ const INSTRUCTION_NOTES: readonly string[][] = [
   ['Split directly by ownership percentage in the Settlement Ledger.'],
   [''],
   ['BASIS TRUE-UP NOTE'],
-  ['The Basis True-Up (PV of lost depreciation, White Paper §11.4) is calculated in the separate Tax Basis Tool, not here.'],
+  ['The Basis True-Up (PV of lost depreciation, White Paper §11.4) is calculated in the separate Remaining Depreciation Tool, not here.'],
   ["This tool only reports each partner's Basis Shortfall in basis dollars (White Paper §11.3)."],
-  ['The depreciation year shown on the cards is read from the _meta sheet (depreciation_year), written by the Tax Basis Tool.'],
+  ['The depreciation year shown on the cards is read from the _meta sheet (depreciation_year), written by the Remaining Depreciation Tool.'],
 ];
 
 export function buildTemplateWorkbook(): XLSX.WorkBook {

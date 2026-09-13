@@ -27,7 +27,7 @@ export interface Gaps {
   ads: number;
   ncf: number;
   bidDiff: number;
-  /** Basis Shortfall in basis dollars (White Paper §11.3) — reference only; the Basis True-Up ($) comes from the Tax Basis Tool. */
+  /** Basis Shortfall in basis dollars (White Paper §11.3) — reference only; the Basis True-Up ($) comes from the Remaining Depreciation Tool. */
   remainingBasis: number;
   total: number;
 }
@@ -99,7 +99,7 @@ export function computeSettlement(
    *    share means you are owed.
    *
    * Only NPV Equity and Bid Difference feed `total` (plus the Basis True-Up from the
-   * Tax Basis Tool and the cash split, neither of which is a gap here). Adj. Market
+   * Remaining Depreciation Tool and the cash split, neither of which is a gap here). Adj. Market
    * Value, Debt Service, Net Cash Flow and the Basis Shortfall are reference only.
    */
   const targetA = (key: keyof Omit<PartnerTotals, 'count'>): number => (a[key] + b[key]) * pctA;

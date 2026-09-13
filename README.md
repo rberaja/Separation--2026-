@@ -38,6 +38,7 @@ src/
     finance.ts         amortPmt, calcDebtNPV, calcADS, computeMetrics …
     settlement.ts      per-partner totals, gaps, cash split
     sort.ts            SORT_OPTIONS, sortProperties, nextSort
+    workspaces.ts      the top-level pages and their URL hashes
     labels.ts          shared display vocabulary (partner-total rows, gap rows, tax-basis terms)
     glossary.ts        tooltip text parsed from docs/03_RE_Partition_Field_Reference.md (?raw import)
     report.ts          Report model shared by the Excel and print exports
@@ -51,7 +52,10 @@ src/
     reducer.ts         AppState + Action union + reducer
     AppContext.tsx     AppProvider, useApp, useSettlement, useSortedProperties …
   components/
-    App.tsx            root island + theme sync
+    App.tsx            root island: theme sync + workspace tabs (Partition is the landing page)
+    WorkspaceNav.tsx   tab strip; active tab syncs to the URL hash
+    PlannedWorkspace.tsx placeholder page for tools not built yet (Zoning, Partnership %)
+    TaxBasisMockup.tsx Remaining Depreciation Tool (mockup, in progress)
     Header.tsx         title, version, theme toggle
     MarketRateBar.tsx  discount rate, cash & equivalents, unassigned-properties indicator
     Toolbar.tsx        upload / column guide / template / print-export / clear / sort / status

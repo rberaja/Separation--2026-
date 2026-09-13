@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import type { Theme } from '../lib/types';
 import { AppProvider, useApp } from '../store/AppContext';
 import { Header } from './Header';
@@ -12,28 +12,49 @@ import { SettlementLedger } from './SettlementLedger';
 import { Toolbar } from './Toolbar';
 import { SectionHeading } from './ui/SectionHeading';
 import { SplitHandle, useAsideWidth } from './ui/SplitHandle';
+import { PlannedWorkspace } from './PlannedWorkspace';
 import { TaxBasisMockup } from './TaxBasisMockup';
+import { WorkspaceNav, useWorkspace } from './WorkspaceNav';
+import { WORKSPACES } from '../lib/workspaces';
 
 export const THEME_STORAGE_KEY = 'partition-tool:theme';
 
 /** Root React island. Wraps the layout in the app store. */
 export default function App() {
-  const [workspace, setWorkspace] = useState<'basis' | 'partition'>('basis');
-
   return (
     <AppProvider>
       <ThemeSync />
-      {workspace === 'basis' ? <TaxBasisMockup onOpenPartition={() => setWorkspace('partition')} /> : <>
-        {/* Everything on screen lives in #app-screen so the print stylesheet can swap it for the report. */}
-        <div id="app-screen">
-          <Header />
-          <Toolbar />
-          <MarketRateBar />
-          <Workspace />
-        </div>
-      </>}
-      <PrintReport />
+      <Pages />
     </AppProvider>
+  );
+}
+
+/**
+ * Tab strip plus the active workspace. The Partition tool is the landing page;
+ * the companion tools share its store so data carries across tabs.
+ */
+function Pages() {
+  const [active, select] = useWorkspace();
+  const planned = WORKSPACES.find((w) => w.id === active && w.planned);
+
+  return (
+    <>
+      <WorkspaceNav active={active} onSelect={select} />
+      {active === 'partition' && (
+        <>
+          {/* Everything on screen lives in #app-screen so the print stylesheet can swap it for the report. */}
+          <div id="app-screen">
+            <Header />
+            <Toolbar />
+            <MarketRateBar />
+            <Workspace />
+          </div>
+          <PrintReport />
+        </>
+      )}
+      {active === 'depreciation' && <TaxBasisMockup onOpenPartition={() => select('partition')} />}
+      {planned && <PlannedWorkspace workspace={planned} />}
+    </>
   );
 }
 

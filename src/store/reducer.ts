@@ -27,7 +27,7 @@ export interface AppState {
   /** Market discount rate in percent. Null when the input is blank. */
   discountRate: number | null;
   cashEquiv: number | null;
-  /** Tax year shown on the Depreciation field — read from the _meta sheet (Tax Basis Tool). */
+  /** Tax year shown on the Depreciation field — read from the _meta sheet (Remaining Depreciation Tool). */
   depreciationYear: number;
   sort: SortState;
   theme: Theme;

@@ -32,7 +32,7 @@ export interface Property {
   /** Contractual monthly P&I; overrides the computed payment when provided. */
   monthlyPmt: number | null;
 
-  // Tax & compliance (display only; remainingBasis also feeds the Tax Basis Tool)
+  // Tax & compliance (display only; remainingBasis also feeds the Remaining Depreciation Tool)
   remainingBasis: number | null;
   /** Annual depreciation for the tax year in `AppState.depreciationYear`. */
   depreciation: number | null;
