@@ -27,6 +27,8 @@ export interface Gaps {
   ads: number;
   ncf: number;
   bidDiff: number;
+  /** Shown for reference in the ledger; basis true-up is settled in the separate tax tool, so it is NOT in total. */
+  remainingBasis: number;
   total: number;
 }
 
@@ -99,6 +101,7 @@ export function computeSettlement(
     ads: gap('ads'),
     ncf: gap('ncf'),
     bidDiff: gap('bidDiff'),
+    remainingBasis: gap('remainingBasis'),
     total: 0,
   };
   gaps.total = gaps.npvEquity + gaps.amv + gaps.ads + gaps.ncf + gaps.bidDiff;
