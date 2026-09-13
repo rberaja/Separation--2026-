@@ -14,7 +14,6 @@ const REFERENCE_ROWS: readonly { label: string; key: keyof Omit<Gaps, 'total'> }
 const METRIC_TEXT = 'font-mono text-[0.77rem] font-bold text-text';
 const VALUE_TEXT = 'font-mono text-[0.75rem] font-bold text-right py-2 pl-4';
 const HEAD_TEXT = 'font-mono uppercase text-[0.7rem] tracking-[0.08em] font-bold pb-1.5';
-const BOX_TITLE = 'font-mono uppercase text-[0.66rem] tracking-[0.1em] text-muted2 font-bold px-3 py-1.5 bg-surface2 border-b border-border';
 
 /**
  * Gap analysis per White Paper v6.10 §14.1. A gap is Partner A's target minus actual
@@ -90,15 +89,14 @@ export function SettlementLedger() {
   );
 }
 
-/** Bordered sub-table with its own title bar and Metric / Partner A / Partner B header. */
+/** Bordered sub-table; the group title sits in the header row beside the Partner A / Partner B columns. */
 function GapBox({ title, names, children }: { title: string; names: Record<'a' | 'b', string>; children: ReactNode }) {
   return (
     <div className="border-[1.5px] border-border rounded-[4px] overflow-hidden mb-3">
-      <div className={BOX_TITLE}>{title}</div>
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b-2 border-ink">
-            <th className={`${HEAD_TEXT} text-left text-muted pl-3 pt-2`}>Metric</th>
+            <th className={`${HEAD_TEXT} text-left text-muted pl-3 pt-2 whitespace-nowrap`}>{title}</th>
             <th className={`${HEAD_TEXT} text-right text-a pl-4 pt-2`}>{names.a}</th>
             <th className={`${HEAD_TEXT} text-right text-b pl-4 pr-3 pt-2`}>{names.b}</th>
           </tr>
