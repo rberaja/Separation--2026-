@@ -359,7 +359,7 @@ Note on the figures. These numbers are examples only. The actual Basis True-Up s
 - Target basis means each partner’s fair share of the total remaining tax basis, based on his ownership percentage.
 - Shortfall means the difference between that fair share and the tax basis the partner actually receives with his properties.
 
-> Basis True-Up = (Total Basis × Ownership %) − Actual Basis Received
+> Basis Shortfall = (Total Basis × Ownership %) − Actual Basis Received
 
 A positive number means that partner is under-allocated and is owed compensation; a negative number means he received more than his share and owes the offset.
 
