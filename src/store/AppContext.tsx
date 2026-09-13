@@ -85,7 +85,8 @@ export function useReport(): Report {
         pctA,
         discountRate: state.discountRate,
         cashEquiv: nv(state.cashEquiv),
+        depreciationYear: state.depreciationYear,
       }),
-    [state.properties, settlement, partnerNames, pctA, state.discountRate, state.cashEquiv],
+    [state.properties, settlement, partnerNames, pctA, state.discountRate, state.cashEquiv, state.depreciationYear],
   );
 }

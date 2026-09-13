@@ -16,7 +16,7 @@ export interface PartnerTotals {
   ads: number;
   ncf: number;
   count: number;
-  residualBasis: number;
+  remainingBasis: number;
   bidDiff: number;
 }
 
@@ -27,8 +27,8 @@ export interface Gaps {
   ads: number;
   ncf: number;
   bidDiff: number;
-  /** Residual Tax Basis Shortfall in basis dollars — reference only; the Residual Basis True-Up ($) comes from the Residual Tax Basis Tool. */
-  residualBasis: number;
+  /** Basis Shortfall in basis dollars (White Paper §11.3) — reference only; the Basis True-Up ($) comes from the Tax Basis Tool. */
+  remainingBasis: number;
   total: number;
 }
 
@@ -50,7 +50,7 @@ const emptyTotals = (): PartnerTotals => ({
   ads: 0,
   ncf: 0,
   count: 0,
-  residualBasis: 0,
+  remainingBasis: 0,
   bidDiff: 0,
 });
 
@@ -89,7 +89,7 @@ export function computeSettlement(
     t.ads += m.ads;
     t.ncf += m.ncf;
     t.count += 1;
-    t.residualBasis += nv(p.residualBasis);
+    t.remainingBasis += nv(p.remainingBasis);
     t.bidDiff += nv(p.bidDiff);
   }
 
@@ -101,9 +101,9 @@ export function computeSettlement(
    *  - Debt service is a burden, so it uses actual − target: carrying more than your
    *    share means you are owed.
    *
-   * Only NPV Equity and Bid Difference feed `total` (plus the Residual Basis True-Up from
-   * the Residual Tax Basis Tool and the cash split, neither of which is a gap here). Adj.
-   * Market Value, Debt Service, Net Cash Flow and the basis shortfall are reference only.
+   * Only NPV Equity and Bid Difference feed `total` (plus the Basis True-Up from the
+   * Tax Basis Tool and the cash split, neither of which is a gap here). Adj. Market
+   * Value, Debt Service, Net Cash Flow and the Basis Shortfall are reference only.
    */
   const targetA = (key: keyof Omit<PartnerTotals, 'count'>): number => (a[key] + b[key]) * pctA;
   const shortfall = (key: keyof Omit<PartnerTotals, 'count'>): number => targetA(key) - a[key];
@@ -114,7 +114,7 @@ export function computeSettlement(
     ads: excessBurden('ads'),
     ncf: shortfall('ncf'),
     bidDiff: shortfall('bidDiff'),
-    residualBasis: shortfall('residualBasis'),
+    remainingBasis: shortfall('remainingBasis'),
     total: 0,
   };
   gaps.total = gaps.npvEquity + gaps.bidDiff;

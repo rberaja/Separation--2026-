@@ -51,16 +51,23 @@ describe('parseWorkbook', () => {
     expect(properties[0]).toMatchObject({ name: 'Alias Test', marketVal: 1250000, loanRate: 6.5, assign: 'b' });
   });
 
-  it('accepts every historical tax-basis header (v7.5 remaining_basis, Field Reference remaining_tax_basis)', () => {
-    for (const header of ['residual_tax_basis', 'remaining_tax_basis', 'remaining_basis', 'Remaining Tax Basis', 'Residual Basis']) {
+  it('accepts every historical tax-basis header (v7.5 remaining_basis, v8.0 residual_tax_basis)', () => {
+    for (const header of ['remaining_tax_basis', 'remaining_basis', 'Remaining Tax Basis', 'residual_tax_basis', 'Residual Basis']) {
       const buf = workbookFromRows([{ name: 'X', market_value: 100, [header]: 4321 }]);
-      expect(parseWorkbook(buf).properties[0], header).toMatchObject({ residualBasis: 4321 });
+      expect(parseWorkbook(buf).properties[0], header).toMatchObject({ remainingBasis: 4321 });
     }
   });
 
   it('reads cash & equivalents from _meta, including an explicit zero', () => {
     const buf = workbookFromRows([{ name: 'X', market_value: 1 }], [{ cash_equivalents: 0 }]);
     expect(parseWorkbook(buf).meta).toEqual({ cashEquiv: 0 });
+  });
+
+  it('reads the depreciation year from _meta and accepts the legacy depreciation_2025 header', () => {
+    const buf = workbookFromRows([{ name: 'X', market_value: 1, depreciation_2025: 900 }], [{ depreciation_year: 2026 }]);
+    const { properties, meta } = parseWorkbook(buf);
+    expect(properties[0]).toMatchObject({ depreciation: 900 });
+    expect(meta).toEqual({ depreciationYear: 2026 });
   });
 
   it('defaults amort period to 30 and keeps bid difference on unassigned rows', () => {

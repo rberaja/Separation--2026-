@@ -3,7 +3,6 @@ import { DASH, fmtMoney, fmtPct, fmtText } from '../lib/format';
 import { GAP_LABELS } from '../lib/labels';
 import {
   PROPERTY_CALC_COLUMNS,
-  PROPERTY_INPUT_COLUMNS,
   isoDate,
   reportFileStem,
   type CellKind,
@@ -49,10 +48,10 @@ export function PrintReport() {
       <Settings report={report} />
 
       <h2 className="rpt-h2">A. Property Schedule — Inputs</h2>
-      <PropertyTable report={report} columns={PROPERTY_INPUT_COLUMNS} />
+      <PropertyTable report={report} columns={report.inputColumns} />
 
       <h2 className="rpt-h2">A. Property Schedule — Calculated Values</h2>
-      <PropertyTable report={report} columns={[PROPERTY_INPUT_COLUMNS[0]!, PROPERTY_INPUT_COLUMNS[1]!, ...PROPERTY_CALC_COLUMNS]} />
+      <PropertyTable report={report} columns={[...report.inputColumns.slice(0, 2), ...PROPERTY_CALC_COLUMNS]} />
 
       <div className="rpt-cols">
         <section className="rpt-avoid">
@@ -106,6 +105,7 @@ function Settings({ report: r }: { report: Report }) {
     [`${r.partnerNames.b} ownership`, `${r.pct.b}%`],
     ['Market discount rate', r.discountRate === null ? DASH : fmtPct(r.discountRate, 2)],
     ['Cash & equivalents', fmtMoney(r.cashEquiv)],
+    ['Depreciation year', String(r.depreciationYear)],
     ['Properties', `${r.properties.length} (A ${r.counts.a} · B ${r.counts.b} · unassigned ${r.counts.none})`],
   ];
   return (

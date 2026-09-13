@@ -7,7 +7,7 @@ import { COLUMNS } from './columns';
 import { APP_VERSION } from './constants';
 import { computeMetrics, nv, type PropertyMetrics } from './finance';
 import { fmtMoney } from './format';
-import { GAP_LABELS, GAP_REFERENCE_ROWS, PARTNER_TOTAL_GROUPS, TAX, WHITE_PAPER_VERSION } from './labels';
+import { GAP_LABELS, GAP_REFERENCE_ROWS, PARTNER_TOTAL_GROUPS, TAX, WHITE_PAPER_VERSION, depreciationLabel } from './labels';
 import { isBalanced, type Settlement } from './settlement';
 import type { Assignment, Partner, Property } from './types';
 
@@ -38,8 +38,8 @@ const INPUT_LABELS: Partial<Record<keyof Property, string>> = {
   monthlyPmt: 'Monthly P&I',
   cert40yr: 'Next 40-Yr Cert.',
   zoning: 'Zoning',
-  residualBasis: TAX.residualBasis,
-  depreciation2025: TAX.depreciation,
+  remainingBasis: TAX.remainingBasis,
+  // depreciation gets its year-stamped label in propertyInputColumns().
 };
 
 const INPUT_KINDS: Partial<Record<keyof Property, CellKind>> = {
@@ -55,11 +55,13 @@ const INPUT_KINDS: Partial<Record<keyof Property, CellKind>> = {
 };
 
 /** Import-format columns, so the Properties sheet round-trips through Upload Excel. */
-export const PROPERTY_INPUT_COLUMNS: readonly ReportColumn[] = COLUMNS.map((c) => ({
-  key: c.key,
-  label: INPUT_LABELS[c.field] ?? c.key,
-  kind: INPUT_KINDS[c.field] ?? 'money',
-}));
+export function propertyInputColumns(depreciationYear: number): ReportColumn[] {
+  return COLUMNS.map((c) => ({
+    key: c.key,
+    label: c.field === 'depreciation' ? depreciationLabel(depreciationYear) : (INPUT_LABELS[c.field] ?? c.key),
+    kind: INPUT_KINDS[c.field] ?? 'money',
+  }));
+}
 
 /** Derived figures, appended after the inputs. Ignored on re-import. */
 export const PROPERTY_CALC_COLUMNS: readonly (ReportColumn & { metric: keyof PropertyMetrics })[] = [
@@ -110,6 +112,9 @@ export interface Report {
   /** Market discount rate in percent (null when the input is blank). */
   discountRate: number | null;
   cashEquiv: number;
+  depreciationYear: number;
+  /** Property-schedule input columns (import format); calculated columns follow. */
+  inputColumns: ReportColumn[];
   properties: ReportPropertyRow[];
   counts: Record<Assignment, number>;
   totals: ReportTotalsRow[];
@@ -128,6 +133,7 @@ export interface ReportInput {
   /** Market discount rate in percent. */
   discountRate: number | null;
   cashEquiv: number;
+  depreciationYear: number;
 }
 
 export function splitLabel(pctA: number): string {
@@ -154,7 +160,7 @@ function propertyRow(p: Property, discountRate: number): ReportPropertyRow {
 }
 
 export function buildReport(input: ReportInput): Report {
-  const { properties, settlement, partnerNames, pctA, discountRate, cashEquiv } = input;
+  const { properties, settlement, partnerNames, pctA, discountRate, cashEquiv, depreciationYear } = input;
   const { totals, gaps, cash } = settlement;
   const dr = nv(discountRate) / 100;
   const split = splitLabel(pctA);
@@ -190,9 +196,9 @@ export function buildReport(input: ReportInput): Report {
 
   const notes = [
     `Gaps are each partner's proportional target minus actual (White Paper v${WHITE_PAPER_VERSION} §14.1): positive = under-allocated and owed cash; negative = over-allocated and pays. Every row nets to zero across the two partners.`,
-    `Total True-Up = NPV Equity gap + ${TAX.basisTrueUp} + Bid Difference gap. The ${TAX.basisTrueUp} (present value of lost depreciation) is calculated in the separate ${TAX.tool} from the ${TAX.basisShortfall} shown above and must be added to the Total True-Up before settlement.`,
+    `Total True-Up = NPV Equity gap + ${TAX.basisTrueUp} + Bid Difference gap. The ${TAX.basisTrueUp} (present value of lost depreciation, White Paper §11.4) is calculated in the separate ${TAX.tool} from the ${TAX.basisShortfall} shown above (§11.3) and must be added to the Total True-Up before settlement.`,
     'Debt NPV is the present value of each loan’s remaining payments at the market discount rate; NPV Equity = Adj. Net Value − Debt NPV. Debt Service is a burden, so in that reference row carrying more than your share shows as positive.',
-    'Adj. Market Value, Debt Service, Net Cash Flow and the basis shortfall are reference only (White Paper §9.1–9.2): debt can be re-set by refinancing after the split and cash flow is measured as NOI before loan payments.',
+    'Adj. Market Value, Debt Service, Net Cash Flow and the Basis Shortfall are reference only (White Paper §9.1–9.2): debt can be re-set by refinancing after the split and cash flow is measured as NOI before loan payments.',
   ];
   if (counts.none > 0) {
     notes.unshift(
@@ -207,6 +213,8 @@ export function buildReport(input: ReportInput): Report {
     pct: { a: Math.round(pctA * 100), b: Math.round((1 - pctA) * 100) },
     discountRate,
     cashEquiv,
+    depreciationYear,
+    inputColumns: propertyInputColumns(depreciationYear),
     properties: properties.map((p) => propertyRow(p, dr)),
     counts,
     totals: totalsRows,

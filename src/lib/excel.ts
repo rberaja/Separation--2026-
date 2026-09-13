@@ -13,6 +13,7 @@ export interface ImportMeta {
   partnerAPct?: number;
   discountRate?: number;
   cashEquiv?: number;
+  depreciationYear?: number;
 }
 
 export interface ImportResult {
@@ -65,11 +66,13 @@ function parseMeta(ws: XLSX.WorkSheet | undefined): ImportMeta {
     const pctA = parseNumber(r[META_COLUMNS.partnerAPct]);
     const dr = parseNumber(r[META_COLUMNS.discountRate]);
     const cash = parseNumber(r[META_COLUMNS.cashEquiv]);
+    const year = parseNumber(r[META_COLUMNS.depreciationYear]);
     if (nameA) meta.partnerAName = String(nameA);
     if (nameB) meta.partnerBName = String(nameB);
     if (pctA) meta.partnerAPct = pctA;
     if (dr) meta.discountRate = dr;
     if (cash !== null) meta.cashEquiv = cash; // $0 is a real value, unlike a blank rate
+    if (year && Number.isInteger(year)) meta.depreciationYear = year;
   }
   return meta;
 }
@@ -115,9 +118,10 @@ const INSTRUCTION_NOTES: readonly string[][] = [
   ['Entered once in the tool header as a single portfolio-wide figure, not per property.'],
   ['Split directly by ownership percentage in the Settlement Ledger.'],
   [''],
-  ['RESIDUAL BASIS TRUE-UP NOTE'],
-  ['The Residual Basis True-Up (PV of lost depreciation) is calculated in the separate Residual Tax Basis Tool, not here.'],
-  ["This tool only reports each partner's Residual Tax Basis Shortfall in basis dollars."],
+  ['BASIS TRUE-UP NOTE'],
+  ['The Basis True-Up (PV of lost depreciation, White Paper §11.4) is calculated in the separate Tax Basis Tool, not here.'],
+  ["This tool only reports each partner's Basis Shortfall in basis dollars (White Paper §11.3)."],
+  ['The depreciation year shown on the cards is read from the _meta sheet (depreciation_year), written by the Tax Basis Tool.'],
 ];
 
 export function buildTemplateWorkbook(): XLSX.WorkBook {

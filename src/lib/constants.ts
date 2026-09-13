@@ -4,6 +4,8 @@ export const TEMPLATE_FILENAME = `RE_Partition_Template_v${APP_VERSION}.xlsx`;
 export const DEFAULTS = {
   discountRate: 6.5,
   cashEquiv: 0,
+  /** Tax year the depreciation figures refer to; supplied by the Tax Basis Tool via _meta. */
+  depreciationYear: 2025,
   pctA: 40,
   partnerNameA: 'Partner A',
   partnerNameB: 'Partner B',

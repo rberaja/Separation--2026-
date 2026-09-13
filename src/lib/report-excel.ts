@@ -10,7 +10,6 @@ import { COLUMNS, META_COLUMNS } from './columns';
 import { GAP_LABELS } from './labels';
 import {
   PROPERTY_CALC_COLUMNS,
-  PROPERTY_INPUT_COLUMNS,
   isoDate,
   reportFileStem,
   type CellKind,
@@ -36,7 +35,7 @@ function cell(v: CellValue, kind: CellKind): Cell {
 const money = (v: number | null): Cell => cell(v, 'money');
 
 function propertiesSheet(r: Report): XLSX.WorkSheet {
-  const cols = [...PROPERTY_INPUT_COLUMNS, ...PROPERTY_CALC_COLUMNS];
+  const cols = [...r.inputColumns, ...PROPERTY_CALC_COLUMNS];
   const rows: Cell[][] = [
     cols.map((c) => c.key),
     ...r.properties.map((p) => cols.map((c) => cell(p.cells[c.key] ?? null, c.kind))),
@@ -61,6 +60,7 @@ function summarySheet(r: Report, generatedAt: Date): XLSX.WorkSheet {
     ['Partner B', nameB, r.pct.b / 100],
     ['Market Discount Rate', r.discountRate === null ? null : r.discountRate / 100],
     ['Cash & Equivalents', money(r.cashEquiv)],
+    ['Depreciation year', r.depreciationYear],
     ['Properties', r.properties.length, `A: ${r.counts.a} · B: ${r.counts.b} · Unassigned: ${r.counts.none}`],
     [],
     ['PARTNER TOTALS', nameA, nameB, 'Portfolio'],
@@ -96,9 +96,10 @@ function metaSheet(r: Report): XLSX.WorkSheet {
       [META_COLUMNS.partnerAPct]: r.pct.a,
       [META_COLUMNS.discountRate]: r.discountRate ?? '',
       [META_COLUMNS.cashEquiv]: r.cashEquiv,
+      [META_COLUMNS.depreciationYear]: r.depreciationYear,
     },
   ]);
-  ws['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+  ws['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
   return ws;
 }
 

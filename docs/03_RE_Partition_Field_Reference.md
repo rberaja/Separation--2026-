@@ -6,7 +6,7 @@
 
 **Reference Name key:** **Bold** = an actual import column header accepted by the tool (see Column Guide). *Italic* = a display/derived name with no import column.
 
-**Tax-basis vocabulary (standardized in V1.4):** *Residual Tax Basis* = the per-property input (remaining depreciable basis, $). *Residual Tax Basis Shortfall* = Step 1, (portfolio basis × ownership %) − partner's basis, in basis dollars — shown here as a reference row. *Residual Basis True-Up* = Step 2, the shortfall converted to cash (PV of lost depreciation) — calculated in the separate **Residual Tax Basis Tool** and added to Total True-Up.
+**Tax-basis vocabulary (standardized in V1.4 to match the White Paper):** *Remaining Tax Basis* (§10.1, §11.2) = the per-property input, the remaining depreciable basis in dollars. *Basis Shortfall* (§11.2–11.3) = Step 1, (portfolio basis × ownership %) − partner's basis, in basis dollars — shown as a reference row. *Basis True-Up* (§11.4, §14.1) = Step 2, the shortfall converted to cash (PV of lost depreciation) — calculated in the separate **Tax Basis Tool** (to be built) and added to Total True-Up. *Depreciation year* = the tax year the depreciation figures refer to, supplied by the Tax Basis Tool through the `_meta` sheet.
 
 ## GLOBAL INFORMATION
 
@@ -64,9 +64,9 @@
 |---|---|---|---|---|---|
 | 29 | NEXT 40-YR CERTIFICATION | *next_40yr_certification* | ↑ Uploaded | N | Year the property's next 40-year recertification is due. Supplied via Excel/import table. Displayed on the property card for compliance awareness. |
 | 30 | ZONING | *zoning* | ↑ Uploaded | N | Zoning designation of the property (e.g. RM-24). Supplied via Excel/import table. Displayed on the card for reference. |
-| 31 | RESIDUAL TAX BASIS | **residual_tax_basis** | ↑ Uploaded | N | Residual (remaining depreciable) tax basis of the property in dollars — the value the IRS still allows the owner to write off. Summed per partner (row 45) and used for the Residual Tax Basis Shortfall (row 59), which the Residual Tax Basis Tool converts into the Residual Basis True-Up (row 61). Import also accepts the legacy headers `remaining_basis` (v7.5) and `remaining_tax_basis`. |
+| 31 | REMAINING TAX BASIS | **remaining_tax_basis** | ↑ Uploaded | N | Remaining depreciable tax basis of the property in dollars — the value the IRS still allows the owner to write off (White Paper §11.2). Summed per partner (row 45) and used for the Basis Shortfall (row 59), which the Tax Basis Tool converts into the Basis True-Up (row 61). Import also accepts the legacy headers `remaining_basis` (v7.5) and `residual_tax_basis` (v8.0). |
 | 32 | BLANK | | ------------------ | | |
-| 33 | DEPRECIATION 2025 | **depreciation_2025** | ↑ Uploaded | N | Annual depreciation tax shield for the current year. Typically: Tax Basis ÷ remaining depreciable life × effective tax rate. Displayed on the card for reference. |
+| 33 | DEPRECIATION *{year}* | **depreciation** | ↑ Uploaded | N | Annual depreciation expense in dollars for the depreciation year. The year in the label is not typed here: it is read from the `_meta` sheet column **depreciation_year**, which the Tax Basis Tool writes (default 2025 until that tool exists). Displayed on the card for reference. Import also accepts the legacy header `depreciation_2025`. |
 
 ## PARTNER TOTALS AND PROPORTIONALITY CHECK
 
@@ -84,7 +84,7 @@
 | 42 | Ann. Debt Service (total) | *annual_debt_service_total* | Calculated | N | Sum of Annual Debt Service for all properties assigned to this partner. |
 | 43 | Net CF / yr (total) | *net_cash_flow_total* | Calculated | N | Sum of Net Cash Flow / yr for all properties assigned to this partner. |
 | 44 | Properties | *properties_count* | | N | |
-| 45 | Residual Tax Basis (total) | *residual_tax_basis_total* | Calculated | N | Sum of residual_tax_basis for all properties assigned to this partner. Compared to each partner's proportional target to compute the Residual Tax Basis Shortfall (row 59). |
+| 45 | Remaining Tax Basis (total) | *remaining_tax_basis_total* | Calculated | N | Sum of remaining_tax_basis for all properties assigned to this partner. Compared to each partner's proportional target to compute the Basis Shortfall (row 59). |
 | 46 | Bid Difference (total) | *bid_difference_total* | Calculated | N | Sum of Bid Difference for all properties assigned to this partner. |
 
 ### Proportionality vs Target
@@ -113,17 +113,17 @@
 | 56 | Adj. Market Value | *adj_market_value_gap* | Calculated | N | (Portfolio total Adj. Market Value × ownership %) − Partner's Adj. Market Value (total). Positive means the partner received less adjusted property value than their proportional target. Reference only: property value is already captured in NPV Equity (row 60). |
 | 57 | Debt Service | *debt_service_gap* | Calculated | N | Partner's Ann. Debt Service (total) − (portfolio total Ann. Debt Service × ownership %). Debt service is a burden, so the subtraction is reversed to keep "positive = owed": positive means the partner carries more debt-service burden than their proportional target. Reference only: debt is valued in NPV Equity via Debt NPV and can be re-set by refinancing after the split (White Paper §9.1). |
 | 58 | Net Cash Flow | *net_cash_flow_gap* | Calculated | N | (Portfolio total Net CF / yr × ownership %) − Partner's Net CF / yr (total). Positive means the partner receives less levered cash flow than their proportional target. Reference only: the split measures cash flow as NOI before loan payments, not levered cash flow (White Paper §9.2, §10.3). |
-| 59 | Residual Tax Basis Shortfall | *residual_tax_basis_gap* | Calculated | N | (Portfolio total Residual Tax Basis × ownership %) − Partner's Residual Tax Basis (total), in basis dollars. This is Step 1 of the Residual Basis True-Up (row 61). Reference only until converted to cash in the Residual Tax Basis Tool. |
+| 59 | Basis Shortfall | *basis_shortfall* | Calculated | N | (Portfolio total Remaining Tax Basis × ownership %) − Partner's Remaining Tax Basis (total), in basis dollars (White Paper §11.3). This is Step 1 of the Basis True-Up (row 61). Reference only until converted to cash in the Tax Basis Tool. |
 
 ### Metrics used for settlement
 
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|
 | 60 | NPV Equity | *npv_equity_gap* | Calculated | N | (Portfolio total NPV Equity × ownership %) − Partner's NPV Equity (total). Positive means the partner received less NPV Equity than their proportional target and is owed cash; negative means the partner received more than target and pays cash. Shared by ownership % automatically because NPV Equity already reflects the market value of each loan (Debt NPV). |
-| 61 | Residual Basis True-Up | *residual_basis_true_up* | Calculated (Residual Tax Basis Tool) | N | Step 1 — Residual Tax Basis Shortfall in basis dollars (row 59; White Paper §11.3). Step 2 — convert the shortfall to cash: the present value of the lost annual depreciation benefit, discounted year by year from the real depreciation schedule and not discounted a second time (White Paper §11.4). Positive means the partner received less residual tax basis than their share and is owed compensation. Paid 100% partner to partner. The Partition Tool shows Step 1 only; Step 2 is calculated in the separate Residual Tax Basis Tool and the result is added to Total True-Up. |
+| 61 | Basis True-Up | *basis_true_up* | Calculated (Tax Basis Tool) | N | Step 1 — Basis Shortfall in basis dollars (row 59; White Paper §11.3). Step 2 — convert the shortfall to cash: the present value of the lost annual depreciation benefit, discounted year by year from the real depreciation schedule and not discounted a second time (White Paper §11.4). Positive means the partner received less remaining tax basis than their share and is owed compensation. Paid 100% partner to partner. The Partition Tool shows Step 1 only; Step 2 is calculated in the separate Tax Basis Tool and the result is added to Total True-Up. |
 | 62 | Bid Difference | *bid_difference_gap* | Calculated | N | (Portfolio total Bid Difference × ownership %) − Partner's Bid Difference (total). Positive means the partner received less than their proportional share of the total Bid Difference adjustment and is owed cash; negative means the partner received more than their proportional share and pays cash. Settled through the shared account, split by ownership %. |
 | 63 | Cash & Equivalents | *cash_equivalents_gap* | Calculated | N | (Portfolio total Cash & Equivalents × ownership %) − Cash allocated to the partner. Positive means the partner received less cash than their proportional share and is owed; negative means the partner received more and owes. The Partition Tool allocates cash by ownership %, so it displays each partner's share (row 5 × ownership %) and the gap is zero by construction. |
-| 64 | Total True-Up | *total_true_up* | Calculated | N | NPV Equity gap (60) + Residual Basis True-Up (61) + Bid Difference gap (62) + Cash & Equivalents gap (63). Positive means the partner is owed that amount; negative means the partner pays it. By construction the two partners' totals net to zero. |
+| 64 | Total True-Up | *total_true_up* | Calculated | N | NPV Equity gap (60) + Basis True-Up (61) + Bid Difference gap (62) + Cash & Equivalents gap (63). Positive means the partner is owed that amount; negative means the partner pays it. By construction the two partners' totals net to zero. |
 | 65 | Final Settlement | *final_settlement* | Calculated | N | The partner whose Total True-Up is negative pays the other partner the absolute amount. Displayed as "Partner X pays Partner Y $N". When both totals are within $1 of zero the split is balanced and no payment is due. |
 
 ## PRINT / EXPORT
@@ -132,8 +132,8 @@
 
 | Output | Contents |
 |---|---|
-| Excel workbook (`RE_Partition_Report_<date>.xlsx`) | `Properties` sheet in import format (rows 2–33 headers) plus calculated columns `ltv`, `adj_net_value`, `debt_npv`, `npv_equity`, `annual_debt_service`, `net_cash_flow`; `Summary` sheet with settings, partner totals, gap analysis and final settlement; `_meta` sheet (`partner_a_name`, `partner_b_name`, `partner_a_pct`, `discount_rate`, `cash_equivalents`). Re-uploading the workbook reproduces the exact scenario. |
-| PDF report (browser print → Save as PDF) | Landscape letter: A. property schedule (inputs, then calculated values), B. partner totals, D. gap analysis with final settlement, signature and date lines for each partner, and notes on the sign convention and the Residual Basis True-Up. |
+| Excel workbook (`RE_Partition_Report_<date>.xlsx`) | `Properties` sheet in import format (rows 2–33 headers) plus calculated columns `ltv`, `adj_net_value`, `debt_npv`, `npv_equity`, `annual_debt_service`, `net_cash_flow`; `Summary` sheet with settings, partner totals, gap analysis and final settlement; `_meta` sheet (`partner_a_name`, `partner_b_name`, `partner_a_pct`, `discount_rate`, `cash_equivalents`, `depreciation_year`). Re-uploading the workbook reproduces the exact scenario. |
+| PDF report (browser print → Save as PDF) | Landscape letter: A. property schedule (inputs, then calculated values), B. partner totals, D. gap analysis with final settlement, signature and date lines for each partner, and notes on the sign convention and the Basis True-Up. |
 
 ---
 
@@ -141,6 +141,6 @@
 
 | Version | Change |
 |---|---|
-| V1.4 | Standardized tax-basis vocabulary on the Residual Tax Basis Tool: rows 31/45/59/61 renamed *Residual Tax Basis*, *Residual Tax Basis Shortfall*, *Residual Basis True-Up*; import header is now `residual_tax_basis` (legacy `remaining_basis` / `remaining_tax_basis` still accepted — V1.3 listed `remaining_tax_basis` as confirmed, but the v7.5 tool actually used `remaining_basis`). `cash_equivalents` added to the `_meta` import sheet (row 5). Added the Print / Export section. |
+| V1.4 | Tax-basis vocabulary aligned with the White Paper: rows 31/45 *Remaining Tax Basis*, row 59 *Basis Shortfall* (§11.3), row 61 *Basis True-Up* (§11.4, §14.1); the separate tool is the *Tax Basis Tool*. Import header confirmed as `remaining_tax_basis` and now actually accepted (V1.3 listed it as confirmed, but the v7.5 tool used `remaining_basis`, which is still accepted). Row 33 is now `depreciation` with the year supplied via `_meta` `depreciation_year` (legacy `depreciation_2025` accepted). `cash_equivalents` added to the `_meta` import sheet (row 5). Added the Print / Export section. |
 | V1.3 | Aligned with White Paper v6.10. Gap sign convention is now uniformly target − actual (positive = owed) — the former "Proportionality vs Target" rows 48–54 had the subtraction reversed and contradicted rows 56–62. Total True-Up now consists of NPV Equity gap + Basis True-Up + Bid Difference gap + Cash & Equivalents gap only (§14.1); Adj. Market Value, Debt Service and Net Cash Flow gaps are reference only. "Proportionality vs Target" rows rewritten to describe the section C bars (actual shares vs target tick) rather than duplicating the gap formulas. Reference rows are listed first (56–59), then the settlement metrics (60–65), matching the tool. Added Final Settlement (row 65). |
 | V1.2 | Previous version. |

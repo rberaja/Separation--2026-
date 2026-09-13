@@ -32,9 +32,10 @@ export interface Property {
   /** Contractual monthly P&I; overrides the computed payment when provided. */
   monthlyPmt: number | null;
 
-  // Tax & compliance (display only; residualBasis also feeds the Residual Tax Basis Tool)
-  residualBasis: number | null;
-  depreciation2025: number | null;
+  // Tax & compliance (display only; remainingBasis also feeds the Tax Basis Tool)
+  remainingBasis: number | null;
+  /** Annual depreciation for the tax year in `AppState.depreciationYear`. */
+  depreciation: number | null;
   zoning: string;
   cert40yr: string;
 }
@@ -72,8 +73,8 @@ export const DEFAULT_PROPERTY: Omit<Property, 'id'> = {
   ioYears: 0,
   loanTerm: null,
   monthlyPmt: null,
-  residualBasis: null,
-  depreciation2025: null,
+  remainingBasis: null,
+  depreciation: null,
   zoning: '',
   cert40yr: '',
 };

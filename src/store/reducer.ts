@@ -27,6 +27,8 @@ export interface AppState {
   /** Market discount rate in percent. Null when the input is blank. */
   discountRate: number | null;
   cashEquiv: number | null;
+  /** Tax year shown on the Depreciation field — read from the _meta sheet (Tax Basis Tool). */
+  depreciationYear: number;
   sort: SortState;
   theme: Theme;
   upload: UploadStatus;
@@ -39,6 +41,7 @@ export const initialState: AppState = {
   pctA: DEFAULTS.pctA,
   discountRate: DEFAULTS.discountRate,
   cashEquiv: DEFAULTS.cashEquiv,
+  depreciationYear: DEFAULTS.depreciationYear,
   sort: { key: 'name', asc: true },
   theme: 'light',
   upload: { kind: 'idle', message: IDLE_UPLOAD_MESSAGE },
@@ -103,6 +106,7 @@ export function reducer(state: AppState, action: Action): AppState {
         pctA: meta.partnerAPct !== undefined ? clamp(meta.partnerAPct, 1, 99) : state.pctA,
         discountRate: meta.discountRate ?? state.discountRate,
         cashEquiv: meta.cashEquiv ?? state.cashEquiv,
+        depreciationYear: meta.depreciationYear ?? state.depreciationYear,
         upload: {
           kind: 'ok',
           message: `✓ Loaded ${n} ${n === 1 ? 'property' : 'properties'} from ${action.fileName}`,

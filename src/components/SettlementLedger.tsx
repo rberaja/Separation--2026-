@@ -76,7 +76,7 @@ export function SettlementLedger() {
         Total True-Up = NPV Equity gap + {TAX.basisTrueUp} + Bid Difference gap (White Paper v{WHITE_PAPER_VERSION} §14.1);
         whichever partner&rsquo;s total is negative pays the other. Cash &amp; Equivalents is split by ownership, so
         its gap is zero. The {TAX.basisTrueUp} (present value of lost depreciation) is calculated in the separate{' '}
-        {TAX.tool} from the {TAX.basisShortfall} above and must be added to the figure shown. Debt Service is a burden,
+        {TAX.tool} from the {TAX.basisShortfall} above (White Paper §11.3–11.4) and must be added to the figure shown. Debt Service is a burden,
         so in that reference row carrying more than your share is what shows as positive.
       </p>
     </section>

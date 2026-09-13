@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { computeMetrics } from '../lib/finance';
 import { DASH, fmtMoney, fmtText } from '../lib/format';
-import { TAX } from '../lib/labels';
+import { TAX, depreciationLabel } from '../lib/labels';
 import { PARTNERS, type NumericField, type Partner, type Property } from '../lib/types';
 import { useApp, useDiscountRate, usePartnerNames } from '../store/AppContext';
 import { NumberInput } from './ui/NumberInput';
@@ -18,7 +18,7 @@ const ASSIGN_BTN: Record<Partner, string> = {
 };
 
 export function PropertyCard({ property: p }: { property: Property }) {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const names = usePartnerNames();
   const m = computeMetrics(p, useDiscountRate());
 
@@ -124,8 +124,8 @@ export function PropertyCard({ property: p }: { property: Property }) {
         <Cell label="Next 40-Yr Certification" tone="neu">{fmtText(p.cert40yr)}</Cell>
         <Cell label="Zoning" tone="neu">{fmtText(p.zoning)}</Cell>
         <Cell label="" tone="neu" />
-        <Cell label={TAX.residualBasis} tone="neu">{fmtMoney(p.residualBasis ?? 0)}</Cell>
-        <Cell label={TAX.depreciation} tone="yel">{fmtMoney(p.depreciation2025 ?? 0)}</Cell>
+        <Cell label={TAX.remainingBasis} tone="neu">{fmtMoney(p.remainingBasis ?? 0)}</Cell>
+        <Cell label={depreciationLabel(state.depreciationYear)} tone="yel">{fmtMoney(p.depreciation ?? 0)}</Cell>
       </Strip>
     </article>
   );

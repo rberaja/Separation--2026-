@@ -2,24 +2,28 @@
  * Display vocabulary shared by the on-screen cards, the Excel report and the
  * print report, so every output names a figure the same way.
  *
- * Tax-basis terms follow the Residual Tax Basis Tool (the separate tool that
- * converts the basis shortfall into the Residual Basis True-Up cash figure).
+ * Tax-basis terms follow White Paper v6.10 §11 and §14.1: the per-property
+ * input is the Remaining Tax Basis; step 1 of the adjustment is the Basis
+ * Shortfall (basis dollars); step 2 is the Basis True-Up (cash), calculated in
+ * the separate Tax Basis Tool.
  */
 import type { Gaps, PartnerTotals } from './settlement';
 
 export const WHITE_PAPER_VERSION = '6.10';
 
 export const TAX = {
-  /** Per-property input: remaining depreciable basis in dollars. */
-  residualBasis: 'Residual Tax Basis',
-  /** Step 1 — (portfolio basis × ownership %) − partner's basis, in basis dollars. */
-  basisShortfall: 'Residual Tax Basis Shortfall',
-  /** Step 2 — the shortfall converted to cash (PV of lost depreciation). */
-  basisTrueUp: 'Residual Basis True-Up',
-  /** The separate tool that performs step 2. */
-  tool: 'Residual Tax Basis Tool',
-  depreciation: 'Depreciation 2025',
+  /** Per-property input: remaining depreciable basis in dollars (White Paper §10.1, §11.2). */
+  remainingBasis: 'Remaining Tax Basis',
+  /** Step 1 — (portfolio basis × ownership %) − partner's basis, in basis dollars (§11.3). */
+  basisShortfall: 'Basis Shortfall',
+  /** Step 2 — the shortfall converted to cash: PV of lost depreciation (§11.4, §14.1). */
+  basisTrueUp: 'Basis True-Up',
+  /** The separate web tool that performs step 2 (placeholder name until it is built). */
+  tool: 'Tax Basis Tool',
 } as const;
+
+/** "Depreciation 2025" — the year is a setting supplied by the Tax Basis Tool. */
+export const depreciationLabel = (year: number): string => `Depreciation ${year}`;
 
 export interface TotalsRow {
   key: keyof PartnerTotals;
@@ -45,7 +49,7 @@ export const PARTNER_TOTAL_GROUPS: readonly (readonly TotalsRow[])[] = [
     { key: 'count', label: 'Properties' },
   ],
   [
-    { key: 'residualBasis', label: TAX.residualBasis },
+    { key: 'remainingBasis', label: TAX.remainingBasis },
     { key: 'bidDiff', label: 'Bid Difference' },
   ],
 ];
@@ -60,7 +64,7 @@ export const GAP_REFERENCE_ROWS: readonly GapRowSpec[] = [
   { key: 'amv', label: 'Adj. Market Value' },
   { key: 'ads', label: 'Debt Service' },
   { key: 'ncf', label: 'Net Cash Flow' },
-  { key: 'residualBasis', label: TAX.basisShortfall },
+  { key: 'remainingBasis', label: TAX.basisShortfall },
 ];
 
 export const GAP_LABELS = {
