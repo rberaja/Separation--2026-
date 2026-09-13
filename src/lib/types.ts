@@ -14,7 +14,7 @@ export interface Property {
   capex: number | null;
   noi: number | null;
   occupancyPct: number | null;
-  /** Winning bid − market value. Only meaningful once assigned. */
+  /** Winning bid − market value; may be positive or negative. */
   bidDiff: number | null;
 
   // Loan

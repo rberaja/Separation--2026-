@@ -51,7 +51,6 @@ function rowToProperty(row: Row, fieldMap: ReadonlyMap<string, ImportField>): Pr
   if (!input.name && input.marketVal == null) return null; // skip empty rows
 
   input.assign ??= 'none';
-  if (input.assign === 'none') input.bidDiff = null; // bid difference only applies once assigned
   if (!input.amortPeriod) input.amortPeriod = 30;
   return input;
 }

@@ -20,7 +20,6 @@ export function PropertyCard({ property: p }: { property: Property }) {
   const { dispatch } = useApp();
   const names = usePartnerNames();
   const m = computeMetrics(p, useDiscountRate());
-  const assigned = p.assign !== 'none';
 
   const setField = (field: NumericField) => (value: number | null) =>
     dispatch({ type: 'property/update', id: p.id, patch: { [field]: value } });
@@ -68,6 +67,9 @@ export function PropertyCard({ property: p }: { property: Property }) {
           <Field label="Market Value">
             <NumberInput className="field-input" placeholder="0" value={p.marketVal} onChange={setField('marketVal')} />
           </Field>
+          <Field label="Bid Difference" hint="winning bid − market value">
+            <NumberInput className="field-input" placeholder="0" value={p.bidDiff} onChange={setField('bidDiff')} />
+          </Field>
           <Field label="Deferred CapEx" hint="deducted from market value">
             <NumberInput className="field-input" placeholder="0" value={p.capex} onChange={setField('capex')} />
           </Field>
@@ -76,15 +78,6 @@ export function PropertyCard({ property: p }: { property: Property }) {
           </Field>
           <Field label="Occupancy Actual" suffix="%" hint="current actual occupancy">
             <NumberInput className="field-input field-input-short" placeholder="0" min={0} max={100} value={p.occupancyPct} onChange={setField('occupancyPct')} />
-          </Field>
-          <Field label="Bid Difference" hint="winning bid − market value; enabled once assigned">
-            <NumberInput
-              className="field-input"
-              placeholder={assigned ? '0' : 'assign first'}
-              disabled={!assigned}
-              value={p.bidDiff}
-              onChange={setField('bidDiff')}
-            />
           </Field>
         </Column>
 
@@ -154,9 +147,11 @@ function Field({ label, suffix, hint, children }: { label: string; suffix?: stri
       <label className="flex items-center justify-between gap-[5px] min-h-7 mb-[5px] last:mb-0">
         <span className="flex-1 text-[0.69rem] text-text2 whitespace-nowrap">{label}</span>
         {children}
-        {suffix && <span className="font-mono text-muted text-[0.68rem] shrink-0">{suffix}</span>}
+        {/* Fixed-width unit slot (even when empty) keeps every input's right edge aligned. */}
+        <span className="font-mono text-muted text-[0.68rem] shrink-0 w-6">{suffix}</span>
       </label>
-      {hint && <div className="font-mono text-[0.54rem] text-muted2 text-right -mt-[3px] mb-1">{hint}</div>}
+      {/* pr-6 matches the unit slot width so the hint's right edge lines up with the input, not the unit. */}
+      {hint && <div className="font-mono text-[0.54rem] text-muted2 text-right pr-6 -mt-[3px] mb-1">{hint}</div>}
     </>
   );
 }

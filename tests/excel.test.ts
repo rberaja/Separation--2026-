@@ -51,10 +51,20 @@ describe('parseWorkbook', () => {
     expect(properties[0]).toMatchObject({ name: 'Alias Test', marketVal: 1250000, loanRate: 6.5, assign: 'b' });
   });
 
-  it('defaults amort period to 30 and clears bid difference on unassigned rows', () => {
+  it('defaults amort period to 30 and keeps bid difference on unassigned rows', () => {
     const buf = workbookFromRows([{ name: 'X', market_value: 100, bid_difference: 500 }]);
     const [p] = parseWorkbook(buf).properties;
-    expect(p).toMatchObject({ assign: 'none', amortPeriod: 30, bidDiff: null });
+    expect(p).toMatchObject({ assign: 'none', amortPeriod: 30, bidDiff: 500 });
+  });
+
+  it('imports a negative bid difference and leaves a blank one unset', () => {
+    const buf = workbookFromRows([
+      { name: 'Under bid', market_value: 100, assign: 'a', bid_difference: '-$2,500' },
+      { name: 'No bid', market_value: 100, assign: 'b', bid_difference: '' },
+    ]);
+    const [under, none] = parseWorkbook(buf).properties;
+    expect(under).toMatchObject({ bidDiff: -2500 });
+    expect(none).toMatchObject({ bidDiff: null });
   });
 
   it('skips rows with neither a name nor a market value', () => {
