@@ -11,10 +11,10 @@ export function Header() {
   const { state, dispatch } = useApp();
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-2.5 bg-hdr-bg border-b-2 border-a px-7 py-[13px]">
+    <header className="flex flex-wrap items-center justify-between gap-2.5 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]">
       <div>
-        <h1 className="font-serif text-[1.1rem] font-medium text-hdr-text">Real Estate Partition Tool</h1>
-        <div className="font-mono text-[0.6rem] uppercase tracking-[0.14em] text-hdr-muted mt-0.5">
+        <h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1>
+        <div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">
           Loan-Aware · CapEx-Adjusted · Settlement Ledger · v{APP_VERSION} · Client-Side
         </div>
       </div>

@@ -9,6 +9,7 @@ import { PropertyList } from './PropertyList';
 import { ProportionalityMeters } from './ProportionalityMeters';
 import { SettlementLedger } from './SettlementLedger';
 import { Toolbar } from './Toolbar';
+import { SectionHeading } from './ui/SectionHeading';
 import { SplitHandle, useAsideWidth } from './ui/SplitHandle';
 
 export const THEME_STORAGE_KEY = 'partition-tool:theme';
@@ -40,11 +41,20 @@ function Workspace() {
         <PropertyList />
       </main>
       <SplitHandle width={asideWidth} onResize={setAsideWidth} onReset={resetAsideWidth} />
-      <aside className="p-4 flex flex-col gap-[13px] [&>*]:shrink-0 bg-bg lg:sticky lg:top-0 lg:h-[calc(100vh-110px)] lg:overflow-y-auto min-w-0">
-        <PartnerTotalsCard partner="a" />
-        <PartnerTotalsCard partner="b" />
-        <ProportionalityMeters />
-        <SettlementLedger />
+      <aside className="px-4 py-5 flex flex-col gap-5 [&>*]:shrink-0 bg-bg lg:sticky lg:top-0 lg:h-[calc(100vh-110px)] lg:overflow-y-auto min-w-0">
+        <div className="flex flex-col gap-[13px]">
+          <SectionHeading>B. Partner Totals and Proportionality Check</SectionHeading>
+          <PartnerTotalsCard partner="a" />
+          <PartnerTotalsCard partner="b" />
+        </div>
+        <div>
+          <SectionHeading>C. Proportionality vs. Target</SectionHeading>
+          <ProportionalityMeters />
+        </div>
+        <div>
+          <SectionHeading>D. Gap Analysis</SectionHeading>
+          <SettlementLedger />
+        </div>
       </aside>
     </div>
   );

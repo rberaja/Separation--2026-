@@ -47,18 +47,18 @@ export function PartnerTotalsCard({ partner }: { partner: Partner }) {
 
   return (
     <section className="card overflow-hidden" aria-label={`${names[partner]} totals`}>
-      <div className={`flex justify-between items-center px-3 py-2 border-b border-border border-l-4 ${HEADER_STYLE[partner]}`}>
-        <span className="font-serif text-[0.86rem] font-medium text-text">{names[partner]}</span>
-        <span className="font-mono text-[0.68rem] text-muted font-bold">{Math.round(share[partner] * 100)}%</span>
+      <div className={`flex justify-between items-center px-3.5 py-[9px] border-b border-border border-l-4 ${HEADER_STYLE[partner]}`}>
+        <span className="font-serif text-[1rem] font-medium text-text">{names[partner]}</span>
+        <span className="font-mono text-[0.7rem] text-text font-bold">{Math.round(share[partner] * 100)}%</span>
       </div>
 
       {ROW_GROUPS.map((rows, gi) => (
         <Fragment key={gi}>
           {gi > 0 && <div className="h-px bg-border" />}
           {rows.map(({ label, key, tone }) => (
-            <div key={key} className="flex justify-between items-center px-3 py-[5px] border-b border-border last:border-b-0">
-              <span className="caption text-[0.6rem] tracking-[0.06em]">{label}</span>
-              <span className={`font-mono text-[0.8rem] font-bold ${tone ? toneClass(tone) : 'text-text'}`}>
+            <div key={key} className="flex justify-between items-center px-3.5 py-[7px] border-b border-border last:border-b-0">
+              <span className="font-mono uppercase text-[0.68rem] tracking-[0.05em] text-muted2">{label}</span>
+              <span className={`font-mono text-[0.74rem] font-bold ${tone ? toneClass(tone) : 'text-text'}`}>
                 {key === 'count' ? totals.count : fmtMoney(totals[key])}
               </span>
             </div>

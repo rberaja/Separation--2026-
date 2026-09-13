@@ -10,11 +10,12 @@
 /* ═══════════════════════════════════════════════════════════════
    THEME TOKENS — switched by [data-theme] on <html>
 ═══════════════════════════════════════════════════════════════ */
+/* Light palette sampled from the v1.8 mockup (images/03b Mockup v1.8 - Properties tab.png). */
 :root,
 [data-theme="light"] {
-  --bg:        #f7f5f2;
+  --bg:        #f2efe9;
   --surface:   #ffffff;
-  --surface2:  #f0ede8;
+  --surface2:  #f4f2ec;
   --border:    #d0c8bc;
   --border2:   #b0a898;
   --text:      #0d0c0a;
@@ -22,17 +23,19 @@
   --muted:     #3d3830;
   --muted2:    #5a5248;
   --ink:       #0d0c0a;
-  --a:         #b84e1a;
-  --a-light:   #fdf0ea;
-  --b:         #1a5c9e;
-  --b-light:   #eaf2fc;
-  --green:     #0d5c2e;
-  --red:       #8f1515;
-  --yellow:    #6b4e00;
-  --proj:      #7a5c00;
-  --hdr-bg:    #0d0c0a;
+  --a:         #c1592f;
+  --a-light:   #faece4;
+  --b:         #2f5fa8;
+  --b-light:   #e9f0fa;
+  --green:     #2f9e44;
+  --red:       #c0392b;
+  --yellow:    #ad781f;
+  --proj:      #ad781f;
+  --hdr-bg:    #141414;
   --hdr-text:  #ffffff;
   --hdr-muted: #c8bfaa;
+  --hdr-accent: #c9a54e;
+  --gold:      #f4c15c;
   --hdr-input-bg:  #2a2820;
   --hdr-input-brd: #4a4838;
   --shadow:    0 1px 4px rgba(0, 0, 0, 0.08);
@@ -60,6 +63,8 @@
   --hdr-bg:    #111110;
   --hdr-text:  #e8e4dc;
   --hdr-muted: #9a9080;
+  --hdr-accent: #c9a54e;
+  --gold:      #f4c15c;
   --hdr-input-bg:  #1e1c18;
   --hdr-input-brd: #3a3830;
   --shadow:    0 1px 4px rgba(0, 0, 0, 0.4);
@@ -92,6 +97,8 @@
   --color-hdr-bg: var(--hdr-bg);
   --color-hdr-text: var(--hdr-text);
   --color-hdr-muted: var(--hdr-muted);
+  --color-hdr-accent: var(--hdr-accent);
+  --color-gold: var(--gold);
   --color-hdr-input-bg: var(--hdr-input-bg);
   --color-hdr-input-brd: var(--hdr-input-brd);
 
