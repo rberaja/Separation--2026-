@@ -4,6 +4,7 @@ import { PARTNER_TOTAL_GROUPS } from '../lib/labels';
 import type { PartnerTotals } from '../lib/settlement';
 import type { Partner } from '../lib/types';
 import { useOwnership, usePartnerNames, useSettlement } from '../store/AppContext';
+import { Term } from './ui/Term';
 import { toneClass, type Tone } from './ui/tone';
 
 /** Colour accents per row; everything else is neutral. */
@@ -36,9 +37,9 @@ export function PartnerTotalsCard({ partner }: { partner: Partner }) {
       {PARTNER_TOTAL_GROUPS.map((rows, gi) => (
         <Fragment key={gi}>
           {gi > 0 && <div className="h-px bg-border" />}
-          {rows.map(({ label, key }) => (
+          {rows.map(({ label, key, ref }) => (
             <div key={key} className="flex justify-between items-center px-3.5 py-[7px] border-b border-border last:border-b-0">
-              <span className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold">{label}</span>
+              <Term term={ref} className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold">{label}</Term>
               <span className={`font-mono text-[0.75rem] font-bold ${TONES[key] ? toneClass(TONES[key]) : 'text-text'}`}>
                 {key === 'count' ? totals.count : fmtMoney(totals[key])}
               </span>

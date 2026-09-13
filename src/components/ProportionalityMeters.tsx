@@ -1,21 +1,24 @@
 import type { ReactNode } from 'react';
 import { fmtMoney } from '../lib/format';
 import type { PartnerTotals } from '../lib/settlement';
+import type { RefKey } from '../lib/glossary';
 import { useOwnership, usePartnerNames, useSettlement } from '../store/AppContext';
+import { Term } from './ui/Term';
 
 interface MeterSpec {
   label: string;
   key: keyof PartnerTotals;
   /** Clamp negative totals to zero before drawing the bar. */
   floorZero: boolean;
+  ref: RefKey;
 }
 
 const METERS: readonly MeterSpec[] = [
-  { label: 'Adj. Market Value', key: 'amv', floorZero: true },
-  { label: 'NPV Equity', key: 'npvEquity', floorZero: true },
-  { label: 'Debt Service', key: 'ads', floorZero: false },
-  { label: 'Net Cash Flow', key: 'ncf', floorZero: true },
-  { label: 'Bid Difference', key: 'bidDiff', floorZero: true },
+  { label: 'Adj. Market Value', key: 'amv', floorZero: true, ref: 'shareAmv' },
+  { label: 'NPV Equity', key: 'npvEquity', floorZero: true, ref: 'shareNpvEquity' },
+  { label: 'Debt Service', key: 'ads', floorZero: false, ref: 'shareAds' },
+  { label: 'Net Cash Flow', key: 'ncf', floorZero: true, ref: 'shareNcf' },
+  { label: 'Bid Difference', key: 'bidDiff', floorZero: true, ref: 'shareBidDiff' },
 ];
 
 /** Side-by-side A/B share bars with a tick at the target ownership split. */
@@ -35,10 +38,10 @@ export function ProportionalityMeters() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[0.7rem] text-muted2 font-bold mb-3.5">
         <LegendItem swatch="bg-a">{names.a} (actual share)</LegendItem>
         <LegendItem swatch="bg-b">{names.b} (actual share)</LegendItem>
-        <LegendItem swatch="bg-ink w-[2px]">Target split (tick)</LegendItem>
+        <LegendItem swatch="bg-ink w-[2px]"><Term term="targetSplit">Target split (tick)</Term></LegendItem>
       </div>
 
-      {METERS.map(({ label, key, floorZero }) => {
+      {METERS.map(({ label, key, floorZero, ref }) => {
         const a = floorZero ? Math.max(0, totals.a[key]) : totals.a[key];
         const b = floorZero ? Math.max(0, totals.b[key]) : totals.b[key];
         const total = a + b;
@@ -48,7 +51,7 @@ export function ProportionalityMeters() {
         return (
           <div key={key} className="mb-[13px] last:mb-0">
             <div className="flex justify-between items-baseline mb-[5px]">
-              <span className="font-mono text-[0.77rem] uppercase tracking-[0.04em] text-text font-bold">{label}</span>
+              <Term term={ref} className="font-mono text-[0.77rem] uppercase tracking-[0.04em] text-text font-bold">{label}</Term>
               <span className="font-mono text-[0.75rem] text-muted2 font-bold">
                 {fmtMoney(a)} / {fmtMoney(b)}
               </span>

@@ -7,6 +7,7 @@
  * Shortfall (basis dollars); step 2 is the Basis True-Up (cash), calculated in
  * the separate Tax Basis Tool.
  */
+import type { RefKey } from './glossary';
 import type { Gaps, PartnerTotals } from './settlement';
 
 export const WHITE_PAPER_VERSION = '6.10';
@@ -28,43 +29,46 @@ export const depreciationLabel = (year: number): string => `Depreciation ${year}
 export interface TotalsRow {
   key: keyof PartnerTotals;
   label: string;
+  /** Field Reference handle for the tooltip. */
+  ref: RefKey;
 }
 
 /** Partner-totals rows, grouped as they appear on the Partner Totals cards. */
 export const PARTNER_TOTAL_GROUPS: readonly (readonly TotalsRow[])[] = [
   [
-    { key: 'marketVal', label: 'Market Value' },
-    { key: 'capex', label: 'Deferred CapEx' },
-    { key: 'amv', label: 'Adj. Market Value' },
+    { key: 'marketVal', label: 'Market Value', ref: 'totalMarketVal' },
+    { key: 'capex', label: 'Deferred CapEx', ref: 'totalCapex' },
+    { key: 'amv', label: 'Adj. Market Value', ref: 'totalAmv' },
   ],
   [
-    { key: 'loanBal', label: 'Loan Balance' },
-    { key: 'debtNpv', label: 'Debt NPV' },
-    { key: 'npvEquity', label: 'NPV Equity' },
+    { key: 'loanBal', label: 'Loan Balance', ref: 'totalLoanBal' },
+    { key: 'debtNpv', label: 'Debt NPV', ref: 'totalDebtNpv' },
+    { key: 'npvEquity', label: 'NPV Equity', ref: 'totalNpvEquity' },
   ],
   [
-    { key: 'noi', label: 'NOI / yr' },
-    { key: 'ads', label: 'Ann. Debt Service' },
-    { key: 'ncf', label: 'Net Cash Flow / yr' },
-    { key: 'count', label: 'Properties' },
+    { key: 'noi', label: 'NOI / yr', ref: 'totalNoi' },
+    { key: 'ads', label: 'Ann. Debt Service', ref: 'totalAds' },
+    { key: 'ncf', label: 'Net Cash Flow / yr', ref: 'totalNcf' },
+    { key: 'count', label: 'Properties', ref: 'totalCount' },
   ],
   [
-    { key: 'remainingBasis', label: TAX.remainingBasis },
-    { key: 'bidDiff', label: 'Bid Difference' },
+    { key: 'remainingBasis', label: TAX.remainingBasis, ref: 'totalRemainingBasis' },
+    { key: 'bidDiff', label: 'Bid Difference', ref: 'totalBidDiff' },
   ],
 ];
 
 export interface GapRowSpec {
   key: keyof Omit<Gaps, 'total'>;
   label: string;
+  ref: RefKey;
 }
 
 /** Gap Analysis — reference rows, shown but not part of the settlement (White Paper §14.1). */
 export const GAP_REFERENCE_ROWS: readonly GapRowSpec[] = [
-  { key: 'amv', label: 'Adj. Market Value' },
-  { key: 'ads', label: 'Debt Service' },
-  { key: 'ncf', label: 'Net Cash Flow' },
-  { key: 'remainingBasis', label: TAX.basisShortfall },
+  { key: 'amv', label: 'Adj. Market Value', ref: 'gapAmv' },
+  { key: 'ads', label: 'Debt Service', ref: 'gapAds' },
+  { key: 'ncf', label: 'Net Cash Flow', ref: 'gapNcf' },
+  { key: 'remainingBasis', label: TAX.basisShortfall, ref: 'basisShortfall' },
 ];
 
 export const GAP_LABELS = {

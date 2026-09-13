@@ -1,6 +1,7 @@
 import { PARTNERS, type Partner } from '../lib/types';
 import { useApp, useOwnership } from '../store/AppContext';
 import { NumberInput } from './ui/NumberInput';
+import { Term } from './ui/Term';
 
 const ACCENT: Record<Partner, string> = { a: 'before:bg-a', b: 'before:bg-b' };
 
@@ -36,7 +37,7 @@ export function PartnerStrip() {
                   dispatch({ type: 'partner/setPctA', value: v === null ? null : partner === 'a' ? v : 100 - v })
                 }
               />
-              <span className="font-mono text-muted text-[0.8rem]">%</span>
+              <Term term="targetSplit" className="font-mono text-muted text-[0.8rem]">% ownership</Term>
             </div>
           </div>
         ))}

@@ -3,7 +3,9 @@ import { DASH, fmtMoney } from '../lib/format';
 import { GAP_LABELS, GAP_REFERENCE_ROWS, TAX, WHITE_PAPER_VERSION } from '../lib/labels';
 import { settlementSentence, splitLabel as fmtSplit } from '../lib/report';
 import { isBalanced } from '../lib/settlement';
+import type { RefKey } from '../lib/glossary';
 import { useApp, useOwnership, usePartnerNames, useSettlement } from '../store/AppContext';
+import { Term } from './ui/Term';
 
 /* Type scale sampled from the v1.8 mockup's Gap Analysis table. */
 const METRIC_TEXT = 'font-mono text-[0.77rem] font-bold text-text';
@@ -38,35 +40,35 @@ export function SettlementLedger() {
       </p>
 
       <GapBox title={GAP_LABELS.referenceTitle} names={names}>
-        {GAP_REFERENCE_ROWS.map(({ label, key }) => (
-          <GapRow key={key} label={label} gap={gaps[key]} />
+        {GAP_REFERENCE_ROWS.map(({ label, key, ref }) => (
+          <GapRow key={key} label={label} term={ref} gap={gaps[key]} />
         ))}
       </GapBox>
 
       <GapBox title={GAP_LABELS.settlementTitle} names={names}>
-        <GapRow label={GAP_LABELS.npvEquity} gap={gaps.npvEquity} />
+        <GapRow label={GAP_LABELS.npvEquity} term="gapNpvEquity" gap={gaps.npvEquity} />
         <tr className="border-b border-border">
           <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
-            {GAP_LABELS.basisTrueUp}
+            <Term term="basisTrueUp">{GAP_LABELS.basisTrueUp}</Term>
             <Tag>from {TAX.tool}</Tag>
           </td>
           <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
           <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
         </tr>
-        <GapRow label={GAP_LABELS.bidDiff} gap={gaps.bidDiff} />
+        <GapRow label={GAP_LABELS.bidDiff} term="gapBidDiff" gap={gaps.bidDiff} />
         <tr className="border-b border-border">
           <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
-            {GAP_LABELS.cash}
+            <Term term="gapCash">{GAP_LABELS.cash}</Term>
             <Tag>split {splitLabel}</Tag>
           </td>
           <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.a)}</td>
           <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.b)}</td>
         </tr>
-        <GapRow label={GAP_LABELS.total} gap={gaps.total} grand />
+        <GapRow label={GAP_LABELS.total} term="totalTrueUp" gap={gaps.total} grand />
       </GapBox>
 
       <div className="mt-3.5 rounded-[3px] bg-hdr-bg text-center px-4 py-3">
-        <div className="font-mono uppercase text-[0.66rem] tracking-[0.12em] text-[#aaaaaa] font-bold mb-1">{GAP_LABELS.final}</div>
+        <div className="font-mono uppercase text-[0.66rem] tracking-[0.12em] text-[#aaaaaa] font-bold mb-1"><Term term="finalSettlement">{GAP_LABELS.final}</Term></div>
         <div className={`font-mono font-bold ${hasData ? 'text-[1.1rem] text-gold' : 'text-[0.8rem] text-hdr-muted'}`}>
           {settlement}
         </div>
@@ -106,10 +108,10 @@ function Tag({ children }: { children: ReactNode }) {
   return <span className="font-mono text-[0.66rem] font-normal text-muted2 ml-1.5">({children})</span>;
 }
 
-function GapRow({ label, gap, grand }: { label: string; gap: number; grand?: boolean }) {
+function GapRow({ label, term, gap, grand }: { label: string; term: RefKey; gap: number; grand?: boolean }) {
   return (
     <tr className={grand ? 'border-t-2 border-b border-ink' : 'border-b border-border'}>
-      <td className={`${METRIC_TEXT} pl-1.5 py-2`}>{label}</td>
+      <td className={`${METRIC_TEXT} pl-1.5 py-2`}><Term term={term}>{label}</Term></td>
       <SignedCell value={gap} />
       <SignedCell value={-gap} />
     </tr>

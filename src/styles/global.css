@@ -194,6 +194,82 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   TERM TOOLTIPS — components/ui/Term.tsx
+   Labels wrapped in <Term> get a dotted underline; the bubble is portalled
+   to <body> and positioned by the component.
+═══════════════════════════════════════════════════════════════ */
+.term {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--border2);
+  text-underline-offset: 3px;
+  outline: none;
+  border-radius: 2px;
+}
+.term:hover,
+.term:focus-visible {
+  text-decoration-color: var(--a);
+}
+.term:focus-visible {
+  box-shadow: 0 0 0 2px var(--a-light);
+}
+.tip {
+  position: fixed;
+  z-index: 200;
+  background: var(--hdr-bg);
+  color: var(--hdr-text);
+  border: 1px solid var(--hdr-input-brd);
+  border-left: 3px solid var(--hdr-accent);
+  border-radius: 4px;
+  padding: 9px 12px 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  animation: tip-in 120ms ease-out;
+}
+@keyframes tip-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: none; }
+}
+[data-theme="dark"] .tip {
+  background: #26241f;
+  border-color: #4a4838;
+}
+.tip-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 5px;
+}
+.tip-term {
+  font-family: var(--font-serif);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.tip-source {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--hdr-accent);
+}
+.tip-body {
+  font-family: var(--font-serif);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--hdr-text);
+  margin: 0 0 7px;
+}
+.tip-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  color: var(--hdr-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════════
    PRINT REPORT — components/PrintReport.tsx
    Hidden on screen. When printing, #app-screen is removed and the
    report is shown in a fixed light palette (never the dark theme).
@@ -218,6 +294,9 @@
   }
   #print-report {
     display: block;
+  }
+  .tip {
+    display: none !important;
   }
 }
 

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useApp } from '../store/AppContext';
+import type { RefKey } from '../lib/glossary';
 import { NumberInput } from './ui/NumberInput';
+import { Term } from './ui/Term';
 
 /** Portfolio-wide settings set once beneath the toolbar: market discount rate and cash & equivalents. */
 export function MarketRateBar() {
@@ -8,7 +10,7 @@ export function MarketRateBar() {
 
   return (
     <div className="flex flex-wrap items-center gap-5 bg-surface border-b border-border px-7 py-2">
-      <Setting label="Market Discount Rate" suffix="%">
+      <Setting label="Market Discount Rate" term="discountRate" suffix="%">
         <NumberInput
           className="field-input field-input-short"
           value={state.discountRate}
@@ -19,7 +21,7 @@ export function MarketRateBar() {
         />
       </Setting>
 
-      <Setting label="Cash & Equivalents" suffix="$">
+      <Setting label="Cash & Equivalents" term="cashEquiv" suffix="$">
         <NumberInput
           className="field-input"
           value={state.cashEquiv}
@@ -32,10 +34,10 @@ export function MarketRateBar() {
   );
 }
 
-function Setting({ label, suffix, children }: { label: string; suffix: string; children: ReactNode }) {
+function Setting({ label, term, suffix, children }: { label: string; term: RefKey; suffix: string; children: ReactNode }) {
   return (
     <label className="flex items-center gap-1.5">
-      <span className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold whitespace-nowrap">{label}</span>
+      <Term term={term} className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold whitespace-nowrap">{label}</Term>
       {children}
       <span className="font-mono text-muted2 dark:text-text text-[0.75rem] font-bold">{suffix}</span>
     </label>

@@ -52,21 +52,21 @@
 
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|
-| 23 | ADJ. NET VALUE | **adj_net_value** | Calculated | N | market_value − deferred_capex. Represents the effective value of the property after adjusting for deferred spend. |
-| 24 | DEBT NPV | **debt_npv** | Calculated | N | Present value of all remaining loan cash flows discounted at the Market Discount Rate. For an IO loan in its IO period: PV of IO payments + PV of balloon at end of IO period, both discounted at the market rate. For an amortizing loan: PV of the remaining monthly P&I stream to balloon/reset, plus PV of the remaining balance at that date, discounted at the market rate. A below-market rate loan has Debt NPV < loan_balance — the borrower benefits from cheaper-than-market debt. |
-| 25 | NPV EQUITY | **npv_equity** | Calculated | N | Adj. Market Value − Debt NPV. The true economic equity in the property after valuing the debt correctly at current market rates rather than simply subtracting the face balance. |
-| 26 | ANNUAL DEBT SERVICE | **annual_debt_service** | Calculated | N | If IO period is still active: loan_balance × loan_rate ÷ 100. Otherwise: monthly_payment × 12 (or computed payment × 12 if monthly_payment is blank). |
-| 27 | NET CASH FLOW / YR | **net_cash_flow** | Calculated | N | noi − Annual Debt Service. The cash the property produces after meeting its loan obligations. |
+| 23 | Adj. Net Value | **adj_net_value** | Calculated | N | market_value − deferred_capex. Represents the effective value of the property after adjusting for deferred spend. |
+| 24 | Debt NPV | **debt_npv** | Calculated | N | Present value of all remaining loan cash flows discounted at the Market Discount Rate. For an IO loan in its IO period: PV of IO payments + PV of balloon at end of IO period, both discounted at the market rate. For an amortizing loan: PV of the remaining monthly P&I stream to balloon/reset, plus PV of the remaining balance at that date, discounted at the market rate. A below-market rate loan has Debt NPV < loan_balance — the borrower benefits from cheaper-than-market debt. |
+| 25 | NPV Equity | **npv_equity** | Calculated | N | Adj. Market Value − Debt NPV. The true economic equity in the property after valuing the debt correctly at current market rates rather than simply subtracting the face balance. |
+| 26 | Annual Debt Service | **annual_debt_service** | Calculated | N | If IO period is still active: loan_balance × loan_rate ÷ 100. Otherwise: monthly_payment × 12 (or computed payment × 12 if monthly_payment is blank). |
+| 27 | Net Cash Flow / yr | **net_cash_flow** | Calculated | N | noi − Annual Debt Service. The cash the property produces after meeting its loan obligations. |
 
 ### F. Tax and Compliance
 
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|
-| 29 | NEXT 40-YR CERTIFICATION | *next_40yr_certification* | ↑ Uploaded | N | Year the property's next 40-year recertification is due. Supplied via Excel/import table. Displayed on the property card for compliance awareness. |
-| 30 | ZONING | *zoning* | ↑ Uploaded | N | Zoning designation of the property (e.g. RM-24). Supplied via Excel/import table. Displayed on the card for reference. |
-| 31 | REMAINING TAX BASIS | **remaining_tax_basis** | ↑ Uploaded | N | Remaining depreciable tax basis of the property in dollars — the value the IRS still allows the owner to write off (White Paper §11.2). Summed per partner (row 45) and used for the Basis Shortfall (row 59), which the Tax Basis Tool converts into the Basis True-Up (row 61). Import also accepts the legacy headers `remaining_basis` (v7.5) and `residual_tax_basis` (v8.0). |
+| 29 | Next 40-Yr Certification | *next_40yr_certification* | ↑ Uploaded | N | Year the property's next 40-year recertification is due. Supplied via Excel/import table. Displayed on the property card for compliance awareness. |
+| 30 | Zoning | *zoning* | ↑ Uploaded | N | Zoning designation of the property (e.g. RM-24). Supplied via Excel/import table. Displayed on the card for reference. |
+| 31 | Remaining Tax Basis | **remaining_tax_basis** | ↑ Uploaded | N | Remaining depreciable tax basis of the property in dollars — the value the IRS still allows the owner to write off (White Paper §11.2). Summed per partner (row 45) and used for the Basis Shortfall (row 59), which the Tax Basis Tool converts into the Basis True-Up (row 61). Import also accepts the legacy headers `remaining_basis` (v7.5) and `residual_tax_basis` (v8.0). |
 | 32 | BLANK | | ------------------ | | |
-| 33 | DEPRECIATION *{year}* | **depreciation** | ↑ Uploaded | N | Annual depreciation expense in dollars for the depreciation year. The year in the label is not typed here: it is read from the `_meta` sheet column **depreciation_year**, which the Tax Basis Tool writes (default 2025 until that tool exists). Displayed on the card for reference. Import also accepts the legacy header `depreciation_2025`. |
+| 33 | Depreciation *{year}* | **depreciation** | ↑ Uploaded | N | Annual depreciation expense in dollars for the depreciation year. The year in the label is not typed here: it is read from the `_meta` sheet column **depreciation_year**, which the Tax Basis Tool writes (default 2025 until that tool exists). Displayed on the card for reference. Import also accepts the legacy header `depreciation_2025`. |
 
 ## PARTNER TOTALS AND PROPORTIONALITY CHECK
 
@@ -83,7 +83,7 @@
 | 41 | NOI / yr (total) | *noi_total* | Calculated | N | Sum of noi for all properties assigned to this partner. |
 | 42 | Ann. Debt Service (total) | *annual_debt_service_total* | Calculated | N | Sum of Annual Debt Service for all properties assigned to this partner. |
 | 43 | Net CF / yr (total) | *net_cash_flow_total* | Calculated | N | Sum of Net Cash Flow / yr for all properties assigned to this partner. |
-| 44 | Properties | *properties_count* | | N | |
+| 44 | Properties | *properties_count* | Calculated | N | Number of properties assigned to this partner. A property not yet assigned to A or B is counted with Partner B until it is assigned, so assign every property before reading the settlement. |
 | 45 | Remaining Tax Basis (total) | *remaining_tax_basis_total* | Calculated | N | Sum of remaining_tax_basis for all properties assigned to this partner. Compared to each partner's proportional target to compute the Basis Shortfall (row 59). |
 | 46 | Bid Difference (total) | *bid_difference_total* | Calculated | N | Sum of Bid Difference for all properties assigned to this partner. |
 

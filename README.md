@@ -23,7 +23,7 @@ reusable components.
 ```sh
 npm install
 npm run dev        # http://localhost:4321
-npm run test       # vitest (finance parity, settlement, excel, report, sort)
+npm run test       # vitest (finance parity, settlement, excel, report, glossary, sort)
 npm run check      # astro check — TypeScript across .ts/.tsx/.astro
 npm run build      # static site → dist/
 npm run preview    # serve dist/
@@ -39,6 +39,7 @@ src/
     settlement.ts      per-partner totals, gaps, cash split
     sort.ts            SORT_OPTIONS, sortProperties, nextSort
     labels.ts          shared display vocabulary (partner-total rows, gap rows, tax-basis terms)
+    glossary.ts        tooltip text parsed from docs/03_RE_Partition_Field_Reference.md (?raw import)
     report.ts          Report model shared by the Excel and print exports
     columns.ts         single source of truth for Excel columns/aliases/template rows
     excel.ts           parseWorkbook, buildTemplateWorkbook, downloadTemplate
@@ -63,7 +64,7 @@ src/
     PartnerTotalsCard.tsx
     ProportionalityMeters.tsx
     SettlementLedger.tsx
-    ui/                NumberInput, Icons, tone helpers
+    ui/                NumberInput, Icons, Term (Field Reference tooltip), tone helpers
   pages/index.astro    HTML shell; mounts <App client:load />
   styles/global.css    theme tokens (→ Tailwind @theme) + shared component classes
 tests/
