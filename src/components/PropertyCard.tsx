@@ -172,7 +172,7 @@ function Cell({ label, tone, children }: { label: string; tone: Tone; children?:
   return (
     <div className="text-center border-r border-border last:border-r-0 px-[7px] py-2">
       <div className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold leading-snug mb-1">{label}</div>
-      <div className={`font-mono text-[0.75rem] font-bold ${toneClass(tone)}`}>{children}</div>
+      <div className={`font-mono text-[1.045rem] font-bold ${toneClass(tone)}`}>{children}</div>
     </div>
   );
 }
