@@ -103,7 +103,7 @@
 
 ## GAP ANALYSIS & SETTLEMENT
 
-*Section D of the tool. Follows White Paper v6.10 §14.1. **Sign convention for every gap: target − actual. A positive number means the partner is under-allocated and is owed cash; a negative number means the partner holds more than their share and pays.** Each gap is shown from Partner A's side in the Partner A column and as its negative in the Partner B column, so every row nets to zero.*
+*Section D of the tool. Follows White Paper v6.10 §14.1. **Sign convention for every gap: target − actual. A positive number means the partner is under-allocated and is owed cash; a negative number means the partner holds more than their share and pays.** Each gap is shown from Partner A's side in the Partner A column and as its negative in the Partner B column, so every row nets to zero. The grey **Unassigned** column between them is not a gap: it shows the amount of that metric still sitting on properties assigned to neither partner (row 6) — what remains to be placed — and is blank on rows that have no such figure (Basis True-Up, Cash & Equivalents, Total True-Up).*
 
 *Rows 56–59 are shown for reference and are not part of the settlement; rows 60–63 are the settlement items that feed Total True-Up (row 64) (White Paper §9.1–9.2: debt can be re-set by refinancing after the split, and cash flow is measured as NOI before loan payments, so neither controls the settlement).*
 

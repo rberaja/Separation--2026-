@@ -9,7 +9,7 @@ import { Term } from './ui/Term';
 
 /* Type scale sampled from the v1.8 mockup's Gap Analysis table. */
 const METRIC_TEXT = 'font-mono text-[0.77rem] font-bold text-text';
-const VALUE_TEXT = 'font-mono text-[0.75rem] font-bold text-right py-2 pl-4 whitespace-nowrap';
+const VALUE_TEXT = 'font-mono text-[0.75rem] font-bold text-right py-2 pl-2.5 whitespace-nowrap';
 const HEAD_TEXT = 'font-mono uppercase text-[0.7rem] tracking-[0.08em] font-bold pb-1.5';
 
 /**
@@ -36,35 +36,38 @@ export function SettlementLedger() {
       <p className="font-serif text-[0.8rem] leading-snug text-text mb-3">
         Each gap is a partner&rsquo;s proportional target minus what they actually received. A positive number means
         that partner is under-allocated and is owed cash; negative means they hold more than their share and owe it.
-        Every row nets to zero across the two columns.
+        Every row nets to zero across the two partner columns. The grey Unassigned column in between is the amount of
+        each metric still sitting on unassigned properties — not a gap, just what remains to be placed.
       </p>
 
       <GapBox title={GAP_LABELS.referenceTitle} names={names}>
         {GAP_REFERENCE_ROWS.map(({ label, key, ref }) => (
-          <GapRow key={key} label={label} term={ref} gap={gaps[key]} />
+          <GapRow key={key} label={label} term={ref} gap={gaps[key]} unassigned={unassigned[key]} />
         ))}
       </GapBox>
 
       <GapBox title={GAP_LABELS.settlementTitle} names={names}>
-        <GapRow label={GAP_LABELS.npvEquity} term="gapNpvEquity" gap={gaps.npvEquity} />
+        <GapRow label={GAP_LABELS.npvEquity} term="gapNpvEquity" gap={gaps.npvEquity} unassigned={unassigned.npvEquity} />
         <tr className="border-b border-border">
           <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
             <Term term="basisTrueUp">{GAP_LABELS.basisTrueUp}</Term>
-            <Tag>from {TAX.tool}</Tag>
+            <Tag>{TAX.tool}</Tag>
           </td>
           <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
+          <UnassignedCell value={null} />
           <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
         </tr>
-        <GapRow label={GAP_LABELS.bidDiff} term="gapBidDiff" gap={gaps.bidDiff} />
+        <GapRow label={GAP_LABELS.bidDiff} term="gapBidDiff" gap={gaps.bidDiff} unassigned={unassigned.bidDiff} />
         <tr className="border-b border-border">
           <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
             <Term term="gapCash">{GAP_LABELS.cash}</Term>
-            <Tag>split {splitLabel}</Tag>
+            <Tag>split {splitLabel.replace(/ /g, '')}</Tag>
           </td>
           <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.a)}</td>
+          <UnassignedCell value={null} />
           <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.b)}</td>
         </tr>
-        <GapRow label={GAP_LABELS.total} term="totalTrueUp" gap={gaps.total} grand />
+        <GapRow label={GAP_LABELS.total} term="totalTrueUp" gap={gaps.total} unassigned={null} grand />
       </GapBox>
 
       <div className="mt-3.5 rounded-[3px] bg-hdr-bg text-center px-4 py-3">
@@ -92,17 +95,21 @@ export function SettlementLedger() {
   );
 }
 
-/** Bordered sub-table; the group title sits in the header row beside the Partner A / Partner B columns. */
+/** Bordered sub-table: group title as a caption, then Partner A / Unassigned / Partner B column heads. */
 function GapBox({ title, names, children }: { title: string; names: Record<'a' | 'b', string>; children: ReactNode }) {
   return (
     <div className="border-[1.5px] border-border rounded-[4px] overflow-hidden mb-3">
+      <div className={`${HEAD_TEXT} text-muted px-3 pt-2 pb-0 bg-surface2 border-b border-border`}>{title}</div>
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b-2 border-ink">
-            {/* The title may wrap; the partner columns are nowrap so values stay visible in a narrow aside. */}
-            <th className={`${HEAD_TEXT} text-left text-muted pl-3 pt-2`}>{title}</th>
-            <th className={`${HEAD_TEXT} text-right text-a pl-4 pt-2 whitespace-nowrap`}>{names.a}</th>
-            <th className={`${HEAD_TEXT} text-right text-b pl-4 pr-3 pt-2 whitespace-nowrap`}>{names.b}</th>
+            <th className="pl-3" />
+            {/* Column heads are nowrap so values stay visible in a narrow aside. */}
+            <th className={`${HEAD_TEXT} text-right text-a pl-2.5 pt-2 whitespace-nowrap`}>{names.a}</th>
+            <th className={`${HEAD_TEXT} text-right text-muted2 pl-2.5 pt-2 whitespace-nowrap`}>
+              <Term term="unassigned">Unassigned</Term>
+            </th>
+            <th className={`${HEAD_TEXT} text-right text-b pl-2.5 pr-3 pt-2 whitespace-nowrap`}>{names.b}</th>
           </tr>
         </thead>
         <tbody className="[&>tr:last-child]:border-b-0 [&_td:first-child]:pl-3 [&_td:last-child]:pr-3">{children}</tbody>
@@ -111,18 +118,27 @@ function GapBox({ title, names, children }: { title: string; names: Record<'a' |
   );
 }
 
+/** Small note under a metric label — its own line so it never widens the label column. */
 function Tag({ children }: { children: ReactNode }) {
-  return <span className="font-mono text-[0.66rem] font-normal text-muted2 ml-1.5">({children})</span>;
+  return <span className="block font-mono text-[0.62rem] font-normal text-muted2 leading-tight">{children}</span>;
 }
 
-function GapRow({ label, term, gap, grand }: { label: string; term: RefKey; gap: number; grand?: boolean }) {
+function GapRow({
+  label, term, gap, unassigned, grand,
+}: { label: string; term: RefKey; gap: number; unassigned: number | null; grand?: boolean }) {
   return (
     <tr className={grand ? 'border-t-2 border-b border-ink' : 'border-b border-border'}>
       <td className={`${METRIC_TEXT} pl-1.5 py-2`}><Term term={term}>{label}</Term></td>
       <SignedCell value={gap} />
+      <UnassignedCell value={unassigned} />
       <SignedCell value={-gap} />
     </tr>
   );
+}
+
+/** Plain grey amount still on unassigned properties; a dash where the row has no such figure. */
+function UnassignedCell({ value }: { value: number | null }) {
+  return <td className={`${VALUE_TEXT} text-muted2 font-normal`}>{value === null ? DASH : fmtMoney(value)}</td>;
 }
 
 /** +$X in green, −$X in red, plain $0 when balanced. */

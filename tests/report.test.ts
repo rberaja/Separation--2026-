@@ -45,7 +45,11 @@ describe('buildReport', () => {
     expect(total.a).toBeCloseTo(settlement.gaps.total, 6);
     expect(r.finalSettlement).toBe(settlementSentence(settlement.gaps.total, names, 0.4));
     const cash = r.gaps.settlement.find((g) => g.key === 'cash')!;
-    expect(cash).toMatchObject({ a: 100000, b: 150000, unsigned: true });
+    expect(cash).toMatchObject({ a: 100000, b: 150000, u: null, unsigned: true });
+    // The Unassigned column carries the loose property's own figures, not a gap.
+    expect(r.gaps.reference.find((g) => g.key === 'amv')!.u).toBe(250000);
+    expect(r.gaps.settlement.find((g) => g.key === 'npvEquity')!.u).toBe(250000);
+    expect(total.u).toBeNull();
   });
 
   it('leaves the Basis True-Up blank and names the tool that supplies it', () => {

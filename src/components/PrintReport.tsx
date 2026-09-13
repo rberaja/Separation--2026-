@@ -213,6 +213,7 @@ function GapRows({ rows }: { rows: ReportGapRow[] }) {
               {g.note && <span className="rpt-note"> ({g.note})</span>}
             </td>
             <td className={a.cls}>{a.text}</td>
+            <td className="rpt-muted">{g.u === null ? DASH : fmtMoney(g.u)}</td>
             <td className={b.cls}>{b.text}</td>
           </tr>
         );
@@ -228,13 +229,14 @@ function GapTable({ report: r }: { report: Report }) {
         <tr>
           <th className="rpt-left">Target − actual (positive = owed)</th>
           <th className="rpt-partner-a">{r.partnerNames.a}</th>
+          <th>Unassigned</th>
           <th className="rpt-partner-b">{r.partnerNames.b}</th>
         </tr>
       </thead>
       <tbody>
-        <tr className="rpt-group"><td colSpan={3}>{GAP_LABELS.referenceTitle}</td></tr>
+        <tr className="rpt-group"><td colSpan={4}>{GAP_LABELS.referenceTitle}</td></tr>
         <GapRows rows={r.gaps.reference} />
-        <tr className="rpt-group"><td colSpan={3}>{GAP_LABELS.settlementTitle}</td></tr>
+        <tr className="rpt-group"><td colSpan={4}>{GAP_LABELS.settlementTitle}</td></tr>
         <GapRows rows={r.gaps.settlement} />
       </tbody>
     </table>

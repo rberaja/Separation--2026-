@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react';
 
 const STORAGE_KEY = 'partition-tool:aside-width';
-export const ASIDE_DEFAULT_WIDTH = 348;
+export const ASIDE_DEFAULT_WIDTH = 444;
 const ASIDE_MIN_WIDTH = 260;
 /** Never let the pane swallow more than this share of the viewport. */
 const ASIDE_MAX_SHARE = 0.6;

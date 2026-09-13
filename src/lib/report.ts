@@ -93,9 +93,11 @@ export interface ReportTotalsRow {
 export interface ReportGapRow {
   key: string;
   label: string;
-  /** Null when the figure comes from outside this tool (the Residual Basis True-Up). */
+  /** Null when the figure comes from outside this tool (the Basis True-Up). */
   a: number | null;
   b: number | null;
+  /** Amount of the metric still on unassigned properties; null where the row has no such figure. */
+  u: number | null;
   /** Small annotation printed after the label. */
   note?: string;
   /** Plain dollar amounts (the cash split) rather than signed gaps. */
@@ -180,21 +182,22 @@ export function buildReport(input: ReportInput): Report {
     portfolio: totals.a[key] + totals.b[key],
   }));
 
-  const gap = (key: string, label: string, v: number, extra: Partial<ReportGapRow> = {}): ReportGapRow => ({
+  const gap = (key: string, label: string, v: number, u: number | null, extra: Partial<ReportGapRow> = {}): ReportGapRow => ({
     key,
     label,
     a: v,
     b: -v,
+    u,
     ...extra,
   });
 
-  const reference = GAP_REFERENCE_ROWS.map(({ key, label }) => gap(key, label, gaps[key]));
+  const reference = GAP_REFERENCE_ROWS.map(({ key, label }) => gap(key, label, gaps[key], unassigned[key]));
   const settlementRows: ReportGapRow[] = [
-    gap('npvEquity', GAP_LABELS.npvEquity, gaps.npvEquity),
-    { key: 'basisTrueUp', label: GAP_LABELS.basisTrueUp, a: null, b: null, note: `from ${TAX.tool}` },
-    gap('bidDiff', GAP_LABELS.bidDiff, gaps.bidDiff),
-    { key: 'cash', label: GAP_LABELS.cash, a: cash.a, b: cash.b, note: `split ${split}`, unsigned: true },
-    gap('total', GAP_LABELS.total, gaps.total, { grand: true }),
+    gap('npvEquity', GAP_LABELS.npvEquity, gaps.npvEquity, unassigned.npvEquity),
+    { key: 'basisTrueUp', label: GAP_LABELS.basisTrueUp, a: null, b: null, u: null, note: `from ${TAX.tool}` },
+    gap('bidDiff', GAP_LABELS.bidDiff, gaps.bidDiff, unassigned.bidDiff),
+    { key: 'cash', label: GAP_LABELS.cash, a: cash.a, b: cash.b, u: null, note: `split ${split}`, unsigned: true },
+    gap('total', GAP_LABELS.total, gaps.total, null, { grand: true }),
   ];
 
   const notes = [
