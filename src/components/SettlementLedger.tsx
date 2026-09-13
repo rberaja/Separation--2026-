@@ -12,7 +12,7 @@ const REFERENCE_ROWS: readonly { label: string; key: keyof Omit<Gaps, 'total'> }
 
 /* Type scale sampled from the v1.8 mockup's Gap Analysis table. */
 const METRIC_TEXT = 'font-mono text-[0.77rem] font-bold text-text';
-const VALUE_TEXT = 'font-mono text-[0.75rem] font-bold text-right py-2 pl-4';
+const VALUE_TEXT = 'font-mono text-[0.75rem] font-bold text-right py-2 pl-4 whitespace-nowrap';
 const HEAD_TEXT = 'font-mono uppercase text-[0.7rem] tracking-[0.08em] font-bold pb-1.5';
 
 /**
@@ -96,9 +96,10 @@ function GapBox({ title, names, children }: { title: string; names: Record<'a' |
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b-2 border-ink">
-            <th className={`${HEAD_TEXT} text-left text-muted pl-3 pt-2 whitespace-nowrap`}>{title}</th>
-            <th className={`${HEAD_TEXT} text-right text-a pl-4 pt-2`}>{names.a}</th>
-            <th className={`${HEAD_TEXT} text-right text-b pl-4 pr-3 pt-2`}>{names.b}</th>
+            {/* The title may wrap; the partner columns are nowrap so values stay visible in a narrow aside. */}
+            <th className={`${HEAD_TEXT} text-left text-muted pl-3 pt-2`}>{title}</th>
+            <th className={`${HEAD_TEXT} text-right text-a pl-4 pt-2 whitespace-nowrap`}>{names.a}</th>
+            <th className={`${HEAD_TEXT} text-right text-b pl-4 pr-3 pt-2 whitespace-nowrap`}>{names.b}</th>
           </tr>
         </thead>
         <tbody className="[&>tr:last-child]:border-b-0 [&_td:first-child]:pl-3 [&_td:last-child]:pr-3">{children}</tbody>
