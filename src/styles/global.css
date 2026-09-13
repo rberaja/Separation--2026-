@@ -175,10 +175,3 @@
            text-[0.66rem] text-text2 leading-relaxed font-mono;
   }
 }
-
-/* Semantic number colours */
-@utility tone-pos { color: var(--green); }
-@utility tone-neg { color: var(--red); }
-@utility tone-yel { color: var(--yellow); }
-@utility tone-neu { color: var(--text); }
-@utility tone-proj { color: var(--proj); }

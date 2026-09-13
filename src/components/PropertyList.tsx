@@ -8,7 +8,7 @@ export function PropertyList() {
   return (
     <section>
       <div className="flex items-center gap-3 mb-[11px]">
-        <h2 className="font-serif text-[0.9rem] font-medium text-text whitespace-nowrap">Properties</h2>
+        <h2 className="font-serif text-[0.9rem] font-medium text-text whitespace-nowrap">A. Properties</h2>
         <div className="flex-1 h-[1.5px] bg-border" />
         <button
           type="button"

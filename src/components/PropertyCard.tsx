@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { computeMetrics } from '../lib/finance';
-import { DASH, fmtMoney, fmtPct, fmtText } from '../lib/format';
+import { DASH, fmtMoney, fmtText } from '../lib/format';
 import { PARTNERS, type NumericField, type Partner, type Property } from '../lib/types';
 import { useApp, useDiscountRate, usePartnerNames } from '../store/AppContext';
 import { NumberInput } from './ui/NumberInput';
@@ -110,7 +110,7 @@ export function PropertyCard({ property: p }: { property: Property }) {
       </div>
 
       {/* Computed strip — current values */}
-      <Strip className="border-t border-border bg-surface2">
+      <Strip title="Current Values">
         <Cell label="Adjusted Net Value" tone="neu">{fmtMoney(m.amv)}</Cell>
         <Cell label="Debt NPV" tone="neg">{fmtMoney(m.debtNpv)}</Cell>
         <Cell label="NPV Equity" tone={signTone(m.npvEquity)}>{fmtMoney(m.npvEquity)}</Cell>
@@ -118,13 +118,13 @@ export function PropertyCard({ property: p }: { property: Property }) {
         <Cell label="Net Cash Flow / yr" tone={signTone(m.ncf)}>{fmtMoney(m.ncf)}</Cell>
       </Strip>
 
-      {/* Computed strip — tax & compliance reference */}
-      <Strip className="border-t border-dashed border-border bg-surface">
-        <Cell label="Occupancy Actual" tone="proj" small>{fmtPct(p.occupancyPct)}</Cell>
-        <Cell label="Zoning" tone="proj" small>{fmtText(p.zoning)}</Cell>
-        <Cell label="Next 40-Yr Cert." tone="proj" small>{fmtText(p.cert40yr)}</Cell>
-        <Cell label="Remaining Basis" tone="proj" small>{fmtMoney(p.remainingBasis ?? 0)}</Cell>
-        <Cell label="Depreciation 2025" tone="proj" small>{fmtMoney(p.depreciation2025 ?? 0)}</Cell>
+      {/* Uploaded reference values — tax & compliance */}
+      <Strip title="Tax and Compliance">
+        <Cell label="Next 40-Yr Certification" tone="neu">{fmtText(p.cert40yr)}</Cell>
+        <Cell label="Zoning" tone="neu">{fmtText(p.zoning)}</Cell>
+        <Cell label="Tax Basis" tone="neu">{fmtMoney(p.remainingBasis ?? 0)}</Cell>
+        <Cell label="" tone="neu" />
+        <Cell label="Depreciation 2025" tone="yel">{fmtMoney(p.depreciation2025 ?? 0)}</Cell>
       </Strip>
     </article>
   );
@@ -156,15 +156,23 @@ function Field({ label, suffix, hint, children }: { label: string; suffix?: stri
   );
 }
 
-function Strip({ className, children }: { className: string; children: ReactNode }) {
-  return <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${className}`}>{children}</div>;
+/** A labelled results row: a shaded title cell on the left, then the value cells. */
+function Strip({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex border-t border-border bg-surface2">
+      <div className="w-[120px] shrink-0 flex items-center justify-center text-center px-2 py-2 border-r border-border bg-border/30 caption text-[0.56rem] tracking-[0.1em] font-bold leading-snug">
+        {title}
+      </div>
+      <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">{children}</div>
+    </div>
+  );
 }
 
-function Cell({ label, tone, small, children }: { label: string; tone: Tone; small?: boolean; children: ReactNode }) {
+function Cell({ label, tone, children }: { label: string; tone: Tone; children?: ReactNode }) {
   return (
-    <div className={`text-center border-r border-border last:border-r-0 px-[7px] ${small ? 'py-1.5' : 'py-[7px]'}`}>
-      <div className={`caption font-bold tracking-[0.09em] mb-0.5 ${small ? 'text-[0.5rem]' : 'text-[0.52rem]'}`}>{label}</div>
-      <div className={`font-mono text-[0.78rem] font-bold ${toneClass(tone)}`}>{children}</div>
+    <div className="text-center border-r border-border last:border-r-0 px-[7px] py-2">
+      <div className="caption font-bold tracking-[0.09em] text-[0.52rem] mb-0.5">{label}</div>
+      <div className={`font-mono text-[0.84rem] font-bold ${toneClass(tone)}`}>{children}</div>
     </div>
   );
 }
