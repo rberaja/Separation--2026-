@@ -32,7 +32,7 @@ export function PropertyCard({ property: p }: { property: Property }) {
           type="text"
           placeholder="Property name"
           aria-label="Property name"
-          className="flex-1 bg-transparent border-0 outline-none text-text font-serif text-[0.86rem] font-medium placeholder:text-muted2"
+          className="flex-1 bg-transparent border-0 outline-none text-text font-serif text-[0.95rem] font-medium placeholder:text-muted2"
           value={p.name}
           onChange={(e) => dispatch({ type: 'property/update', id: p.id, patch: { name: e.target.value } })}
         />
@@ -135,7 +135,7 @@ export function PropertyCard({ property: p }: { property: Property }) {
 function Column({ label, last, children }: { label: string; last?: boolean; children: ReactNode }) {
   return (
     <div className={`px-3 py-2.5 ${last ? '' : 'lg:border-r border-border'}`}>
-      <div className="caption text-[0.56rem] tracking-[0.11em] font-bold mb-2">{label}</div>
+      <div className="caption text-[0.6rem] tracking-[0.11em] font-bold mb-2">{label}</div>
       {children}
     </div>
   );
@@ -145,13 +145,13 @@ function Field({ label, suffix, hint, children }: { label: string; suffix?: stri
   return (
     <>
       <label className="flex items-center justify-between gap-[5px] min-h-7 mb-[5px] last:mb-0">
-        <span className="flex-1 text-[0.69rem] text-text2 whitespace-nowrap">{label}</span>
+        <span className="flex-1 text-[0.75rem] text-text2 whitespace-nowrap">{label}</span>
         {children}
         {/* Fixed-width unit slot (even when empty) keeps every input's right edge aligned. */}
         <span className="font-mono text-muted text-[0.68rem] shrink-0 w-6">{suffix}</span>
       </label>
       {/* pr-6 matches the unit slot width so the hint's right edge lines up with the input, not the unit. */}
-      {hint && <div className="font-mono text-[0.54rem] text-muted2 text-right pr-6 -mt-[3px] mb-1">{hint}</div>}
+      {hint && <div className="font-mono text-[0.58rem] text-muted2 text-right pr-6 -mt-[3px] mb-1">{hint}</div>}
     </>
   );
 }
@@ -160,7 +160,7 @@ function Field({ label, suffix, hint, children }: { label: string; suffix?: stri
 function Strip({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex border-t border-border bg-surface2">
-      <div className="w-[120px] shrink-0 flex items-center justify-center text-center px-2 py-2 border-r border-border bg-border/30 caption text-[0.56rem] tracking-[0.1em] font-bold leading-snug">
+      <div className="w-[120px] shrink-0 flex items-center justify-center text-center px-2 py-2 border-r border-border bg-border/30 caption text-[0.66rem] tracking-[0.1em] font-bold leading-snug">
         {title}
       </div>
       <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">{children}</div>
@@ -171,8 +171,8 @@ function Strip({ title, children }: { title: string; children: ReactNode }) {
 function Cell({ label, tone, children }: { label: string; tone: Tone; children?: ReactNode }) {
   return (
     <div className="text-center border-r border-border last:border-r-0 px-[7px] py-2">
-      <div className="caption font-bold tracking-[0.09em] text-[0.52rem] mb-0.5">{label}</div>
-      <div className={`font-mono text-[0.84rem] font-bold ${toneClass(tone)}`}>{children}</div>
+      <div className="caption font-bold tracking-[0.09em] text-[0.62rem] mb-1">{label}</div>
+      <div className={`font-mono text-[1.045rem] font-bold ${toneClass(tone)}`}>{children}</div>
     </div>
   );
 }

@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Bundled fonts (self-hosted via @fontsource) so the tool renders identically on every machine —
+   DejaVu is what the v1.8 mockup was drawn with. Headings keep Georgia. */
+@import "@fontsource/dejavu-mono/latin-400.css";
+@import "@fontsource/dejavu-mono/latin-700.css";
+@import "@fontsource/dejavu-sans/latin-400.css";
+@import "@fontsource/dejavu-sans/latin-700.css";
+
 /* ═══════════════════════════════════════════════════════════════
    THEME TOKENS — switched by [data-theme] on <html>
 ═══════════════════════════════════════════════════════════════ */
@@ -60,9 +67,9 @@
 
 /* Expose the tokens to Tailwind as `bg-surface`, `text-muted`, `border-border`, `shadow-card`, … */
 @theme inline {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: "DejaVu Sans", "Segoe UI", system-ui, Arial, sans-serif;
   --font-serif: Georgia, 'Book Antiqua', Palatino, serif;
-  --font-mono: Consolas, 'Courier New', monospace;
+  --font-mono: "DejaVu Mono", "DejaVu Sans Mono", Consolas, "Courier New", monospace;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -140,7 +147,7 @@
 
   /* Property card numeric inputs */
   .field-input {
-    @apply bg-surface2 border-[1.5px] border-border rounded-[3px] text-text font-mono text-[0.77rem]
+    @apply bg-surface2 border-[1.5px] border-border rounded-[3px] text-text font-mono text-[0.82rem]
            px-1.5 py-[3px] text-right outline-none w-[94px] shrink-0 transition-colors duration-150
            focus:border-ink focus:bg-surface
            disabled:opacity-40 disabled:cursor-not-allowed;
@@ -150,7 +157,7 @@
   }
   .field-readonly {
     @apply bg-transparent border-[1.5px] border-dashed border-border rounded-[3px] text-text2 font-mono
-           text-[0.77rem] px-1.5 py-[3px] text-right w-16 shrink-0;
+           text-[0.82rem] px-1.5 py-[3px] text-right w-16 shrink-0;
   }
 
   /* Underlined inputs on the partner cards */
