@@ -61,7 +61,7 @@ export function Toolbar() {
 
       <Divider />
 
-      <span className="caption text-[0.6rem] whitespace-nowrap">Sort</span>
+      <span className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold whitespace-nowrap">Sort</span>
       {SORT_OPTIONS.map(({ key, label }) => {
         const active = state.sort.key === key;
         return (
@@ -72,14 +72,14 @@ export function Toolbar() {
             onClick={() => dispatch({ type: 'sort/set', key })}
           >
             <span>{label}</span>
-            <span className="text-[0.68rem]">{active && !state.sort.asc ? '↓' : '↑'}</span>
+            <span className="text-[0.75rem]">{active && !state.sort.asc ? '↓' : '↑'}</span>
           </button>
         );
       })}
 
       <Divider />
 
-      <span className={`ml-auto font-mono text-[0.63rem] ${STATUS_CLASS[state.upload.kind]}`} role="status">
+      <span className={`ml-auto font-mono text-[0.75rem] font-bold ${STATUS_CLASS[state.upload.kind]}`} role="status">
         {state.upload.message}
       </span>
 

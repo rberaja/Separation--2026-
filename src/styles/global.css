@@ -134,7 +134,7 @@
   /* Toolbar / section buttons */
   .tool-btn {
     @apply inline-flex items-center gap-1.5 bg-transparent border-[1.5px] border-border2 rounded-[3px]
-           font-mono text-[0.63rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer
+           font-mono text-[0.77rem] font-bold tracking-[0.05em] uppercase px-[11px] py-[5px] cursor-pointer
            text-text2 whitespace-nowrap transition-all duration-150
            hover:border-ink hover:text-ink;
   }
@@ -148,7 +148,7 @@
   /* Sort toggle buttons */
   .sort-btn {
     @apply inline-flex items-center gap-1 bg-transparent border-[1.5px] border-border rounded-[3px]
-           font-mono text-[0.61rem] tracking-[0.06em] px-[9px] py-1 cursor-pointer text-muted2
+           font-mono text-[0.75rem] font-bold tracking-[0.05em] px-[9px] py-1 cursor-pointer text-muted2
            whitespace-nowrap transition-all duration-150 hover:border-border2 hover:text-text2;
   }
   .sort-btn-active {
