@@ -120,10 +120,11 @@ export const COLUMNS: readonly ColumnSpec[] = [
     aliases: [],
   },
   {
-    key: 'remaining_basis', field: 'remainingBasis', width: 15,
-    description: 'Remaining depreciable tax basis ($)', notes: 'Optional',
-    instruction: 'Remaining depreciable tax basis ($)',
-    aliases: ['remaining basis', 'tax basis'],
+    key: 'residual_tax_basis', field: 'residualBasis', width: 17,
+    description: 'Residual (remaining depreciable) tax basis ($)', notes: 'Optional — feeds the Residual Tax Basis Tool',
+    instruction: 'Residual tax basis — remaining depreciable basis in dollars; feeds the Residual Tax Basis Tool',
+    // remaining_basis was the v7.5 header; remaining_tax_basis is the Field Reference name.
+    aliases: ['residual basis', 'residual_basis', 'remaining_tax_basis', 'remaining tax basis', 'remaining_basis', 'remaining basis', 'tax basis'],
   },
   {
     key: 'depreciation_2025', field: 'depreciation2025', width: 16,
@@ -156,4 +157,5 @@ export const META_COLUMNS = {
   partnerBName: 'partner_b_name',
   partnerAPct: 'partner_a_pct',
   discountRate: 'discount_rate',
+  cashEquiv: 'cash_equivalents',
 } as const;

@@ -6,8 +6,8 @@ const DR = 0.065;
 
 describe('computeSettlement', () => {
   const props = [
-    createProperty(1, { name: 'A1', assign: 'a', marketVal: 1000000, capex: 100000, noi: 60000, loanBal: 400000, loanRate: 5, loanTerm: 5, bidDiff: 10000, remainingBasis: 500000 }),
-    createProperty(2, { name: 'B1', assign: 'b', marketVal: 1500000, capex: 0, noi: 90000, loanBal: 600000, loanRate: 5, loanTerm: 5, bidDiff: -5000, remainingBasis: 700000 }),
+    createProperty(1, { name: 'A1', assign: 'a', marketVal: 1000000, capex: 100000, noi: 60000, loanBal: 400000, loanRate: 5, loanTerm: 5, bidDiff: 10000, residualBasis: 500000 }),
+    createProperty(2, { name: 'B1', assign: 'b', marketVal: 1500000, capex: 0, noi: 90000, loanBal: 600000, loanRate: 5, loanTerm: 5, bidDiff: -5000, residualBasis: 700000 }),
   ];
 
   it('sums per-partner totals', () => {
@@ -15,7 +15,7 @@ describe('computeSettlement', () => {
     expect(totals.a.marketVal).toBe(1000000);
     expect(totals.a.amv).toBe(900000);
     expect(totals.a.count).toBe(1);
-    expect(totals.a.remainingBasis).toBe(500000);
+    expect(totals.a.residualBasis).toBe(500000);
     expect(totals.a.bidDiff).toBe(10000);
     expect(totals.b.marketVal).toBe(1500000);
     expect(totals.b.count).toBe(1);
@@ -46,7 +46,7 @@ describe('computeSettlement', () => {
 
   it('totals only the settlement items (NPV Equity + Bid Difference), per White Paper §14.1', () => {
     const { gaps } = computeSettlement(props, DR, 0.4, 0);
-    expect(gaps.remainingBasis).not.toBe(0);
+    expect(gaps.residualBasis).not.toBe(0);
     expect(gaps.total).toBeCloseTo(gaps.npvEquity + gaps.bidDiff, 6);
   });
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useReducer, type Dispatch, type ReactNode } from 'react';
 import { nv } from '../lib/finance';
+import { buildReport, type Report } from '../lib/report';
 import { computeSettlement, type Settlement } from '../lib/settlement';
 import { sortProperties } from '../lib/sort';
 import type { Partner, Property } from '../lib/types';
@@ -66,5 +67,25 @@ export function usePartnerNames(): Record<Partner, string> {
       b: state.partnerNames.b || 'Partner B',
     }),
     [state.partnerNames],
+  );
+}
+
+/** The full report model (property schedule, totals, gaps, verdict) for the Excel and print exports. */
+export function useReport(): Report {
+  const { state } = useApp();
+  const settlement = useSettlement();
+  const partnerNames = usePartnerNames();
+  const { a: pctA } = useOwnership();
+  return useMemo(
+    () =>
+      buildReport({
+        properties: state.properties,
+        settlement,
+        partnerNames,
+        pctA,
+        discountRate: state.discountRate,
+        cashEquiv: nv(state.cashEquiv),
+      }),
+    [state.properties, settlement, partnerNames, pctA, state.discountRate, state.cashEquiv],
   );
 }

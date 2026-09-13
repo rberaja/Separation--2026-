@@ -1,14 +1,9 @@
 import type { ReactNode } from 'react';
 import { DASH, fmtMoney } from '../lib/format';
-import { isBalanced, type Gaps } from '../lib/settlement';
+import { GAP_LABELS, GAP_REFERENCE_ROWS, TAX, WHITE_PAPER_VERSION } from '../lib/labels';
+import { settlementSentence, splitLabel as fmtSplit } from '../lib/report';
+import { isBalanced } from '../lib/settlement';
 import { useApp, useOwnership, usePartnerNames, useSettlement } from '../store/AppContext';
-
-const REFERENCE_ROWS: readonly { label: string; key: keyof Omit<Gaps, 'total'> }[] = [
-  { label: 'Adj. Market Value', key: 'amv' },
-  { label: 'Debt Service', key: 'ads' },
-  { label: 'Net Cash Flow', key: 'ncf' },
-  { label: 'Remaining Tax Basis (shortfall)', key: 'remainingBasis' },
-];
 
 /* Type scale sampled from the v1.8 mockup's Gap Analysis table. */
 const METRIC_TEXT = 'font-mono text-[0.77rem] font-bold text-text';
@@ -27,15 +22,11 @@ export function SettlementLedger() {
   const share = useOwnership();
 
   const hasData = state.properties.length > 0;
-  const splitLabel = `${Math.round(share.a * 100)} / ${Math.round(share.b * 100)}`;
+  const splitLabel = fmtSplit(share.a);
 
-  const settlement = !hasData
-    ? 'Upload a file or add properties to see the settlement'
-    : isBalanced(gaps.total)
-      ? `Balanced at ${splitLabel} — no payment due`
-      : gaps.total > 0
-        ? `${names.b} pays ${names.a} ${fmtMoney(Math.abs(gaps.total))}`
-        : `${names.a} pays ${names.b} ${fmtMoney(Math.abs(gaps.total))}`;
+  const settlement = hasData
+    ? settlementSentence(gaps.total, names, share.a)
+    : 'Upload a file or add properties to see the settlement';
 
   return (
     <section className="card px-4 pt-3.5 pb-3">
@@ -46,44 +37,47 @@ export function SettlementLedger() {
         Every row nets to zero across the two columns.
       </p>
 
-      <GapBox title="Reference only — not part of the settlement" names={names}>
-        {REFERENCE_ROWS.map(({ label, key }) => (
+      <GapBox title={GAP_LABELS.referenceTitle} names={names}>
+        {GAP_REFERENCE_ROWS.map(({ label, key }) => (
           <GapRow key={key} label={label} gap={gaps[key]} />
         ))}
       </GapBox>
 
-      <GapBox title="Metrics used for settlement" names={names}>
-        <GapRow label="NPV Equity" gap={gaps.npvEquity} />
+      <GapBox title={GAP_LABELS.settlementTitle} names={names}>
+        <GapRow label={GAP_LABELS.npvEquity} gap={gaps.npvEquity} />
         <tr className="border-b border-border">
-          <td className={`${METRIC_TEXT} pl-1.5 py-2`}>Residual Basis True-Up</td>
+          <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
+            {GAP_LABELS.basisTrueUp}
+            <Tag>from {TAX.tool}</Tag>
+          </td>
           <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
           <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
         </tr>
-        <GapRow label="Bid Difference" gap={gaps.bidDiff} />
+        <GapRow label={GAP_LABELS.bidDiff} gap={gaps.bidDiff} />
         <tr className="border-b border-border">
           <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
-            Cash &amp; Equivalents
+            {GAP_LABELS.cash}
             <Tag>split {splitLabel}</Tag>
           </td>
           <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.a)}</td>
           <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.b)}</td>
         </tr>
-        <GapRow label="Total True-Up" gap={gaps.total} grand />
+        <GapRow label={GAP_LABELS.total} gap={gaps.total} grand />
       </GapBox>
 
       <div className="mt-3.5 rounded-[3px] bg-hdr-bg text-center px-4 py-3">
-        <div className="font-mono uppercase text-[0.66rem] tracking-[0.12em] text-[#aaaaaa] font-bold mb-1">Final Settlement</div>
+        <div className="font-mono uppercase text-[0.66rem] tracking-[0.12em] text-[#aaaaaa] font-bold mb-1">{GAP_LABELS.final}</div>
         <div className={`font-mono font-bold ${hasData ? 'text-[1.1rem] text-gold' : 'text-[0.8rem] text-hdr-muted'}`}>
           {settlement}
         </div>
       </div>
 
       <p className="font-serif italic text-[0.75rem] leading-snug text-muted2 mt-2.5">
-        Total True-Up = NPV Equity gap + Residual Basis True-Up + Bid Difference gap (White Paper §14.1); whichever
-        partner&rsquo;s total is negative pays the other. Cash &amp; Equivalents is split by ownership, so its gap is
-        zero. The Residual Basis True-Up (present value of lost depreciation) is calculated in the separate Tax Basis
-        Depreciation tool and must be added to the figure above. Debt Service is a burden, so in that reference row
-        carrying more than your share is what shows as positive.
+        Total True-Up = NPV Equity gap + {TAX.basisTrueUp} + Bid Difference gap (White Paper v{WHITE_PAPER_VERSION} §14.1);
+        whichever partner&rsquo;s total is negative pays the other. Cash &amp; Equivalents is split by ownership, so
+        its gap is zero. The {TAX.basisTrueUp} (present value of lost depreciation) is calculated in the separate{' '}
+        {TAX.tool} from the {TAX.basisShortfall} above and must be added to the figure shown. Debt Service is a burden,
+        so in that reference row carrying more than your share is what shows as positive.
       </p>
     </section>
   );

@@ -12,6 +12,7 @@ export interface ImportMeta {
   partnerBName?: string;
   partnerAPct?: number;
   discountRate?: number;
+  cashEquiv?: number;
 }
 
 export interface ImportResult {
@@ -63,10 +64,12 @@ function parseMeta(ws: XLSX.WorkSheet | undefined): ImportMeta {
     const nameB = r[META_COLUMNS.partnerBName];
     const pctA = parseNumber(r[META_COLUMNS.partnerAPct]);
     const dr = parseNumber(r[META_COLUMNS.discountRate]);
+    const cash = parseNumber(r[META_COLUMNS.cashEquiv]);
     if (nameA) meta.partnerAName = String(nameA);
     if (nameB) meta.partnerBName = String(nameB);
     if (pctA) meta.partnerAPct = pctA;
     if (dr) meta.discountRate = dr;
+    if (cash !== null) meta.cashEquiv = cash; // $0 is a real value, unlike a blank rate
   }
   return meta;
 }
@@ -112,8 +115,9 @@ const INSTRUCTION_NOTES: readonly string[][] = [
   ['Entered once in the tool header as a single portfolio-wide figure, not per property.'],
   ['Split directly by ownership percentage in the Settlement Ledger.'],
   [''],
-  ['BASIS TRUE-UP NOTE'],
-  ['Basis True-Up is calculated in the separate Tax Basis Depreciation tool, not here.'],
+  ['RESIDUAL BASIS TRUE-UP NOTE'],
+  ['The Residual Basis True-Up (PV of lost depreciation) is calculated in the separate Residual Tax Basis Tool, not here.'],
+  ["This tool only reports each partner's Residual Tax Basis Shortfall in basis dollars."],
 ];
 
 export function buildTemplateWorkbook(): XLSX.WorkBook {

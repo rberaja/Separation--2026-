@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { MarketRateBar } from './MarketRateBar';
 import { PartnerStrip } from './PartnerStrip';
 import { PartnerTotalsCard } from './PartnerTotalsCard';
+import { PrintReport } from './PrintReport';
 import { PropertyList } from './PropertyList';
 import { ProportionalityMeters } from './ProportionalityMeters';
 import { SettlementLedger } from './SettlementLedger';
@@ -19,10 +20,14 @@ export default function App() {
   return (
     <AppProvider>
       <ThemeSync />
-      <Header />
-      <Toolbar />
-      <MarketRateBar />
-      <Workspace />
+      {/* Everything on screen lives in #app-screen so the print stylesheet can swap it for the report. */}
+      <div id="app-screen">
+        <Header />
+        <Toolbar />
+        <MarketRateBar />
+        <Workspace />
+      </div>
+      <PrintReport />
     </AppProvider>
   );
 }

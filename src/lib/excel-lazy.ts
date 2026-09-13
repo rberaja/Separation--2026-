@@ -1,9 +1,16 @@
 /**
- * Lazy entry point for the Excel module. SheetJS is ~900 kB minified, so it is
- * split into its own chunk and only fetched the first time it is needed.
+ * Lazy entry points for the SheetJS-backed modules. SheetJS is ~900 kB minified, so it is
+ * only fetched when the user first uploads, downloads the template, or exports a report.
  */
+import type { Report } from './report';
+
 export const loadExcel = () => import('./excel');
+export const loadReportExcel = () => import('./report-excel');
 
 export async function downloadTemplate(): Promise<void> {
   (await loadExcel()).downloadTemplate();
+}
+
+export async function downloadReport(report: Report): Promise<void> {
+  (await loadReportExcel()).downloadReport(report);
 }

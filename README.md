@@ -5,7 +5,7 @@ the working tree — see git history, commit `aee465f`) as an Astro + React + Ty
 project. Same math, same layout, same Excel template — split into testable modules and
 reusable components.
 
-- `docs/` — field reference (every input, its source, and formula)
+- `docs/` — White Paper v6.10 (.docx + markdown extraction) and the field reference (every input, its source, and formula)
 - `images/` — the v1.8 mockup that guides the next round of features
 
 ## Stack
@@ -23,7 +23,7 @@ reusable components.
 ```sh
 npm install
 npm run dev        # http://localhost:4321
-npm run test       # vitest (finance parity, settlement, excel, sort)
+npm run test       # vitest (finance parity, settlement, excel, report, sort)
 npm run check      # astro check — TypeScript across .ts/.tsx/.astro
 npm run build      # static site → dist/
 npm run preview    # serve dist/
@@ -38,8 +38,11 @@ src/
     finance.ts         amortPmt, calcDebtNPV, calcADS, computeMetrics …
     settlement.ts      per-partner totals, gaps, cash split
     sort.ts            SORT_OPTIONS, sortProperties, nextSort
+    labels.ts          shared display vocabulary (partner-total rows, gap rows, tax-basis terms)
+    report.ts          Report model shared by the Excel and print exports
     columns.ts         single source of truth for Excel columns/aliases/template rows
     excel.ts           parseWorkbook, buildTemplateWorkbook, downloadTemplate
+    report-excel.ts    buildReportWorkbook, downloadReport (Properties / Summary / _meta)
     excel-lazy.ts      dynamic-import wrapper so SheetJS is only fetched on demand
     format.ts          fmtMoney, fmtPct, clamp
     constants.ts       APP_VERSION, defaults
@@ -48,9 +51,12 @@ src/
     AppContext.tsx     AppProvider, useApp, useSettlement, useSortedProperties …
   components/
     App.tsx            root island + theme sync
-    Header.tsx         title, discount rate, cash & equivalents, theme toggle
-    Toolbar.tsx        upload / column guide / template / clear / sort / status
+    Header.tsx         title, version, theme toggle
+    MarketRateBar.tsx  discount rate, cash & equivalents
+    Toolbar.tsx        upload / column guide / template / print-export / clear / sort / status
     ColumnGuideModal.tsx
+    ExportModal.tsx    Print / Export chooser (Excel workbook or PDF report)
+    PrintReport.tsx    print-only sign-off report (shown by the @media print rules)
     PartnerStrip.tsx   partner names + ownership % + split bar
     PropertyList.tsx   sorted cards or empty state
     PropertyCard.tsx   one property: inputs + computed strips

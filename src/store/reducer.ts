@@ -102,6 +102,7 @@ export function reducer(state: AppState, action: Action): AppState {
         },
         pctA: meta.partnerAPct !== undefined ? clamp(meta.partnerAPct, 1, 99) : state.pctA,
         discountRate: meta.discountRate ?? state.discountRate,
+        cashEquiv: meta.cashEquiv ?? state.cashEquiv,
         upload: {
           kind: 'ok',
           message: `✓ Loaded ${n} ${n === 1 ? 'property' : 'properties'} from ${action.fileName}`,

@@ -111,14 +111,14 @@ function calcLTV(prop) {
 function calcNPVEquity(prop) { return calcAMV(prop) - calcDebtNPV(prop); }
 function calcNCF(prop)       { return nv(prop.noi) - calcADS(prop); }
 var cases = [
-  { name:'123 Main St', marketVal:850000, capex:35000, noi:58000, monthlyPmt:39833.90, loanBal:420000, loanRate:3.25, amortPeriod:30, ioYears:0, loanTerm:7, bidDiff:15000, remainingBasis:610000 },
-  { name:'Sunset Plaza', marketVal:1200000, capex:80000, noi:84000, monthlyPmt:3200, loanBal:680000, loanRate:6.75, amortPeriod:30, ioYears:0, loanTerm:5, bidDiff:-8000, remainingBasis:860000 },
-  { name:'Oak Valley', marketVal:2100000, capex:120000, noi:148000, monthlyPmt:4500, loanBal:1050000, loanRate:4.5, amortPeriod:30, ioYears:3, loanTerm:10, bidDiff:0, remainingBasis:1520000 },
-  { name:'Harbor View', marketVal:950000, capex:55000, noi:62000, monthlyPmt:'', loanBal:310000, loanRate:7.10, amortPeriod:30, ioYears:0, loanTerm:5, bidDiff:22000, remainingBasis:640000 },
-  { name:'IO only, no term', marketVal:500000, capex:'', noi:30000, monthlyPmt:'', loanBal:200000, loanRate:5, amortPeriod:'', ioYears:2, loanTerm:'', bidDiff:'', remainingBasis:'' },
-  { name:'No loan', marketVal:400000, capex:10000, noi:25000, monthlyPmt:'', loanBal:'', loanRate:'', amortPeriod:30, ioYears:0, loanTerm:'', bidDiff:'', remainingBasis:'' },
-  { name:'No term info', marketVal:400000, capex:0, noi:25000, monthlyPmt:'', loanBal:150000, loanRate:6, amortPeriod:30, ioYears:0, loanTerm:0, bidDiff:'', remainingBasis:'' },
-  { name:'Zero rate', marketVal:600000, capex:0, noi:40000, monthlyPmt:'', loanBal:240000, loanRate:0, amortPeriod:20, ioYears:1, loanTerm:6, bidDiff:'', remainingBasis:'' },
+  { name:'123 Main St', marketVal:850000, capex:35000, noi:58000, monthlyPmt:39833.90, loanBal:420000, loanRate:3.25, amortPeriod:30, ioYears:0, loanTerm:7, bidDiff:15000, residualBasis:610000 },
+  { name:'Sunset Plaza', marketVal:1200000, capex:80000, noi:84000, monthlyPmt:3200, loanBal:680000, loanRate:6.75, amortPeriod:30, ioYears:0, loanTerm:5, bidDiff:-8000, residualBasis:860000 },
+  { name:'Oak Valley', marketVal:2100000, capex:120000, noi:148000, monthlyPmt:4500, loanBal:1050000, loanRate:4.5, amortPeriod:30, ioYears:3, loanTerm:10, bidDiff:0, residualBasis:1520000 },
+  { name:'Harbor View', marketVal:950000, capex:55000, noi:62000, monthlyPmt:'', loanBal:310000, loanRate:7.10, amortPeriod:30, ioYears:0, loanTerm:5, bidDiff:22000, residualBasis:640000 },
+  { name:'IO only, no term', marketVal:500000, capex:'', noi:30000, monthlyPmt:'', loanBal:200000, loanRate:5, amortPeriod:'', ioYears:2, loanTerm:'', bidDiff:'', residualBasis:'' },
+  { name:'No loan', marketVal:400000, capex:10000, noi:25000, monthlyPmt:'', loanBal:'', loanRate:'', amortPeriod:30, ioYears:0, loanTerm:'', bidDiff:'', residualBasis:'' },
+  { name:'No term info', marketVal:400000, capex:0, noi:25000, monthlyPmt:'', loanBal:150000, loanRate:6, amortPeriod:30, ioYears:0, loanTerm:0, bidDiff:'', residualBasis:'' },
+  { name:'Zero rate', marketVal:600000, capex:0, noi:40000, monthlyPmt:'', loanBal:240000, loanRate:0, amortPeriod:20, ioYears:1, loanTerm:6, bidDiff:'', residualBasis:'' },
 ];
 var out = [];
 [0.065, 0, 0.1].forEach(function(dr){ _dr = dr; cases.forEach(function(c){

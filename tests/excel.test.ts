@@ -51,6 +51,18 @@ describe('parseWorkbook', () => {
     expect(properties[0]).toMatchObject({ name: 'Alias Test', marketVal: 1250000, loanRate: 6.5, assign: 'b' });
   });
 
+  it('accepts every historical tax-basis header (v7.5 remaining_basis, Field Reference remaining_tax_basis)', () => {
+    for (const header of ['residual_tax_basis', 'remaining_tax_basis', 'remaining_basis', 'Remaining Tax Basis', 'Residual Basis']) {
+      const buf = workbookFromRows([{ name: 'X', market_value: 100, [header]: 4321 }]);
+      expect(parseWorkbook(buf).properties[0], header).toMatchObject({ residualBasis: 4321 });
+    }
+  });
+
+  it('reads cash & equivalents from _meta, including an explicit zero', () => {
+    const buf = workbookFromRows([{ name: 'X', market_value: 1 }], [{ cash_equivalents: 0 }]);
+    expect(parseWorkbook(buf).meta).toEqual({ cashEquiv: 0 });
+  });
+
   it('defaults amort period to 30 and keeps bid difference on unassigned rows', () => {
     const buf = workbookFromRows([{ name: 'X', market_value: 100, bid_difference: 500 }]);
     const [p] = parseWorkbook(buf).properties;

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { computeMetrics } from '../lib/finance';
 import { DASH, fmtMoney, fmtText } from '../lib/format';
+import { TAX } from '../lib/labels';
 import { PARTNERS, type NumericField, type Partner, type Property } from '../lib/types';
 import { useApp, useDiscountRate, usePartnerNames } from '../store/AppContext';
 import { NumberInput } from './ui/NumberInput';
@@ -123,8 +124,8 @@ export function PropertyCard({ property: p }: { property: Property }) {
         <Cell label="Next 40-Yr Certification" tone="neu">{fmtText(p.cert40yr)}</Cell>
         <Cell label="Zoning" tone="neu">{fmtText(p.zoning)}</Cell>
         <Cell label="" tone="neu" />
-        <Cell label="Remaining Tax Basis" tone="neu">{fmtMoney(p.remainingBasis ?? 0)}</Cell>
-        <Cell label="Depreciation 2025" tone="yel">{fmtMoney(p.depreciation2025 ?? 0)}</Cell>
+        <Cell label={TAX.residualBasis} tone="neu">{fmtMoney(p.residualBasis ?? 0)}</Cell>
+        <Cell label={TAX.depreciation} tone="yel">{fmtMoney(p.depreciation2025 ?? 0)}</Cell>
       </Strip>
     </article>
   );

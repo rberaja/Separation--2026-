@@ -4,7 +4,8 @@ import { SORT_OPTIONS } from '../lib/sort';
 import { useApp } from '../store/AppContext';
 import type { UploadKind } from '../store/reducer';
 import { ColumnGuideModal } from './ColumnGuideModal';
-import { DownloadIcon, InfoIcon, TrashIcon, UploadIcon } from './ui/Icons';
+import { ExportModal } from './ExportModal';
+import { DownloadIcon, InfoIcon, PrintIcon, TrashIcon, UploadIcon } from './ui/Icons';
 
 const STATUS_CLASS: Record<UploadKind, string> = {
   idle: 'text-muted',
@@ -18,6 +19,9 @@ export function Toolbar() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const closeGuide = useCallback(() => setGuideOpen(false), []);
+  const [exportOpen, setExportOpen] = useState(false);
+  const closeExport = useCallback(() => setExportOpen(false), []);
+  const hasData = state.properties.length > 0;
 
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
@@ -55,6 +59,15 @@ export function Toolbar() {
       <button type="button" className="tool-btn" onClick={() => void downloadTemplate()}>
         <DownloadIcon /> Download Template
       </button>
+      <button
+        type="button"
+        className="tool-btn disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border2 disabled:hover:text-text2"
+        disabled={!hasData}
+        title={hasData ? 'Print the sign-off report or export to Excel' : 'Add or upload properties first'}
+        onClick={() => setExportOpen(true)}
+      >
+        <PrintIcon /> Print / Export
+      </button>
       <button type="button" className="tool-btn tool-btn-danger" onClick={clearAll}>
         <TrashIcon /> Clear All
       </button>
@@ -84,6 +97,7 @@ export function Toolbar() {
       </span>
 
       <ColumnGuideModal open={guideOpen} onClose={closeGuide} />
+      <ExportModal open={exportOpen} onClose={closeExport} />
     </div>
   );
 }
