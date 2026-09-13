@@ -74,7 +74,7 @@ export function SettlementLedger() {
         </div>
         {hasData && !complete && (
           <div className="font-mono text-[0.66rem] tracking-[0.05em] text-red mt-1.5">
-            Provisional — {unassigned.count} {unassigned.count === 1 ? 'property' : 'properties'} unassigned ({fmtMoney(unassigned.npvEquity)} NPV Equity not yet in the split)
+            Provisional — {unassigned.count} {unassigned.count === 1 ? 'property' : 'properties'} unassigned
           </div>
         )}
       </div>

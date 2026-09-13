@@ -8,7 +8,7 @@ import { APP_VERSION } from './constants';
 import { computeMetrics, nv, type PropertyMetrics } from './finance';
 import { fmtMoney } from './format';
 import { GAP_LABELS, GAP_REFERENCE_ROWS, PARTNER_TOTAL_GROUPS, TAX, WHITE_PAPER_VERSION, depreciationLabel } from './labels';
-import { isBalanced, type Settlement } from './settlement';
+import { isBalanced, type PartnerTotals, type Settlement } from './settlement';
 import type { Assignment, Partner, Property } from './types';
 
 export type CellKind = 'text' | 'money' | 'pct' | 'num';
@@ -123,7 +123,7 @@ export interface Report {
   finalSettlement: string;
   /** False while any property is unassigned; the verdict is then provisional. */
   complete: boolean;
-  unassigned: { count: number; amv: number; npvEquity: number };
+  unassigned: PartnerTotals;
   notes: string[];
 }
 

@@ -72,7 +72,7 @@ describe('computeSettlement', () => {
     );
     expect(totals.a.count).toBe(1);
     expect(totals.b.count).toBe(1);
-    expect(unassigned).toEqual({ count: 1, amv: 950000, npvEquity: 950000 });
+    expect(unassigned).toMatchObject({ count: 1, marketVal: 1000000, amv: 950000, npvEquity: 950000 });
     expect(complete).toBe(false);
     // Gaps are identical to the two-property case: the loose property is not in the portfolio yet.
     expect(gaps).toEqual(computeSettlement(props, DR, 0.4, 0).gaps);

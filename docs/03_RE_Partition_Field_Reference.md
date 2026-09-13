@@ -18,7 +18,7 @@
 | 3 | Assign | **assign** | ↑ Uploaded | | "A" or "B" — which partner receives this property. Controls partner panel totals and proportionality meters. |
 | 4 | Market Discount Rate | **discount_rate** | Tool input | Y | Set once in the tool header. Applied to every property's loan to compute Debt NPV. Represents today's market rate for comparable debt. |
 | 5 | Cash & Cash Equivalents | **cash_equivalents** | ↑ Uploaded (`_meta` sheet) / Tool input | Y | Portfolio-wide cash and cash equivalents entered once in the settings row, or read from the `_meta` sheet on import. Split by ownership % in the settlement (row 63). |
-| 6 | Unassigned | *unassigned* | Calculated | N | Read-only count (and Adj. Net Value) of properties not yet assigned to Partner A or B. Unassigned properties belong to neither partner: they are left out of both partners' totals and of the portfolio total the proportional targets are taken from, so the gaps describe only the assigned portion. While the count is above zero the Final Settlement is marked *Provisional*; assign every property to complete the split. |
+| 6 | Unassigned Properties | *unassigned* | Calculated | N | Read-only count of properties not yet assigned to Partner A or B, shown beside Cash & Equivalents (red while above zero). Unassigned properties belong to neither partner: they are left out of both partners' totals and of the portfolio total the proportional targets are taken from, so the gaps describe only the assigned portion. Their dollar totals appear as the grey middle segment of each Proportionality bar (rows 48–52). While the count is above zero the Final Settlement is marked *Provisional*; assign every property to complete the split. |
 
 ## PROPERTY CARD
 
@@ -90,7 +90,7 @@
 
 ### Proportionality vs Target
 
-*Section C of the tool. Each bar shows how the portfolio total for a metric is actually divided between the partners (orange = Partner A's actual share, blue = Partner B's). The tick marks the target split (ownership %). These bars are a visual check only — the dollar gaps and the settlement are in the Gap Analysis section below.*
+*Section C of the tool. Each bar shows how the portfolio total for a metric is actually divided (orange = Partner A's actual share on the left, grey = unassigned in the middle, blue = Partner B's on the right), with the three amounts printed above it as A / Unassigned / B. The tick marks the target split (ownership %); once every property is assigned the grey segment disappears and the orange edge should meet the tick. These bars are a visual check only — the dollar gaps and the settlement are in the Gap Analysis section below.*
 
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|

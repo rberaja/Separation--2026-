@@ -32,19 +32,13 @@ export interface Gaps {
   total: number;
 }
 
-/** Properties not yet assigned to either partner — outside the split until they are. */
-export interface Unassigned {
-  count: number;
-  amv: number;
-  npvEquity: number;
-}
-
 export interface Settlement {
   totals: Record<Partner, PartnerTotals>;
   gaps: Gaps;
   /** Cash & equivalents split by ownership percentage. */
   cash: Record<Partner, number>;
-  unassigned: Unassigned;
+  /** Properties not yet assigned to either partner — outside the split until they are. */
+  unassigned: PartnerTotals;
   /** True while every property is assigned; otherwise the settlement is provisional. */
   complete: boolean;
 }
@@ -75,19 +69,13 @@ export function computeSettlement(
   cashEquiv: number,
 ): Settlement {
   const totals: Record<Partner, PartnerTotals> = { a: emptyTotals(), b: emptyTotals() };
-  const unassigned: Unassigned = { count: 0, amv: 0, npvEquity: 0 };
+  // An unassigned property belongs to neither partner (v7.5 silently gave it to B); it is
+  // tallied separately and left out of the portfolio the targets are taken from.
+  const unassigned = emptyTotals();
 
   for (const p of properties) {
     const m = computeMetrics(p, discountRate);
-    // An unassigned property belongs to neither partner (v7.5 silently gave it to B);
-    // it is left out of both totals and of the portfolio the targets are taken from.
-    if (p.assign === 'none') {
-      unassigned.count += 1;
-      unassigned.amv += m.amv;
-      unassigned.npvEquity += m.npvEquity;
-      continue;
-    }
-    const t = totals[p.assign];
+    const t = p.assign === 'none' ? unassigned : totals[p.assign];
     t.marketVal += nv(p.marketVal);
     t.capex += nv(p.capex);
     t.amv += m.amv;

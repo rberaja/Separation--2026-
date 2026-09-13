@@ -37,7 +37,7 @@ export function PartnerStrip() {
                   dispatch({ type: 'partner/setPctA', value: v === null ? null : partner === 'a' ? v : 100 - v })
                 }
               />
-              <Term term="targetSplit" className="font-mono text-muted text-[0.8rem]">% ownership</Term>
+              <Term term="targetSplit" className="font-mono text-muted text-[0.8rem]">%</Term>
             </div>
           </div>
         ))}

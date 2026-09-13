@@ -23,7 +23,7 @@ const METERS: readonly MeterSpec[] = [
 
 /** Side-by-side A/B share bars with a tick at the target ownership split. */
 export function ProportionalityMeters() {
-  const { totals } = useSettlement();
+  const { totals, unassigned } = useSettlement();
   const share = useOwnership();
   const names = usePartnerNames();
   const pctA = Math.round(share.a * 100);
@@ -37,27 +37,39 @@ export function ProportionalityMeters() {
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[0.7rem] text-muted2 font-bold mb-3.5">
         <LegendItem swatch="bg-a">{names.a} (actual share)</LegendItem>
+        <LegendItem swatch="bg-border2">Unassigned</LegendItem>
         <LegendItem swatch="bg-b">{names.b} (actual share)</LegendItem>
         <LegendItem swatch="bg-ink w-[2px]"><Term term="targetSplit">Target split (tick)</Term></LegendItem>
       </div>
 
       {METERS.map(({ label, key, floorZero, ref }) => {
         const a = floorZero ? Math.max(0, totals.a[key]) : totals.a[key];
+        const u = floorZero ? Math.max(0, unassigned[key]) : unassigned[key];
         const b = floorZero ? Math.max(0, totals.b[key]) : totals.b[key];
-        const total = a + b;
-        const shareA = total > 0 ? (a / total) * 100 : 0;
-        const shareB = total > 0 ? (b / total) * 100 : 0;
+        const total = a + u + b;
+        const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0);
+        const shareA = pct(a);
+        const shareU = pct(u);
+        const shareB = pct(b);
 
         return (
           <div key={key} className="mb-[13px] last:mb-0">
-            <div className="flex justify-between items-baseline mb-[5px]">
+            {/* Three amounts rarely fit beside the label in the aside; let them drop to their own line, right-aligned. */}
+            <div className="flex flex-wrap justify-between items-baseline gap-x-3 mb-[5px]">
               <Term term={ref} className="font-mono text-[0.77rem] uppercase tracking-[0.04em] text-text font-bold">{label}</Term>
-              <span className="font-mono text-[0.75rem] text-muted2 font-bold">
-                {fmtMoney(a)} / {fmtMoney(b)}
+              <span className="ml-auto font-mono text-[0.75rem] text-muted2 font-bold whitespace-nowrap">
+                <span className="text-a">{fmtMoney(a)}</span> / <span className="text-muted">{fmtMoney(u)}</span> /{' '}
+                <span className="text-b">{fmtMoney(b)}</span>
               </span>
             </div>
-            <div className="relative h-[6px] bg-border rounded-[3px]" role="img" aria-label={`${label}: A ${shareA.toFixed(0)}%, B ${shareB.toFixed(0)}%`}>
+            <div
+              className="relative h-[6px] bg-border rounded-[3px]"
+              role="img"
+              aria-label={`${label}: A ${shareA.toFixed(0)}%, unassigned ${shareU.toFixed(0)}%, B ${shareB.toFixed(0)}%`}
+            >
+              {/* A grows from the left, B from the right; whatever is unassigned sits in the middle in grey. */}
               <div className="absolute left-0 top-0 h-full bg-a rounded-l-[3px] transition-[width] duration-300" style={{ width: `${shareA}%` }} />
+              <div className="absolute top-0 h-full bg-border2 transition-[left,width] duration-300" style={{ left: `${shareA}%`, width: `${shareU}%` }} />
               <div className="absolute right-0 top-0 h-full bg-b rounded-r-[3px] transition-[width] duration-300" style={{ width: `${shareB}%` }} />
               <div className="absolute -top-[3px] -ml-px w-[2px] h-[12px] bg-ink transition-[left] duration-300" style={{ left: `${share.a * 100}%` }} />
             </div>
@@ -67,8 +79,8 @@ export function ProportionalityMeters() {
 
       <p className="font-serif italic text-[0.75rem] leading-snug text-muted2 mt-3.5">
         The tick marks the target split for each bar — {pctA}% for the {pctA}/{pctB} ownership stake. Orange fill is{' '}
-        {names.a}&rsquo;s actual share of the bar; the blue remainder is {names.b}&rsquo;s. Where the orange edge lands
-        relative to the tick shows the gap at a glance.
+        {names.a}&rsquo;s actual share of the bar, blue is {names.b}&rsquo;s, and grey in the middle is what is still
+        unassigned. When every property is placed the grey disappears and the orange edge meets the tick.
       </p>
     </section>
   );
