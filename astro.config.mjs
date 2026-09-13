@@ -9,6 +9,9 @@ export default defineConfig({
   integrations: [react()],
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    // SheetJS is only imported lazily (first Excel click). Pre-bundle it up front so the dev server
+    // never has to re-optimise mid-session, which surfaced as "504 Outdated Optimize Dep" on click.
+    optimizeDeps: { include: ['xlsx'] }
   }
 });

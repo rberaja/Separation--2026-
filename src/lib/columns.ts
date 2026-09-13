@@ -24,6 +24,7 @@ export interface ColumnSpec {
 }
 
 export const COLUMNS: readonly ColumnSpec[] = [
+  // ── Identity ──
   {
     key: 'name', field: 'name', width: 24,
     description: 'Property name', notes: 'Required',
@@ -31,10 +32,23 @@ export const COLUMNS: readonly ColumnSpec[] = [
     aliases: ['property', 'property name'],
   },
   {
+    key: 'assign', field: 'assign', width: 8,
+    description: 'Partner assignment', notes: '"a" or "b"',
+    instruction: '"a" or "b" — which partner receives this property',
+    aliases: ['assigned to', 'partner'],
+  },
+  // ── Property section (card order) ──
+  {
     key: 'market_value', field: 'marketVal', width: 14,
     description: 'Appraised market value ($)', notes: 'Required',
     instruction: 'Appraised market value in dollars (required)',
     aliases: ['market value', 'value', 'appraised value'],
+  },
+  {
+    key: 'bid_difference', field: 'bidDiff', width: 14,
+    description: 'Winning bid − agreed market value ($)', notes: 'Only applies once assigned',
+    instruction: 'Winning bid minus agreed market value ($) — only meaningful once a property is assigned',
+    aliases: ['bid difference', 'bid diff'],
   },
   {
     key: 'deferred_capex', field: 'capex', width: 15,
@@ -49,11 +63,12 @@ export const COLUMNS: readonly ColumnSpec[] = [
     aliases: ['noi / yr', 'noi/yr', 'net operating income'],
   },
   {
-    key: 'monthly_payment', field: 'monthlyPmt', width: 15,
-    description: 'Contractual monthly P&I from bank statement ($)', notes: 'Overrides computed — recommended',
-    instruction: 'Contractual monthly P&I from bank statement — overrides computed payment',
-    aliases: ['monthly payment', 'monthly p&i', 'monthly p and i', 'p&i payment', 'monthly pmt'],
+    key: 'occupancy_actual_pct', field: 'occupancyPct', width: 19,
+    description: 'Occupancy Actual — current actual occupancy as a percentage', notes: 'e.g. 91.5 for 91.5%',
+    instruction: 'Occupancy Actual — current actual occupancy as a percentage (e.g. 91.5 for 91.5%)',
+    aliases: ['occupancy actual', 'occupancy_pct', 'occupancy', 'occupancy actual %'],
   },
+  // ── Loan section ──
   {
     key: 'loan_balance', field: 'loanBal', width: 14,
     description: 'Outstanding loan principal ($)', notes: 'Optional',
@@ -72,6 +87,7 @@ export const COLUMNS: readonly ColumnSpec[] = [
     instruction: 'Amortization schedule length in years — drives P&I payment size (typically 30)',
     aliases: ['amort period', 'amortization period', 'amort schedule'],
   },
+  // ── Principal & Interest section ──
   {
     key: 'io_years', field: 'ioYears', width: 10,
     description: 'Remaining interest-only period (yrs)', notes: '0 = no IO',
@@ -85,16 +101,23 @@ export const COLUMNS: readonly ColumnSpec[] = [
     aliases: ['loan term', 'residual_loan_term', 'residual loan term', 'term', 'years to balloon', 'years to reset', 'amort_years', 'amort years'],
   },
   {
-    key: 'assign', field: 'assign', width: 8,
-    description: 'Partner assignment', notes: '"a" or "b"',
-    instruction: '"a" or "b" — which partner receives this property',
-    aliases: ['assigned to', 'partner'],
+    key: 'monthly_payment', field: 'monthlyPmt', width: 15,
+    description: 'Contractual monthly P&I from bank statement ($)', notes: 'Overrides computed — recommended',
+    instruction: 'Contractual monthly P&I from bank statement — overrides computed payment',
+    aliases: ['monthly payment', 'monthly p&i', 'monthly p and i', 'p&i payment', 'monthly pmt'],
+  },
+  // ── Tax and Compliance row ──
+  {
+    key: 'next_40yr_certification', field: 'cert40yr', width: 22,
+    description: 'Year next 40-yr recertification is due', notes: 'Display only',
+    instruction: 'Year the next 40-yr recertification is due — display only',
+    aliases: ['next 40yr certification', 'next 40-yr certification', '40 year certification', 'certification year'],
   },
   {
-    key: 'occupancy_actual_pct', field: 'occupancyPct', width: 19,
-    description: 'Occupancy Actual — current actual occupancy as a percentage', notes: 'e.g. 91.5 for 91.5%',
-    instruction: 'Occupancy Actual — current actual occupancy as a percentage (e.g. 91.5 for 91.5%)',
-    aliases: ['occupancy actual', 'occupancy_pct', 'occupancy', 'occupancy actual %'],
+    key: 'zoning', field: 'zoning', width: 10,
+    description: 'Zoning designation (e.g. RM-24)', notes: 'Display only',
+    instruction: 'Zoning designation (e.g. RM-24) — display only',
+    aliases: [],
   },
   {
     key: 'remaining_basis', field: 'remainingBasis', width: 15,
@@ -107,24 +130,6 @@ export const COLUMNS: readonly ColumnSpec[] = [
     description: 'Annual depreciation expense, tax year 2025 ($)', notes: 'Optional',
     instruction: 'Annual depreciation expense, tax year 2025 ($)',
     aliases: ['depreciation 2025', 'depreciation'],
-  },
-  {
-    key: 'bid_difference', field: 'bidDiff', width: 14,
-    description: 'Winning bid − agreed market value ($)', notes: 'Only applies once assigned',
-    instruction: 'Winning bid minus agreed market value ($) — only meaningful once a property is assigned',
-    aliases: ['bid difference', 'bid diff'],
-  },
-  {
-    key: 'zoning', field: 'zoning', width: 10,
-    description: 'Zoning designation (e.g. RM-24)', notes: 'Display only',
-    instruction: 'Zoning designation (e.g. RM-24) — display only',
-    aliases: [],
-  },
-  {
-    key: 'next_40yr_certification', field: 'cert40yr', width: 22,
-    description: 'Year next 40-yr recertification is due', notes: 'Display only',
-    instruction: 'Year the next 40-yr recertification is due — display only',
-    aliases: ['next 40yr certification', 'next 40-yr certification', '40 year certification', 'certification year'],
   },
 ];
 
@@ -139,10 +144,10 @@ export function normalizeHeader(h: unknown): string {
 
 /** Example rows for the template, in COLUMNS order. */
 export const TEMPLATE_EXAMPLES: readonly (string | number)[][] = [
-  ['123 Main St',        850000,  35000,  58000,  1827.87, 420000,  3.25, 30, 0, 7,  'a', 85.0, 610000,  28000, 15000,  'RM-24', 2031],
-  ['Sunset Plaza',       1200000, 80000,  84000,  3200,    680000,  6.75, 30, 0, 5,  'b', 91.5, 860000,  41000, -8000,  'RM-24', 2028],
-  ['Oak Valley Apts',    2100000, 120000, 148000, 4500,    1050000, 4.50, 30, 3, 10, 'b', 88.0, 1520000, 76000, 0,      'RM-24', 2033],
-  ['Harbor View Office', 950000,  55000,  62000,  1800,    310000,  7.10, 30, 0, 5,  'a', 93.0, 640000,  30000, 22000,  'BU-1',  2029],
+  ['123 Main St', 'a', 850000, 15000, 35000, 58000, 85, 420000, 3.25, 30, 0, 7, 1827.87, 2031, 'RM-24', 610000, 28000],
+  ['Sunset Plaza', 'b', 1200000, -8000, 80000, 84000, 91.5, 680000, 6.75, 30, 0, 5, 3200, 2028, 'RM-24', 860000, 41000],
+  ['Oak Valley Apts', 'b', 2100000, 0, 120000, 148000, 88, 1050000, 4.5, 30, 3, 10, 4500, 2033, 'RM-24', 1520000, 76000],
+  ['Harbor View Office', 'a', 950000, 22000, 55000, 62000, 93, 310000, 7.1, 30, 0, 5, 1800, 2029, 'BU-1', 640000, 30000],
 ];
 
 /** Optional `_meta` sheet columns that seed the header/partner settings on import. */
