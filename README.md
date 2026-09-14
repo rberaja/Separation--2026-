@@ -5,7 +5,7 @@ the working tree — see git history, commit `aee465f`) as an Astro + React + Ty
 project. Same math, same layout, same Excel template — split into testable modules and
 reusable components.
 
-- `docs/` — White Paper v6.10 (.docx + markdown extraction) and the field reference (every input, its source, and formula)
+- `Separation Project Docs/` — White Paper v6.10 (.docx + markdown extraction) and the field reference (every input, its source, and formula)
 - `images/` — the v1.8 mockup that guides the next round of features
 
 ## Stack
@@ -40,7 +40,7 @@ src/
     sort.ts            SORT_OPTIONS, sortProperties, nextSort
     workspaces.ts      the top-level pages and their URL hashes
     labels.ts          shared display vocabulary (partner-total rows, gap rows, tax-basis terms)
-    glossary.ts        tooltip text parsed from docs/03_RE_Partition_Field_Reference.md (?raw import)
+    glossary.ts        tooltip text parsed from Separation Project Docs/03_RE_Partition_Field_Reference.md (?raw import)
     report.ts          Report model shared by the Excel and print exports
     columns.ts         single source of truth for Excel columns/aliases/template rows
     excel.ts           parseWorkbook, buildTemplateWorkbook, downloadTemplate

@@ -3,7 +3,7 @@
  * definitions users hover over are literally the document's text. Rows are
  * addressed by their `#` column, which the Field Reference keeps stable.
  */
-import fieldReference from '../../docs/03_RE_Partition_Field_Reference.md?raw';
+import fieldReference from '../../Separation Project Docs/03_RE_Partition_Field_Reference.md?raw';
 
 export interface GlossaryEntry {
   row: number;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIELD_REFERENCE_VERSION, GLOSSARY, REF } from '../src/lib/glossary';
 
-describe('glossary (parsed from docs/03_RE_Partition_Field_Reference.md)', () => {
+describe('glossary (parsed from Separation Project Docs/03_RE_Partition_Field_Reference.md)', () => {
   it('reads the document version', () => {
     expect(FIELD_REFERENCE_VERSION).toMatch(/^\d+\.\d+$/);
   });

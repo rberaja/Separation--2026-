@@ -25,7 +25,7 @@ export const WORKSPACES: readonly Workspace[] = [
   },
   {
     id: 'depreciation',
-    label: 'Remaining Depreciation',
+    label: 'Data',
     hash: '#remaining-depreciation',
     description:
       'Capture each property’s remaining depreciation schedule and convert the Basis Shortfall into the Basis True-Up.',
