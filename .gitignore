@@ -22,3 +22,8 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# private documents (tax returns, workbooks) live in SharePoint, never in Git
+*.pdf
+*.xlsx
+!tests/fixtures/*
