@@ -119,3 +119,19 @@ export function parseGroupsWorkbook(data: ArrayBuffer): GroupsImportResult {
   if (!groups.size && individualProperties.length === 0) throw new GroupsImportError('No property rows were found in the workbook.');
   return { groups: [...groups.values()], individualProperties };
 }
+
+export type DepreciationExportRow = { group: string; property: string; entity: string; source: string; schedules: readonly { label: string; method: string; basis: number; recoveryPeriod: string; yearsLeft: number; annual: number }[] };
+
+/** Flatten the Remaining Depreciation view—one line per depreciable section—into a single sheet. */
+export function downloadDepreciationWorkbook(taxYear: number, rows: readonly DepreciationExportRow[]): void {
+  const workbook = XLSX.utils.book_new();
+  const body = rows.flatMap((row) => row.schedules.map((item) => [row.group, row.property, row.entity, row.source, item.label, item.method, item.basis, item.recoveryPeriod, item.yearsLeft || '', item.annual]));
+  const sheet = XLSX.utils.aoa_to_sheet([
+    [`Remaining Tax Basis and Depreciation - Tax Year ${taxYear}`],
+    ['Group', 'Property', 'Entity', 'Source', 'Depreciable Section', 'Method', 'Basis Left', 'Recovery Period', 'Est. Years Left', `${taxYear} Deduction`],
+    ...body,
+  ]);
+  sheet['!cols'] = [24, 30, 26, 22, 28, 20, 14, 16, 14, 16].map((wch) => ({ wch }));
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Remaining Depreciation');
+  XLSX.writeFile(workbook, `Remaining Depreciation ${taxYear}.xlsx`);
+}

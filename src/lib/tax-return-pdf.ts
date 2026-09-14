@@ -22,6 +22,14 @@ export interface ExtractedPropertySchedule {
   schedules: ExtractedComponent[];
 }
 
+export interface ExtractionProgress {
+  file: string;
+  fileIndex: number;
+  fileCount: number;
+  page: number;
+  pageCount: number;
+}
+
 export interface TaxReturnExtraction {
   schedules: ExtractedPropertySchedule[];
   sourceFiles: string[];
@@ -129,16 +137,19 @@ function combineAssets(assets: ParsedAsset[]): ExtractedComponent[] {
 }
 
 /** Extracts Form 8825 depreciation-detail pages from a text-based partnership return PDF. */
-export async function extractTaxReturnSchedules(files: File[]): Promise<TaxReturnExtraction> {
+export async function extractTaxReturnSchedules(files: File[], onProgress?: (progress: ExtractionProgress) => void): Promise<TaxReturnExtraction> {
   const schedules = new Map<string, { property: string; entity: string; source: string; assets: ParsedAsset[] }>();
   const warnings: string[] = [];
 
-  for (const file of files) {
+  for (const [fileIndex, file] of files.entries()) {
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await getDocument({ data }).promise;
     let detailPages = 0;
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      onProgress?.({ file: file.name, fileIndex: fileIndex + 1, fileCount: files.length, page: pageNumber, pageCount: pdf.numPages });
+      // Yield to the browser so the progress indicator can repaint between pages.
+      await new Promise((resolve) => setTimeout(resolve, 0));
       const page = await pdf.getPage(pageNumber);
       const textContent = await page.getTextContent();
       const items = textContent.items

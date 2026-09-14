@@ -1,6 +1,6 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import type { GroupMember } from '../lib/groups-excel';
-import type { ExtractedMethod } from '../lib/tax-return-pdf';
+import type { ExtractedMethod, ExtractionProgress } from '../lib/tax-return-pdf';
 import { useApp } from '../store/AppContext';
 
 type ScheduleItem = { id: string; label: string; method: ExtractedMethod; basis: number; recoveryPeriod: string; yearsLeft: number; annual: number };
@@ -8,9 +8,25 @@ type PropertySchedule = { id: string; property: string; entity: string; source: 
 type DealGroup = { id: string; name: string; members: GroupMember[] };
 type Tab = 'groups' | 'data';
 type GroupsSortKey = 'name' | 'zoning' | 'cert40yr';
+type GroupWorkbook = { name: string; individualProperties: GroupMember[] };
+type PersistedState = { taxYear: number; groups: DealGroup[]; groupWorkbook: GroupWorkbook | null; properties: PropertySchedule[]; documents: string[]; warnings: string[] };
+
+/** Imported Groups and tax-return data survive tab switches and reloads until the user clears them. */
+const STORAGE_KEY = 'separation.taxBasis.v1';
+function loadPersisted(): PersistedState | null {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as Partial<PersistedState>;
+    if (!Array.isArray(saved.groups) || !Array.isArray(saved.properties)) return null;
+    return { taxYear: Number(saved.taxYear) || new Date().getFullYear() - 1, groups: saved.groups, groupWorkbook: saved.groupWorkbook ?? null, properties: saved.properties, documents: saved.documents ?? [], warnings: saved.warnings ?? [] };
+  } catch { return null; }
+}
+function savePersisted(state: PersistedState) { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* storage unavailable (private window, quota) — keep working in memory */ } }
 
 let nextLocalId = 1;
 const makeId = (kind: string) => `${kind}-${nextLocalId++}`;
+const reserveIds = (ids: string[]) => { for (const id of ids) { const n = Number(id.split('-').pop()); if (Number.isFinite(n) && n >= nextLocalId) nextLocalId = n + 1; } };
 const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 const numeric = (value: string) => Math.max(0, Number(value.replace(/[^\d.]/g, '')) || 0);
 const totals = (properties: PropertySchedule[]) => ({ basis: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.basis, 0), 0), depreciation: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.annual, 0), 0) });
@@ -51,17 +67,34 @@ export function TaxBasisMockup() {
   const [taxYear, setTaxYear] = useState(state.depreciationYear);
   const [properties, setProperties] = useState<PropertySchedule[]>([]);
   const [groups, setGroups] = useState<DealGroup[]>([]);
-  const [groupWorkbook, setGroupWorkbook] = useState<{ name: string; individualProperties: GroupMember[] } | null>(null);
+  const [groupWorkbook, setGroupWorkbook] = useState<GroupWorkbook | null>(null);
   const [documents, setDocuments] = useState<string[]>([]);
   const [notice, setNotice] = useState('Set up deal groups, then upload the partnership tax returns.');
   const [warnings, setWarnings] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<ExtractionProgress | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [restored, setRestored] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [collapsedProperties, setCollapsedProperties] = useState<Set<string>>(new Set());
   const [groupsSort, setGroupsSort] = useState<{ key: GroupsSortKey; asc: boolean }>({ key: 'name', asc: true });
   const [groupsOutputOpen, setGroupsOutputOpen] = useState(false);
+  const [dataOutputOpen, setDataOutputOpen] = useState(false);
+  const [dataSortAsc, setDataSortAsc] = useState(true);
   const returnFileRef = useRef<HTMLInputElement>(null);
   const groupsFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const saved = loadPersisted();
+    if (saved) {
+      reserveIds([...saved.groups.map((group) => group.id), ...saved.properties.flatMap((property) => [property.id, ...property.schedules.map((item) => item.id)])]);
+      setTaxYear(saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents); setWarnings(saved.warnings);
+      const restoredParts = [saved.groups.length ? `${saved.groups.length} groups${saved.groupWorkbook ? ` from ${saved.groupWorkbook.name}` : ''}` : '', saved.properties.length ? `${saved.properties.length} property ${saved.properties.length === 1 ? 'schedule' : 'schedules'}` : ''].filter(Boolean);
+      if (restoredParts.length) setNotice(`Restored ${restoredParts.join(' and ')}. Use Clear All to start over.`);
+    }
+    setRestored(true);
+  }, []);
+  useEffect(() => { if (restored) savePersisted({ taxYear, groups, groupWorkbook, properties, documents, warnings }); }, [restored, taxYear, groups, groupWorkbook, properties, documents, warnings]);
 
   const updateProperty = (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => setProperties((current) => current.map((property) => property.id === id ? { ...property, ...patch } : property));
   const updateComponent = (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => setProperties((current) => current.map((property) => property.id === propertyId ? { ...property, schedules: property.schedules.map((component) => component.id === componentId ? { ...component, ...patch } : component) } : property));
@@ -82,20 +115,40 @@ export function TaxBasisMockup() {
     } catch (error) { setNotice(`Could not read the Groups workbook: ${error instanceof Error ? error.message : String(error)}`); }
   };
 
-  const handleFiles = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.currentTarget.files ?? []);
-    event.currentTarget.value = '';
-    if (!files.length) return;
-    setIsImporting(true); setWarnings([]); setNotice(`Reading ${files.length} tax ${files.length === 1 ? 'return' : 'returns'} locally…`);
+  const importReturns = async (files: File[]) => {
+    if (!files.length || isImporting) return;
+    setIsImporting(true); setImportProgress(null); setActiveTab('data'); setNotice(`Reading ${files.length} tax ${files.length === 1 ? 'return' : 'returns'} locally…`);
     try {
       const { extractTaxReturnSchedules } = await import('../lib/tax-return-pdf');
-      const result = await extractTaxReturnSchedules(files);
+      const result = await extractTaxReturnSchedules(files, setImportProgress);
       const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
-      setProperties(extracted);
-      setDocuments(result.sourceFiles); setWarnings(result.warnings); setActiveTab('data');
+      // Re-importing a return replaces that return's schedules; everything else already loaded is kept.
+      const scheduleKey = (property: { entity: string; property: string }) => `${property.entity}|${property.property}`.toLocaleLowerCase();
+      const replaced = new Set(extracted.map(scheduleKey));
+      setProperties((current) => [...current.filter((property) => !replaced.has(scheduleKey(property))), ...extracted]);
+      setDocuments((current) => [...current.filter((name) => !result.sourceFiles.includes(name)), ...result.sourceFiles]);
+      setWarnings((current) => [...current.filter((warning) => !result.sourceFiles.some((name) => warning.startsWith(name))), ...result.warnings]);
       setNotice(extracted.length ? `Extracted ${extracted.length} property ${extracted.length === 1 ? 'schedule' : 'schedules'}. Group membership is matched from the Groups workbook.` : 'No property depreciation schedules could be extracted from the selected PDFs.');
     } catch (error) { setNotice(`Could not read the selected return: ${error instanceof Error ? error.message : String(error)}`); }
-    finally { setIsImporting(false); }
+    finally { setIsImporting(false); setImportProgress(null); }
+  };
+
+  const handleFiles = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = '';
+    void importReturns(files);
+  };
+
+  const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  const dragHasFiles = (event: DragEvent) => Array.from(event.dataTransfer.types).includes('Files');
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => { if (!dragHasFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dragActive) setDragActive(true); };
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => { if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget as Node)) return; setDragActive(false); };
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!dragHasFiles(event)) return;
+    event.preventDefault(); setDragActive(false);
+    const pdfs = Array.from(event.dataTransfer.files).filter(isPdf);
+    if (!pdfs.length) { setNotice('Drop Form 1065 PDF files to import tax returns.'); return; }
+    void importReturns(pdfs);
   };
 
   const exportToPartition = () => {
@@ -122,6 +175,21 @@ export function TaxBasisMockup() {
     setNotice('Groups data cleared. Upload a Groups workbook to begin.');
   };
 
+  const clearTaxReturns = () => {
+    if (properties.length && !window.confirm('Clear all imported tax-return data? Groups are kept. This cannot be undone.')) return;
+    setProperties([]); setDocuments([]); setWarnings([]); setExpandedGroups(new Set()); setCollapsedProperties(new Set());
+    setNotice('Tax-return data cleared. Upload the Form 1065 packages to begin again.');
+  };
+  const expandAll = () => { setExpandedGroups(new Set(groups.map((group) => group.id))); setCollapsedProperties(new Set()); };
+  const collapseAll = () => { setExpandedGroups(new Set()); setCollapsedProperties(new Set(properties.map((property) => property.id))); };
+
+  const exportDepreciationWorkbook = async () => {
+    const { downloadDepreciationWorkbook } = await import('../lib/groups-excel');
+    const assignments = groupAssignments(groups, properties);
+    downloadDepreciationWorkbook(taxYear, properties.map((property) => ({ group: groups.find((group) => group.id === assignments.get(property.id))?.name ?? '', property: property.property, entity: property.entity, source: property.source, schedules: property.schedules })));
+    setDataOutputOpen(false);
+  };
+
   const exportGroupsWorkbook = async () => {
     const { downloadGroupsWorkbook } = await import('../lib/groups-excel');
     downloadGroupsWorkbook(groups, groupWorkbook?.individualProperties ?? []);
@@ -132,14 +200,16 @@ export function TaxBasisMockup() {
   const toggleExpanded = (id: string) => setExpandedGroups((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const togglePropertyCollapsed = (id: string) => setCollapsedProperties((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
-  return <div className="min-h-screen bg-bg text-text">
+  return <div className="min-h-screen bg-bg text-text relative" onDragOver={handleDragOver} onDragEnter={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+    {dragActive && <div className="fixed inset-0 z-40 pointer-events-none bg-a/10 flex items-center justify-center p-8" aria-hidden="true"><div className="border-[3px] border-dashed border-a rounded-md bg-surface px-10 py-8 text-center shadow-xl"><div className="font-serif text-[1.4rem] font-bold">Drop tax return PDFs to import</div><div className="mt-1 font-mono text-[.66rem] uppercase tracking-[.07em] text-muted">Form 1065 packages · read locally in your browser</div></div></div>}
     <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></header>
-    <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['zoning', 'Zoning'], ['cert40yr', 'Next 40-Yr Cert']] as const).map(([key, label]) => { const active = groupsSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setGroupsSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: true })}><span>{label}</span><span className="text-[.75rem]">{active && !groupsSort.asc ? '↓' : '↑'}</span></button>; })}</>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length || isImporting} onClick={exportToPartition}>⇧ Send grouped basis to Partition Tool</button></>}<span className="ml-auto font-mono text-[0.65rem] text-muted" role="status">{notice}</span></div>
+    <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['zoning', 'Zoning'], ['cert40yr', 'Next 40-Yr Cert']] as const).map(([key, label]) => { const active = groupsSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setGroupsSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: true })}><span>{label}</span><span className="text-[.75rem]">{active && !groupsSort.asc ? '↓' : '↑'}</span></button>; })}</>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length || isImporting} onClick={exportToPartition}>⇧ Send grouped basis to Partition Tool</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={() => setDataOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!properties.length} onClick={clearTaxReturns}>▣ Clear All</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={expandAll}>▾ Expand</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={collapseAll}>▴ Collapse</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setDataSortAsc((current) => !current)}><span>Name</span><span className="text-[.75rem]">{dataSortAsc ? '↑' : '↓'}</span></button></>}<span className="ml-auto font-mono text-[0.65rem] text-muted" role="status">{notice}</span></div>
     <input ref={groupsFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleGroupsFile(event)} />
-    <main className={`${activeTab === 'groups' ? 'max-w-none mx-0' : 'max-w-[1450px] mx-auto'} px-6 py-5`}>
+    <main className="max-w-none mx-0 px-6 py-5">
       <nav className="flex gap-1 border-b border-border mb-5" aria-label="Tax basis workflow"><TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} number="1" label="Groups" /><TabButton active={activeTab === 'data'} onClick={() => setActiveTab('data')} number="2" label="Remaining Depreciation" /></nav>
-      {activeTab === 'groups' ? <GroupsTabView groups={groups} groupWorkbook={groupWorkbook} sort={groupsSort} onUpdate={updateGroup} onRemove={removeGroup} /> : <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} expandedGroups={expandedGroups} collapsedProperties={collapsedProperties} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onTogglePropertyCollapsed={togglePropertyCollapsed} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
+      {activeTab === 'groups' ? <GroupsTabView groups={groups} groupWorkbook={groupWorkbook} sort={groupsSort} onUpdate={updateGroup} onRemove={removeGroup} /> : <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} sortAsc={dataSortAsc} importing={isImporting} progress={importProgress} onUpload={() => returnFileRef.current?.click()} expandedGroups={expandedGroups} collapsedProperties={collapsedProperties} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onTogglePropertyCollapsed={togglePropertyCollapsed} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
       <GroupsOutputDialog open={groupsOutputOpen} hasData={Boolean(groups.length || groupWorkbook?.individualProperties.length)} onClose={() => setGroupsOutputOpen(false)} onExport={() => void exportGroupsWorkbook()} />
+      <GroupsOutputDialog open={dataOutputOpen} hasData={properties.length > 0} caption="Remaining depreciation output" title="Print or export Remaining Depreciation" description="Export every property schedule—basis left, method, and current-year deduction—to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setDataOutputOpen(false)} onExport={() => void exportDepreciationWorkbook()} />
     </main>
   </div>;
 }
@@ -180,9 +250,9 @@ function LegacyIndividualPropertiesCard({ properties }: { properties: GroupMembe
   return <section className="card overflow-hidden mt-5"><header className="px-4 py-3 bg-surface2 border-b border-border"><div className="caption text-[.58rem]">Individual selection units · {properties.length} properties</div><h3 className="font-serif text-[1.08rem] font-bold mt-1">Individual Properties</h3></header><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-4 p-4">{properties.map((property) => <div key={property.property} className="text-[.78rem]"><div className="font-semibold">{property.property}</div><div className="font-mono text-[.61rem] text-muted mt-0.5">{[property.entity, property.city, property.state, property.units && `${property.units} units`].filter(Boolean).join(' · ')}</div></div>)}</div></section>;
 }
 
-function GroupsOutputDialog({ open, hasData, onClose, onExport }: { open: boolean; hasData: boolean; onClose: () => void; onExport: () => void }) {
+function GroupsOutputDialog({ open, hasData, caption = 'Groups output', title = 'Print or export Groups', description = 'Export the loaded Groups workbook to Excel, or open your browser print dialog to save this page as a PDF.', onClose, onExport }: { open: boolean; hasData: boolean; caption?: string; title?: string; description?: string; onClose: () => void; onExport: () => void }) {
   if (!open) return null;
-  return <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-5" role="presentation"><section className="card w-full max-w-md p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="groups-output-title"><div className="flex items-start justify-between gap-4"><div><div className="caption text-[.61rem]">Groups output</div><h2 id="groups-output-title" className="font-serif text-[1.35rem] font-bold mt-1">Print or export Groups</h2></div><button type="button" className="font-mono text-muted hover:text-text cursor-pointer" onClick={onClose}>Close</button></div><p className="mt-3 text-[.8rem] text-muted">Export the loaded Groups workbook to Excel, or open your browser print dialog to save this page as a PDF.</p><div className="mt-5 flex flex-wrap gap-2"><button type="button" className="tool-btn tool-btn-primary disabled:opacity-40" disabled={!hasData} onClick={onExport}>Export Excel</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!hasData} onClick={() => { window.print(); onClose(); }}>Print / Save PDF</button></div></section></div>;
+  return <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-5" role="presentation"><section className="card w-full max-w-md p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="groups-output-title"><div className="flex items-start justify-between gap-4"><div><div className="caption text-[.61rem]">{caption}</div><h2 id="groups-output-title" className="font-serif text-[1.35rem] font-bold mt-1">{title}</h2></div><button type="button" className="font-mono text-muted hover:text-text cursor-pointer" onClick={onClose}>Close</button></div><p className="mt-3 text-[.8rem] text-muted">{description}</p><div className="mt-5 flex flex-wrap gap-2"><button type="button" className="tool-btn tool-btn-primary disabled:opacity-40" disabled={!hasData} onClick={onExport}>Export Excel</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!hasData} onClick={() => { window.print(); onClose(); }}>Print / Save PDF</button></div></section></div>;
 }
 
 function GroupsTab({ groups, properties, onAdd, onUpdate, onRemove, onToggleMember, onUpload }: { groups: DealGroup[]; properties: PropertySchedule[]; onAdd: () => void; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void; onUpload: () => void }) {
@@ -191,13 +261,17 @@ function GroupsTab({ groups, properties, onAdd, onUpdate, onRemove, onToggleMemb
 
 function GroupCard({ group, properties, onUpdate, onRemove, onToggleMember }: { group: DealGroup; properties: PropertySchedule[]; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) { return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border flex justify-between gap-3"><div><div className="caption text-[.58rem]">Combined lot / economic package</div><input aria-label="Group name" value={group.name} onChange={(event) => onUpdate(group.id, { name: event.target.value })} className="mt-1 bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /></div><button type="button" onClick={() => onRemove(group.id)} className="font-mono text-[.6rem] uppercase text-muted hover:text-red cursor-pointer">Remove</button></header><div className="p-4"><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted mb-2">Member properties</div>{properties.length === 0 ? <p className="text-[.75rem] text-muted">Property choices will appear after tax-return import.</p> : <div className="flex flex-col gap-2">{properties.map((property) => <label key={property.id} className="flex gap-2.5 items-start cursor-pointer"><input type="checkbox" checked={hasMember(group, property)} onChange={() => onToggleMember(group.id, property)} className="mt-0.5 accent-[var(--a)]" /><span><span className="font-semibold text-[.78rem]">{property.property}</span><span className="block font-mono text-[.61rem] text-muted mt-0.5">{property.entity || 'Entity not detected'}</span></span></label>)}</div>}</div></article>; }
 
-function DataTabView({ taxYear, setTaxYear, properties, groups, assignments, expandedGroups, collapsedProperties, warnings, documents, onToggleExpanded, onTogglePropertyCollapsed, onUpdateProperty, onUpdateComponent, onGoGroups }: { taxYear: number; setTaxYear: (year: number) => void; properties: PropertySchedule[]; groups: DealGroup[]; assignments: Map<string, string>; expandedGroups: Set<string>; collapsedProperties: Set<string>; warnings: string[]; documents: string[]; onToggleExpanded: (id: string) => void; onTogglePropertyCollapsed: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; onGoGroups: () => void }) {
+function DataTabView({ taxYear, setTaxYear, properties, groups, assignments, sortAsc, importing, progress, onUpload, expandedGroups, collapsedProperties, warnings, documents, onToggleExpanded, onTogglePropertyCollapsed, onUpdateProperty, onUpdateComponent, onGoGroups }: { taxYear: number; setTaxYear: (year: number) => void; properties: PropertySchedule[]; groups: DealGroup[]; assignments: Map<string, string>; sortAsc: boolean; importing: boolean; progress: ExtractionProgress | null; onUpload: () => void; expandedGroups: Set<string>; collapsedProperties: Set<string>; warnings: string[]; documents: string[]; onToggleExpanded: (id: string) => void; onTogglePropertyCollapsed: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; onGoGroups: () => void }) {
   const groupedIds = new Set(assignments.keys());
+  const byName = (a: string, b: string) => (sortAsc ? 1 : -1) * a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  const sortedGroups = [...groups].sort((a, b) => byName(a.name, b.name));
+  const sortedUngrouped = properties.filter((property) => !groupedIds.has(property.id)).sort((a, b) => byName(a.property, b.property));
   return <section>
     <div className="flex flex-wrap justify-between items-end gap-4 mb-5"><div><div className="caption text-[.66rem] mb-1">Step 2 · Tax-return data extraction</div><h2 className="font-serif text-[1.55rem] font-bold">Remaining Tax Basis and Depreciation</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Grouped properties collapse to one selection-unit total. Expand a group to review the underlying property schedules, remaining basis, and current-year depreciation.</p></div><label className="flex items-center gap-1.5 border-[1.5px] border-border rounded-[3px] bg-surface px-2.5 py-1.5"><span className="font-mono text-[.59rem] uppercase tracking-[.07em] text-muted">Tax year</span><input value={taxYear} onChange={(event) => setTaxYear(Number(event.target.value) || taxYear)} className="w-11 bg-transparent text-right outline-none font-mono text-[.74rem] font-bold" inputMode="numeric" /></label></div>
     {documents.length > 0 && <div className="mb-4 flex flex-wrap gap-2 items-center"><span className="caption text-[.61rem]">Imported returns</span>{documents.map((document) => <span key={document} className="font-mono text-[.65rem] border border-border rounded px-2 py-1 bg-surface">{document}</span>)}</div>}
     {warnings.length > 0 && <div className="mb-4 note border-l-red">{warnings.map((warning) => <div key={warning}>{warning}</div>)}</div>}
-    {properties.length === 0 ? <div className="card text-center py-16 px-6"><div className="font-serif text-[1.25rem] font-bold">No tax returns imported</div><p className="text-muted max-w-md mx-auto mt-2 text-[.78rem]">Upload the Form 1065 packages above. The importer creates the property schedules automatically.</p></div> : <div className="flex flex-col gap-5">{groups.map((group) => { const members = properties.filter((property) => assignments.get(property.id) === group.id); return <GroupedSchedule key={group.id} group={group} properties={members} workbookMembers={group.members} taxYear={taxYear} expanded={expandedGroups.has(group.id)} collapsedProperties={collapsedProperties} onToggle={() => onToggleExpanded(group.id)} onTogglePropertyCollapsed={onTogglePropertyCollapsed} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />; })}{properties.filter((property) => !groupedIds.has(property.id)).map((property) => <PropertyScheduleCard key={property.id} property={property} taxYear={taxYear} collapsed={collapsedProperties.has(property.id)} onToggleCollapsed={() => onTogglePropertyCollapsed(property.id)} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />)}</div>}
+    {importing && <ImportProgress progress={progress} />}
+    {properties.length === 0 ? (!importing && <div className="card text-center py-16 px-6 border-2 border-dashed border-border"><div className="font-serif text-[1.25rem] font-bold">No tax returns imported</div><p className="text-muted max-w-md mx-auto mt-2 text-[.78rem]">Drag and drop the Form 1065 PDF packages anywhere on this page, or use the upload button. The importer creates the property schedules automatically.</p><button type="button" className="tool-btn tool-btn-primary mt-5" onClick={onUpload}>↑ Upload tax return PDFs</button></div>) : <div className="flex flex-col gap-5">{sortedGroups.map((group) => { const members = properties.filter((property) => assignments.get(property.id) === group.id); return <GroupedSchedule key={group.id} group={group} properties={members} workbookMembers={group.members} taxYear={taxYear} expanded={expandedGroups.has(group.id)} collapsedProperties={collapsedProperties} onToggle={() => onToggleExpanded(group.id)} onTogglePropertyCollapsed={onTogglePropertyCollapsed} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />; })}{sortedUngrouped.map((property) => <PropertyScheduleCard key={property.id} property={property} taxYear={taxYear} collapsed={collapsedProperties.has(property.id)} onToggleCollapsed={() => onTogglePropertyCollapsed(property.id)} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />)}</div>}
     <div className="mt-5 note max-w-5xl">The Groups tab controls these roll-ups. Changes to the workbook-derived membership update both the totals here and the values sent to the Partition Tool.<button type="button" onClick={onGoGroups} className="ml-2 underline text-a cursor-pointer">Open Groups</button></div>
   </section>;
 }
@@ -211,6 +285,12 @@ function DepreciationTab({ taxYear, setTaxYear, properties, groups, groupedIds, 
   // Legacy visual retained during transition to the Data tab.
   // @ts-expect-error The Data tab above owns the workbook-based group mapping.
   return <section><div className="flex flex-wrap justify-between items-end gap-4 mb-5"><div><div className="caption text-[.66rem] mb-1">Step 2 · Tax return schedule extraction</div><h2 className="font-serif text-[1.55rem] font-bold">Remaining Depreciation by Property</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Groups are collapsed to a single total. Expand a group to inspect every individual property and its tax-return depreciation sections.</p></div><label className="flex items-center gap-1.5 border-[1.5px] border-border rounded-[3px] bg-surface px-2.5 py-1.5"><span className="font-mono text-[.59rem] uppercase tracking-[.07em] text-muted">Tax year</span><input value={taxYear} onChange={(event) => setTaxYear(Number(event.target.value) || taxYear)} className="w-11 bg-transparent text-right outline-none font-mono text-[.74rem] font-bold" inputMode="numeric" /></label></div>{documents.length > 0 && <div className="mb-4 flex flex-wrap gap-2 items-center"><span className="caption text-[.61rem]">Imported returns</span>{documents.map((document) => <span key={document} className="font-mono text-[.65rem] border border-border rounded px-2 py-1 bg-surface">{document}</span>)}</div>}{warnings.length > 0 && <div className="mb-4 note border-l-red">{warnings.map((warning) => <div key={warning}>{warning}</div>)}</div>}{properties.length === 0 ? <div className="card text-center py-16 px-6"><div className="font-serif text-[1.25rem] font-bold">No tax returns imported</div><p className="text-muted max-w-md mx-auto mt-2 text-[.78rem]">Upload the Form 1065 packages above. The importer creates the property schedules automatically.</p></div> : <div className="flex flex-col gap-5">{groups.filter((group) => group.members.length).map((group) => { const members = properties.filter((property) => group.members.includes(property.id)); return <GroupedSchedule key={group.id} group={group} properties={members} taxYear={taxYear} expanded={expandedGroups.has(group.id)} onToggle={() => onToggleExpanded(group.id)} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />; })}{properties.filter((property) => !groupedIds.has(property.id)).map((property) => <PropertyScheduleCard key={property.id} property={property} taxYear={taxYear} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />)}</div>}<div className="mt-5 note max-w-5xl">The Groups tab controls these roll-ups. Return there to change membership; the group totals and the export to the Partition Tool update from the same mapping.<button type="button" onClick={onGoGroups} className="ml-2 underline text-a cursor-pointer">Open Groups</button></div></section>;
+}
+
+/** Visible while PDFs are being read so a long import never looks frozen. */
+function ImportProgress({ progress }: { progress: ExtractionProgress | null }) {
+  const fraction = progress ? Math.min(1, ((progress.fileIndex - 1) + progress.page / Math.max(1, progress.pageCount)) / Math.max(1, progress.fileCount)) : 0;
+  return <div className="card mb-5 px-6 py-5 border-l-[4px] border-l-a" role="status" aria-live="polite"><div className="flex items-center gap-3"><span className="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-[3px] border-a border-t-transparent" aria-hidden="true" /><div className="min-w-0"><div className="font-serif text-[1.15rem] font-bold">Reading tax returns…</div><div className="mt-0.5 font-mono text-[.66rem] text-muted truncate">{progress ? `File ${progress.fileIndex} of ${progress.fileCount} · ${progress.file} · page ${progress.page} of ${progress.pageCount}` : 'Opening the PDF files…'}</div></div><div className="ml-auto font-mono text-[.9rem] font-bold text-a">{Math.round(fraction * 100)}%</div></div><div className="mt-3 h-2 w-full rounded bg-surface2 overflow-hidden"><div className="h-full bg-a transition-[width] duration-200" style={{ width: `${Math.max(3, fraction * 100)}%` }} /></div><div className="mt-2 font-mono text-[.6rem] uppercase tracking-[.07em] text-muted">Runs locally in your browser — nothing is uploaded</div></div>;
 }
 
 function GroupedSchedule({ group, properties, workbookMembers = group.members, taxYear, expanded, collapsedProperties = new Set<string>(), onToggle, onTogglePropertyCollapsed, onUpdateProperty, onUpdateComponent }: { group: DealGroup; properties: PropertySchedule[]; workbookMembers?: GroupMember[]; taxYear: number; expanded: boolean; collapsedProperties?: Set<string>; onToggle: () => void; onTogglePropertyCollapsed?: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void }) {
