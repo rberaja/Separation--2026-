@@ -23,7 +23,7 @@ function groupAssignments(groups: DealGroup[], properties: PropertySchedule[]) {
 }
 
 /** Two-stage workflow: define deal groups first, then import and inspect property-level tax schedules. */
-export function TaxBasisMockup({ onOpenPartition }: { onOpenPartition: () => void }) {
+export function TaxBasisMockup() {
   const { state, dispatch } = useApp();
   const [activeTab, setActiveTab] = useState<Tab>('groups');
   const [taxYear, setTaxYear] = useState(state.depreciationYear);
@@ -35,6 +35,8 @@ export function TaxBasisMockup({ onOpenPartition }: { onOpenPartition: () => voi
   const [warnings, setWarnings] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [groupsSortAsc, setGroupsSortAsc] = useState(true);
+  const [groupsOutputOpen, setGroupsOutputOpen] = useState(false);
   const returnFileRef = useRef<HTMLInputElement>(null);
   const groupsFileRef = useRef<HTMLInputElement>(null);
 
@@ -100,29 +102,44 @@ export function TaxBasisMockup({ onOpenPartition }: { onOpenPartition: () => voi
     setNotice(`Sent ${units.length} selection ${units.length === 1 ? 'unit' : 'units'}—groups plus ungrouped properties—to the Partition Tool for ${taxYear}.`);
   };
 
+  const clearGroups = () => {
+    if ((groups.length || properties.length || groupWorkbook) && !window.confirm('Clear all imported Groups and tax-return data? This cannot be undone.')) return;
+    setGroups([]); setProperties([]); setGroupWorkbook(null); setDocuments([]); setWarnings([]); setExpandedGroups(new Set());
+    setNotice('Groups data cleared. Upload a Groups workbook to begin.');
+  };
+
+  const exportGroupsWorkbook = async () => {
+    const { downloadGroupsWorkbook } = await import('../lib/groups-excel');
+    downloadGroupsWorkbook(groups, groupWorkbook?.individualProperties ?? []);
+    setGroupsOutputOpen(false);
+  };
+
   const assignments = groupAssignments(groups, properties);
   const toggleExpanded = (id: string) => setExpandedGroups((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
   return <div className="min-h-screen bg-bg text-text">
-    <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><div className="flex items-center gap-2.5"><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><span className="font-mono text-[0.57rem] tracking-[0.1em] uppercase text-hdr-accent border border-hdr-input-brd rounded px-1.5 py-0.5">Tax-return input</span></div><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex flex-wrap items-center gap-3"><button type="button" className="font-mono text-[0.68rem] uppercase tracking-[0.07em] text-hdr-muted hover:text-white cursor-pointer" onClick={onOpenPartition}>Open Partition workspace →</button><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></div></header>
-    <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length || isImporting} onClick={exportToPartition}>⇧ Send grouped basis to Partition Tool</button></>}<span className="ml-auto font-mono text-[0.65rem] text-muted" role="status">{notice}</span></div>
+    <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></header>
+    <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setGroupsSortAsc((current) => !current)}><span>Name</span><span className="text-[.75rem]">{groupsSortAsc ? '↑' : '↓'}</span></button></>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length || isImporting} onClick={exportToPartition}>⇧ Send grouped basis to Partition Tool</button></>}<span className="ml-auto font-mono text-[0.65rem] text-muted" role="status">{notice}</span></div>
     <input ref={groupsFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleGroupsFile(event)} />
     <main className="max-w-[1450px] mx-auto px-6 py-5">
       <nav className="flex gap-1 border-b border-border mb-5" aria-label="Tax basis workflow"><TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} number="1" label="Groups" /><TabButton active={activeTab === 'data'} onClick={() => setActiveTab('data')} number="2" label="Remaining Depreciation" /></nav>
-      {activeTab === 'groups' ? <GroupsTabView groups={groups} properties={properties} assignments={assignments} groupWorkbook={groupWorkbook} onUpdate={updateGroup} onRemove={removeGroup} onToggleMember={toggleMember} onUploadReturns={() => returnFileRef.current?.click()} /> : <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} expandedGroups={expandedGroups} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
+      {activeTab === 'groups' ? <GroupsTabView groups={groups} properties={properties} assignments={assignments} groupWorkbook={groupWorkbook} sortAsc={groupsSortAsc} onUpdate={updateGroup} onRemove={removeGroup} onToggleMember={toggleMember} /> : <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} expandedGroups={expandedGroups} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
+      <GroupsOutputDialog open={groupsOutputOpen} hasData={Boolean(groups.length || groupWorkbook?.individualProperties.length)} onClose={() => setGroupsOutputOpen(false)} onExport={() => void exportGroupsWorkbook()} />
     </main>
   </div>;
 }
 
 function TabButton({ active, onClick, number, label }: { active: boolean; onClick: () => void; number: string; label: string }) { return <button type="button" onClick={onClick} className={`px-4 py-2.5 font-mono text-[.7rem] uppercase tracking-[.08em] cursor-pointer border-b-[3px] -mb-px ${active ? 'border-a text-a font-bold' : 'border-transparent text-muted hover:text-text'}`}><span className="mr-2 text-[.58rem]">{number}</span>{label}</button>; }
 
-function GroupsTabView({ groups, properties, assignments, groupWorkbook, onUpdate, onRemove, onToggleMember, onUploadReturns }: { groups: DealGroup[]; properties: PropertySchedule[]; assignments: Map<string, string>; groupWorkbook: { name: string; individualProperties: GroupMember[] } | null; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void; onUploadReturns: () => void }) {
+function GroupsTabView({ groups, properties, assignments, groupWorkbook, sortAsc, onUpdate, onRemove, onToggleMember }: { groups: DealGroup[]; properties: PropertySchedule[]; assignments: Map<string, string>; groupWorkbook: { name: string; individualProperties: GroupMember[] } | null; sortAsc: boolean; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) {
+  const byName = <T extends { name?: string; property?: string }>(left: T, right: T) => (left.name ?? left.property ?? '').localeCompare(right.name ?? right.property ?? '') * (sortAsc ? 1 : -1);
+  const sortedGroups = [...groups].sort(byName);
+  const sortedIndividuals = groupWorkbook ? [...groupWorkbook.individualProperties].sort(byName) : [];
   return <section>
-    <div className="flex flex-wrap justify-between items-end gap-4 mb-5"><div><div className="caption text-[.66rem] mb-1">Step 1 · Selection-unit setup</div><h2 className="font-serif text-[1.55rem] font-bold">Groups</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Upload the canonical grouping workbook first. Its combined lots are the selection units; blank Group cells remain individual properties. Tax returns later supply the depreciation values.</p></div></div>
-    {groupWorkbook ? <div className="note mb-4">Loaded <strong>{groupWorkbook.name}</strong>: {groups.length} combined lots and {groupWorkbook.individualProperties.length} individual properties. The workbook stays local to this browser.</div> : <div className="note mb-4">Use <strong>Upload Groups Excel</strong> above. Expected columns: <strong>Group</strong> and <strong>Property</strong>; optional owner, city, state, ZIP, and units appear on the review cards.</div>}
-    {properties.length === 0 && <div className="note mb-4">Next, upload the partnership tax returns. Their property schedules automatically match to these addresses.<button type="button" className="ml-2 underline text-a cursor-pointer" onClick={onUploadReturns}>Upload tax returns</button></div>}
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">{groups.map((group) => <ImportedGroupCard key={group.id} group={group} properties={properties} assignments={assignments} onUpdate={onUpdate} onRemove={onRemove} onToggleMember={onToggleMember} />)}{groups.length === 0 && <div className="card p-8 text-center text-muted"><div className="font-serif text-[1.15rem] font-bold text-text">Upload the Groups workbook</div><p className="max-w-md mx-auto mt-2 text-[.78rem]">Use the Upload Groups Excel button in the toolbar. Properties with no group remain individual selection units.</p></div>}</div>
-    {groupWorkbook && groupWorkbook.individualProperties.length > 0 && <IndividualPropertiesCard properties={groupWorkbook.individualProperties} />}
+    <h2 className="font-serif text-[1.55rem] font-bold mb-5">Groups</h2>
+    <div className="card mb-5 px-6 py-12 text-center"><h3 className="font-serif text-[1.45rem] font-bold">Upload the Groups workbook</h3><p className="max-w-2xl mx-auto mt-3 text-[.9rem] leading-snug">Use the Upload Groups Excel button in the toolbar. Properties with no group remain individual selection units.</p></div>
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">{sortedGroups.map((group) => <ImportedGroupCard key={group.id} group={group} properties={properties} assignments={assignments} onUpdate={onUpdate} onRemove={onRemove} onToggleMember={onToggleMember} />)}</div>
+    {sortedIndividuals.length > 0 && <IndividualPropertiesCard properties={sortedIndividuals} />}
   </section>;
 }
 
@@ -133,6 +150,11 @@ function ImportedGroupCard({ group, properties, assignments, onUpdate, onRemove,
 
 function IndividualPropertiesCard({ properties }: { properties: GroupMember[] }) {
   return <section className="card overflow-hidden mt-5"><header className="px-4 py-3 bg-surface2 border-b border-border"><div className="caption text-[.58rem]">Individual selection units · {properties.length} properties</div><h3 className="font-serif text-[1.08rem] font-bold mt-1">Individual Properties</h3></header><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-4 p-4">{properties.map((property) => <div key={property.property} className="text-[.78rem]"><div className="font-semibold">{property.property}</div><div className="font-mono text-[.61rem] text-muted mt-0.5">{[property.entity, property.city, property.state, property.units && `${property.units} units`].filter(Boolean).join(' · ')}</div></div>)}</div></section>;
+}
+
+function GroupsOutputDialog({ open, hasData, onClose, onExport }: { open: boolean; hasData: boolean; onClose: () => void; onExport: () => void }) {
+  if (!open) return null;
+  return <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-5" role="presentation"><section className="card w-full max-w-md p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="groups-output-title"><div className="flex items-start justify-between gap-4"><div><div className="caption text-[.61rem]">Groups output</div><h2 id="groups-output-title" className="font-serif text-[1.35rem] font-bold mt-1">Print or export Groups</h2></div><button type="button" className="font-mono text-muted hover:text-text cursor-pointer" onClick={onClose}>Close</button></div><p className="mt-3 text-[.8rem] text-muted">Export the loaded Groups workbook to Excel, or open your browser print dialog to save this page as a PDF.</p><div className="mt-5 flex flex-wrap gap-2"><button type="button" className="tool-btn tool-btn-primary disabled:opacity-40" disabled={!hasData} onClick={onExport}>Export Excel</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!hasData} onClick={() => { window.print(); onClose(); }}>Print / Save PDF</button></div></section></div>;
 }
 
 function GroupsTab({ groups, properties, onAdd, onUpdate, onRemove, onToggleMember, onUpload }: { groups: DealGroup[]; properties: PropertySchedule[]; onAdd: () => void; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void; onUpload: () => void }) {

@@ -52,7 +52,7 @@ function Pages() {
           <PrintReport />
         </>
       )}
-      {active === 'depreciation' && <TaxBasisMockup onOpenPartition={() => select('partition')} />}
+      {active === 'depreciation' && <TaxBasisMockup />}
       {planned && <PlannedWorkspace workspace={planned} />}
     </>
   );

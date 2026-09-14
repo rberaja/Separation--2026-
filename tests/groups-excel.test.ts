@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
-import { parseGroupsWorkbook } from '../src/lib/groups-excel';
+import { buildGroupsTemplateWorkbook, parseGroupsWorkbook } from '../src/lib/groups-excel';
 
 function workbook(rows: unknown[][]): ArrayBuffer {
   const book = XLSX.utils.book_new();
@@ -9,6 +9,14 @@ function workbook(rows: unknown[][]): ArrayBuffer {
 }
 
 describe('parseGroupsWorkbook', () => {
+  it('builds a template with the same Property Grouped columns', () => {
+    const template = buildGroupsTemplateWorkbook();
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(template.Sheets['Property Grouped']!, { header: 1, defval: '' });
+    expect(template.SheetNames).toEqual(['Property Grouped', 'Instructions']);
+    expect(rows[0]![0]).toBe('GROUPED - Planned Separation Values');
+    expect(rows[1]).toEqual(['#', 'Owners', 'Owner(s)', 'Group', 'Property', 'City', 'State', 'Zip', 'Units']);
+  });
+
   it('uses the workbook Group and Property columns after a title row', () => {
     const result = parseGroupsWorkbook(workbook([
       ['Portfolio grouping'],

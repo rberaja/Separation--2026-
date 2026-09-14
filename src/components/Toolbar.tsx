@@ -37,7 +37,7 @@ export function Toolbar() {
       dispatch({ type: 'upload/status', status: { kind: 'err', message: `Error: ${message}` } });
       console.error(err);
     } finally {
-      input.value = ''; // allow re-uploading the same file
+      input.value = '';
     }
   };
 

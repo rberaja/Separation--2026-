@@ -18,6 +18,56 @@ export class GroupsImportError extends Error {
 
 const headerKey = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 const valueAt = (row: unknown[], index: number | undefined) => index === undefined ? '' : String(row[index] ?? '').trim();
+const GROUP_HEADERS = ['#', 'Owners', 'Owner(s)', 'Group', 'Property', 'City', 'State', 'Zip', 'Units'];
+
+function groupRows(groups: readonly ImportedGroup[], individualProperties: readonly GroupMember[]) {
+  let rowNumber = 1;
+  const propertyRow = (member: GroupMember, groupName = '') => [
+    rowNumber++, member.entity, '', groupName, member.property, member.city, member.state, member.zip, member.units,
+  ];
+  return [
+    ...groups.flatMap((group) => group.members.map((member) => propertyRow(member, group.name))),
+    ...individualProperties.map((member) => propertyRow(member)),
+  ];
+}
+
+export function buildGroupsTemplateWorkbook(): XLSX.WorkBook {
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['GROUPED - Planned Separation Values'],
+    GROUP_HEADERS,
+    ...Array.from({ length: 20 }, () => Array(GROUP_HEADERS.length).fill('')),
+  ]);
+  sheet['!cols'] = [6, 18, 24, 30, 32, 18, 8, 10, 9].map((wch) => ({ wch }));
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Property Grouped');
+
+  const instructions = XLSX.utils.aoa_to_sheet([
+    ['Groups workbook instructions'],
+    ['Enter one property per row in Property Grouped.'],
+    ['Use the same Group name for properties that form one combined lot or economic package.'],
+    ['Leave Group blank for an individual selection unit.'],
+    ['Property is required. Owner, city, state, ZIP, and units are optional but recommended.'],
+  ]);
+  instructions['!cols'] = [{ wch: 100 }];
+  XLSX.utils.book_append_sheet(workbook, instructions, 'Instructions');
+  return workbook;
+}
+
+export function downloadGroupsTemplate(): void {
+  XLSX.writeFile(buildGroupsTemplateWorkbook(), 'Property Groups Template.xlsx');
+}
+
+export function downloadGroupsWorkbook(groups: readonly ImportedGroup[], individualProperties: readonly GroupMember[]): void {
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['GROUPED - Planned Separation Values'],
+    GROUP_HEADERS,
+    ...groupRows(groups, individualProperties),
+  ]);
+  sheet['!cols'] = [6, 18, 24, 30, 32, 18, 8, 10, 9].map((wch) => ({ wch }));
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Property Grouped');
+  XLSX.writeFile(workbook, 'Property Groups Export.xlsx');
+}
 
 /** Read the canonical grouping workbook. It accepts the supplied Group / Property layout and close header variants. */
 export function parseGroupsWorkbook(data: ArrayBuffer): GroupsImportResult {
