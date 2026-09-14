@@ -7,6 +7,8 @@ export type GroupMember = {
   state: string;
   zip: string;
   units: string;
+  zoning: string;
+  cert40yr: string;
 };
 
 export type ImportedGroup = { name: string; members: GroupMember[] };
@@ -18,12 +20,12 @@ export class GroupsImportError extends Error {
 
 const headerKey = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 const valueAt = (row: unknown[], index: number | undefined) => index === undefined ? '' : String(row[index] ?? '').trim();
-const GROUP_HEADERS = ['#', 'Owners', 'Owner(s)', 'Group', 'Property', 'City', 'State', 'Zip', 'Units'];
+const GROUP_HEADERS = ['#', 'Owners', 'Owner(s)', 'Group', 'Property', 'City', 'State', 'Zip', 'Units', 'Zoning', 'Next 40-Year Certification'];
 
 function groupRows(groups: readonly ImportedGroup[], individualProperties: readonly GroupMember[]) {
   let rowNumber = 1;
   const propertyRow = (member: GroupMember, groupName = '') => [
-    rowNumber++, member.entity, '', groupName, member.property, member.city, member.state, member.zip, member.units,
+    rowNumber++, member.entity, '', groupName, member.property, member.city, member.state, member.zip, member.units, member.zoning, member.cert40yr,
   ];
   return [
     ...groups.flatMap((group) => group.members.map((member) => propertyRow(member, group.name))),
@@ -38,7 +40,7 @@ export function buildGroupsTemplateWorkbook(): XLSX.WorkBook {
     GROUP_HEADERS,
     ...Array.from({ length: 20 }, () => Array(GROUP_HEADERS.length).fill('')),
   ]);
-  sheet['!cols'] = [6, 18, 24, 30, 32, 18, 8, 10, 9].map((wch) => ({ wch }));
+  sheet['!cols'] = [6, 18, 24, 30, 32, 18, 8, 10, 9, 18, 28].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Property Grouped');
 
   const instructions = XLSX.utils.aoa_to_sheet([
@@ -46,7 +48,7 @@ export function buildGroupsTemplateWorkbook(): XLSX.WorkBook {
     ['Enter one property per row in Property Grouped.'],
     ['Use the same Group name for properties that form one combined lot or economic package.'],
     ['Leave Group blank for an individual selection unit.'],
-    ['Property is required. Owner, city, state, ZIP, and units are optional but recommended.'],
+    ['Property is required. Owner, city, state, ZIP, units, zoning, and next 40-year certification are optional but recommended.'],
   ]);
   instructions['!cols'] = [{ wch: 100 }];
   XLSX.utils.book_append_sheet(workbook, instructions, 'Instructions');
@@ -64,7 +66,7 @@ export function downloadGroupsWorkbook(groups: readonly ImportedGroup[], individ
     GROUP_HEADERS,
     ...groupRows(groups, individualProperties),
   ]);
-  sheet['!cols'] = [6, 18, 24, 30, 32, 18, 8, 10, 9].map((wch) => ({ wch }));
+  sheet['!cols'] = [6, 18, 24, 30, 32, 18, 8, 10, 9, 18, 28].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Property Grouped');
   XLSX.writeFile(workbook, 'Property Groups Export.xlsx');
 }
@@ -89,6 +91,8 @@ export function parseGroupsWorkbook(data: ArrayBuffer): GroupsImportResult {
   const stateColumn = column('state');
   const zipColumn = column('zip', 'zipcode');
   const unitsColumn = column('units', 'unit');
+  const zoningColumn = column('zoning');
+  const cert40yrColumn = column('next40yearcertification', 'next40yearcert', 'cert40yr', '40yearcertification');
   if (groupColumn < 0 || propertyColumn < 0) throw new GroupsImportError('The workbook needs Group and Property columns.');
 
   const groups = new Map<string, ImportedGroup>();
@@ -104,6 +108,8 @@ export function parseGroupsWorkbook(data: ArrayBuffer): GroupsImportResult {
       state: valueAt(row, stateColumn),
       zip: valueAt(row, zipColumn),
       units: valueAt(row, unitsColumn),
+      zoning: valueAt(row, zoningColumn),
+      cert40yr: valueAt(row, cert40yrColumn),
     };
     if (!groupName) { individualProperties.push(member); continue; }
     const existing = groups.get(groupName);
