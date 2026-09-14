@@ -36,6 +36,13 @@ const numberFrom = (text: string) => {
   return match ? Number(match[0].replace(/,/g, '')) : 0;
 };
 
+const estimateYearsLeft = (basis: number, annual: number, recoveryPeriod: string) => {
+  if (!basis || !annual) return 0;
+  const estimate = Math.ceil(basis / annual);
+  const recoveryLife = numberFrom(recoveryPeriod);
+  return recoveryLife ? Math.min(estimate, Math.ceil(recoveryLife)) : estimate;
+};
+
 const textAt = (row: PositionedText[], min: number, max: number) => row
   .filter((item) => item.x >= min && item.x < max)
   .sort((a, b) => a.x - b.x)
@@ -98,7 +105,7 @@ function parseDepreciationPage(items: PositionedText[]): { property?: string; en
       method,
       basis: remainingBasis,
       recoveryPeriod: life ? `${life} yrs` : 'See return',
-      yearsLeft: annual && remainingBasis ? Math.ceil(remainingBasis / annual) : 0,
+      yearsLeft: estimateYearsLeft(remainingBasis, annual, life ? `${life} yrs` : 'See return'),
       annual,
     });
   }
@@ -113,7 +120,7 @@ function combineAssets(assets: ParsedAsset[]): ExtractedComponent[] {
     if (current) {
       current.basis += asset.basis;
       current.annual += asset.annual;
-      current.yearsLeft = Math.max(current.yearsLeft, asset.yearsLeft);
+      current.yearsLeft = estimateYearsLeft(current.basis, current.annual, current.recoveryPeriod);
     } else {
       combined.set(asset.key, { ...asset });
     }
