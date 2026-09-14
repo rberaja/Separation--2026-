@@ -145,6 +145,7 @@ export async function extractTaxReturnSchedules(files: File[], onProgress?: (pro
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await getDocument({ data }).promise;
     let detailPages = 0;
+    let form4562Pages = 0;
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       onProgress?.({ file: file.name, fileIndex: fileIndex + 1, fileCount: files.length, page: pageNumber, pageCount: pdf.numPages });
@@ -156,6 +157,7 @@ export async function extractTaxReturnSchedules(files: File[], onProgress?: (pro
         .filter((item): item is typeof item & { str: string; transform: number[] } => 'str' in item && 'transform' in item)
         .map((item) => ({ x: item.transform[4], y: item.transform[5], text: item.str }));
       const pageText = items.map((item) => item.text).join(' ');
+      if (/Form\s*4562/i.test(pageText)) form4562Pages += 1;
       if (!/Depreciation Detail Listing/i.test(pageText) || !/FORM\s*8825/i.test(pageText)) continue;
 
       detailPages += 1;
@@ -167,7 +169,10 @@ export async function extractTaxReturnSchedules(files: File[], onProgress?: (pro
       schedules.set(key, existing);
     }
 
-    if (!detailPages) warnings.push(`${file.name}: no Form 8825 depreciation-detail pages were found.`);
+    // A filing copy carries Form 4562 summaries only; remaining basis per property needs the preparer's asset-level listing.
+    if (!detailPages) warnings.push(form4562Pages
+      ? `${file.name}: this copy has Form 4562 summaries but no "Depreciation Detail Listing" pages, so remaining basis per property cannot be read. Ask the preparer for the client copy that includes the depreciation detail listings (asset-by-asset cost, prior depreciation, and current-year deduction).`
+      : `${file.name}: no Form 8825 "Depreciation Detail Listing" pages were found. If the PDF is a scanned image, request a text-based copy from the preparer.`);
   }
 
   return {
