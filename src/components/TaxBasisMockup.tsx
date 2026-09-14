@@ -1,130 +1,105 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
+import type { ExtractedMethod } from '../lib/tax-return-pdf';
 import { useApp } from '../store/AppContext';
 
-type DepreciationMethod = 'Cost segregation' | 'Straight-line';
+type ScheduleItem = { id: string; label: string; method: ExtractedMethod; basis: number; recoveryPeriod: string; yearsLeft: number; annual: number };
+type PropertySchedule = { id: string; property: string; entity: string; source: string; schedules: ScheduleItem[] };
+type DealGroup = { id: string; name: string; members: string[] };
+type Tab = 'groups' | 'depreciation';
 
-type ScheduleItem = {
-  label: string;
-  method: DepreciationMethod;
-  basis: number;
-  recoveryPeriod: string;
-  yearsLeft: number;
-  annual: number;
-};
+let nextLocalId = 1;
+const makeId = (kind: string) => `${kind}-${nextLocalId++}`;
+const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+const numeric = (value: string) => Math.max(0, Number(value) || 0);
+const totals = (properties: PropertySchedule[]) => ({ basis: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.basis, 0), 0), depreciation: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.annual, 0), 0) });
 
-type PropertySchedule = {
-  property: string;
-  entity: string;
-  source: string;
-  schedules: ScheduleItem[];
-};
-
-/* Illustrative rows only — the finished importer will create these from the partnership return's fixed-asset detail. */
-const PROPERTIES: PropertySchedule[] = [
-  {
-    property: 'Juniper Commons', entity: 'JCP Holdings LP', source: 'Form 4562 · Fixed asset detail',
-    schedules: [
-      { label: 'Residential building', method: 'Straight-line', basis: 4_100_000, recoveryPeriod: '27.5 yrs', yearsLeft: 22, annual: 151_000 },
-      { label: 'Tenant improvements', method: 'Straight-line', basis: 760_000, recoveryPeriod: '15 yrs', yearsLeft: 6, annual: 25_400 },
-    ],
-  },
-  {
-    property: 'Old Mill Lofts', entity: 'Mill Portfolio LLC', source: 'Form 4562 · Fixed asset detail',
-    schedules: [{ label: 'Residential building', method: 'Straight-line', basis: 1_000_000, recoveryPeriod: '27.5 yrs', yearsLeft: 19, annual: 53_000 }],
-  },
-  {
-    property: 'Cedar Row', entity: 'Cedar Development LP', source: 'Cost segregation study · 2023',
-    schedules: [
-      { label: 'Building structure', method: 'Straight-line', basis: 440_000, recoveryPeriod: '27.5 yrs', yearsLeft: 16, annual: 20_000 },
-      { label: 'Land improvements', method: 'Cost segregation', basis: 120_000, recoveryPeriod: '15 yrs', yearsLeft: 8, annual: 9_000 },
-      { label: 'Personal property', method: 'Cost segregation', basis: 60_000, recoveryPeriod: '5 yrs', yearsLeft: 2, annual: 5_000 },
-    ],
-  },
-  {
-    property: 'River Station', entity: 'River Station LLC', source: 'Cost segregation study · 2022',
-    schedules: [
-      { label: 'Building structure', method: 'Straight-line', basis: 2_830_000, recoveryPeriod: '27.5 yrs', yearsLeft: 20, annual: 106_000 },
-      { label: 'Land improvements', method: 'Cost segregation', basis: 310_000, recoveryPeriod: '15 yrs', yearsLeft: 9, annual: 11_000 },
-      { label: 'Equipment & fixtures', method: 'Cost segregation', basis: 180_000, recoveryPeriod: '5 yrs', yearsLeft: 3, annual: 7_000 },
-    ],
-  },
-  {
-    property: 'Lakeview Center', entity: 'Lakeview Properties LP', source: 'Form 4562 · Fixed asset detail',
-    schedules: [{ label: 'Commercial building', method: 'Straight-line', basis: 1_200_000, recoveryPeriod: '39 yrs', yearsLeft: 18, annual: 61_500 }],
-  },
-];
-
-const money = (value: number) => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: 'USD', maximumFractionDigits: 0,
-}).format(value);
-
-/** Step 1 companion tool: capture property schedules for export to the completed partition workspace. */
+/** Two-stage workflow: define deal groups first, then import and inspect property-level tax schedules. */
 export function TaxBasisMockup({ onOpenPartition }: { onOpenPartition: () => void }) {
   const { state, dispatch } = useApp();
-  const [taxYear, setTaxYear] = useState(2026);
+  const [activeTab, setActiveTab] = useState<Tab>('groups');
+  const [taxYear, setTaxYear] = useState(state.depreciationYear);
+  const [properties, setProperties] = useState<PropertySchedule[]>([]);
+  const [groups, setGroups] = useState<DealGroup[]>([]);
+  const [documents, setDocuments] = useState<string[]>([]);
+  const [notice, setNotice] = useState('Set up deal groups, then upload the partnership tax returns.');
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const returnFileRef = useRef<HTMLInputElement>(null);
 
-  return (
-    <div className="min-h-screen bg-bg text-text">
-      <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1>
-            <span className="font-mono text-[0.57rem] tracking-[0.1em] uppercase text-hdr-accent border border-hdr-input-brd rounded px-1.5 py-0.5">Step 1 · Input tool</span>
-          </div>
-          <div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Tax Basis Schedule · Per-Property Depreciation Detail</div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="font-mono text-[0.68rem] uppercase tracking-[0.07em] text-hdr-muted hover:text-white cursor-pointer" onClick={onOpenPartition}>Open Partition workspace →</button>
-          <div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">
-            {(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}
-          </div>
-        </div>
-      </header>
+  const updateProperty = (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => setProperties((current) => current.map((property) => property.id === id ? { ...property, ...patch } : property));
+  const updateComponent = (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => setProperties((current) => current.map((property) => property.id === propertyId ? { ...property, schedules: property.schedules.map((component) => component.id === componentId ? { ...component, ...patch } : component) } : property));
+  const addGroup = () => setGroups((current) => [...current, { id: makeId('group'), name: `Combined lot ${current.length + 1}`, members: [] }]);
+  const updateGroup = (id: string, patch: Partial<DealGroup>) => setGroups((current) => current.map((group) => group.id === id ? { ...group, ...patch } : group));
+  const removeGroup = (id: string) => setGroups((current) => current.filter((group) => group.id !== id));
+  const toggleMember = (groupId: string, propertyId: string) => setGroups((current) => {
+    const isMember = current.find((group) => group.id === groupId)?.members.includes(propertyId) ?? false;
+    return current.map((group) => {
+      if (group.id === groupId) return { ...group, members: isMember ? group.members.filter((id) => id !== propertyId) : [...group.members, propertyId] };
+      return { ...group, members: group.members.filter((id) => id !== propertyId) };
+    });
+  });
 
-      <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5">
-        <button className="tool-btn tool-btn-primary">↑ Import partnership tax return (PDF)</button>
-        <button className="tool-btn">+ Add depreciation detail / cost seg report</button>
-        <button className="tool-btn">⇧ Send property basis to Partition Tool</button>
-        <span className="ml-auto font-mono text-[0.65rem] uppercase tracking-[0.08em] text-green font-bold">● Ready to export</span>
-      </div>
+  const handleFiles = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = '';
+    if (!files.length) return;
+    setIsImporting(true); setWarnings([]); setNotice(`Reading ${files.length} tax ${files.length === 1 ? 'return' : 'returns'} locally…`);
+    try {
+      const { extractTaxReturnSchedules } = await import('../lib/tax-return-pdf');
+      const result = await extractTaxReturnSchedules(files);
+      const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
+      setProperties(extracted); setGroups((current) => current.map((group) => ({ ...group, members: [] })));
+      setDocuments(result.sourceFiles); setWarnings(result.warnings); setActiveTab('depreciation');
+      setNotice(extracted.length ? `Extracted ${extracted.length} property ${extracted.length === 1 ? 'schedule' : 'schedules'}. Return to Groups to assign the combined lots.` : 'No property depreciation schedules could be extracted from the selected PDFs.');
+    } catch (error) { setNotice(`Could not read the selected return: ${error instanceof Error ? error.message : String(error)}`); }
+    finally { setIsImporting(false); }
+  };
 
-      <main className="max-w-[1450px] mx-auto px-6 py-5">
-        <div className="flex flex-wrap justify-between items-end gap-4 mb-5">
-          <div>
-            <div className="caption text-[0.66rem] mb-1">Tax return schedule capture</div>
-            <h2 className="font-serif text-[1.55rem] font-bold">Remaining Depreciation by Property</h2>
-            <p className="mt-1 text-[0.78rem] text-muted max-w-3xl">Enter or import each property’s remaining depreciable components exactly as they appear in the partnership fixed-asset detail. Cost-segregation and straight-line items stay separate.</p>
-          </div>
-          <label className="flex items-center gap-1.5 border-[1.5px] border-border rounded-[3px] bg-surface px-2.5 py-1.5"><span className="font-mono text-[.59rem] uppercase tracking-[.07em] text-muted">Tax year</span><input value={taxYear} onChange={e => setTaxYear(Number(e.target.value) || 2026)} className="w-11 bg-transparent text-right outline-none font-mono text-[.74rem] font-bold" inputMode="numeric" /></label>
-        </div>
+  const exportToPartition = () => {
+    const groupedIds = new Set(groups.flatMap((group) => group.members));
+    const units = [
+      ...groups.map((group) => ({ name: group.name.trim(), properties: properties.filter((property) => group.members.includes(property.id)) })).filter((unit) => unit.name && unit.properties.length),
+      ...properties.filter((property) => !groupedIds.has(property.id)).map((property) => ({ name: property.property.trim(), properties: [property] })).filter((unit) => unit.name),
+    ];
+    if (!units.length) { setNotice('Upload property schedules before sending grouped totals to the Partition Tool.'); return; }
+    dispatch({ type: 'settings/depreciationYear', value: taxYear });
+    for (const unit of units) {
+      const total = totals(unit.properties);
+      const match = state.properties.find((property) => property.name.trim().toLocaleLowerCase() === unit.name.toLocaleLowerCase());
+      if (match) dispatch({ type: 'property/update', id: match.id, patch: { remainingBasis: total.basis, depreciation: total.depreciation } });
+      else dispatch({ type: 'property/add', input: { name: unit.name, remainingBasis: total.basis, depreciation: total.depreciation } });
+    }
+    setNotice(`Sent ${units.length} selection ${units.length === 1 ? 'unit' : 'units'}—groups plus ungrouped properties—to the Partition Tool for ${taxYear}.`);
+  };
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          {PROPERTIES.map((property) => <PropertyScheduleCard key={property.property} property={property} taxYear={taxYear} />)}
-          <button className="min-h-[166px] border-[1.5px] border-dashed border-border2 rounded-[5px] text-muted hover:text-a hover:border-a transition-colors cursor-pointer flex flex-col items-center justify-center gap-2"><span className="font-serif text-[1.6rem] leading-none">+</span><span className="font-mono text-[.7rem] font-bold uppercase tracking-[.08em]">Add property schedule</span><span className="text-[.7rem]">Add its remaining depreciation components</span></button>
-        </div>
+  const groupedIds = new Set(groups.flatMap((group) => group.members));
+  const toggleExpanded = (id: string) => setExpandedGroups((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
-        <div className="mt-5 note max-w-5xl">This page records the source schedule only. It does not assign properties, compare partners, or calculate a settlement. When exported, each property supplies its <strong>Remaining Tax Basis</strong> and <strong>Depreciation {taxYear}</strong> to the completed Partition Tool.</div>
-      </main>
-    </div>
-  );
+  return <div className="min-h-screen bg-bg text-text">
+    <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><div className="flex items-center gap-2.5"><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><span className="font-mono text-[0.57rem] tracking-[0.1em] uppercase text-hdr-accent border border-hdr-input-brd rounded px-1.5 py-0.5">Tax-return input</span></div><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex flex-wrap items-center gap-3"><button type="button" className="font-mono text-[0.68rem] uppercase tracking-[0.07em] text-hdr-muted hover:text-white cursor-pointer" onClick={onOpenPartition}>Open Partition workspace →</button><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></div></header>
+    <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} /><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length || isImporting} onClick={exportToPartition}>⇧ Send grouped basis to Partition Tool</button><span className="ml-auto font-mono text-[0.65rem] text-muted" role="status">{notice}</span></div>
+    <main className="max-w-[1450px] mx-auto px-6 py-5">
+      <nav className="flex gap-1 border-b border-border mb-5" aria-label="Tax basis workflow"><TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} number="1" label="Groups" /><TabButton active={activeTab === 'depreciation'} onClick={() => setActiveTab('depreciation')} number="2" label="Remaining Depreciation" /></nav>
+      {activeTab === 'groups' ? <GroupsTab groups={groups} properties={properties} onAdd={addGroup} onUpdate={updateGroup} onRemove={removeGroup} onToggleMember={toggleMember} onUpload={() => returnFileRef.current?.click()} /> : <DepreciationTab taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} groupedIds={groupedIds} expandedGroups={expandedGroups} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
+    </main>
+  </div>;
 }
 
-function PropertyScheduleCard({ property, taxYear }: { property: PropertySchedule; taxYear: number }) {
-  const hasCostSeg = property.schedules.some((item) => item.method === 'Cost segregation');
-  const remainingBasis = property.schedules.reduce((sum, item) => sum + item.basis, 0);
-  const taxYearDepreciation = property.schedules.reduce((sum, item) => sum + item.annual, 0);
+function TabButton({ active, onClick, number, label }: { active: boolean; onClick: () => void; number: string; label: string }) { return <button type="button" onClick={onClick} className={`px-4 py-2.5 font-mono text-[.7rem] uppercase tracking-[.08em] cursor-pointer border-b-[3px] -mb-px ${active ? 'border-a text-a font-bold' : 'border-transparent text-muted hover:text-text'}`}><span className="mr-2 text-[.58rem]">{number}</span>{label}</button>; }
 
-  return <article className="card overflow-hidden">
-    <header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3 items-start">
-      <div><h3 className="font-serif text-[1.08rem] font-bold">{property.property}</h3><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted mt-1">{property.entity} · {property.source}</div></div>
-      <span className={`font-mono text-[.59rem] uppercase tracking-[.06em] rounded px-1.5 py-1 ${hasCostSeg ? 'bg-a-light text-a' : 'bg-surface border border-border text-muted'}`}>{hasCostSeg ? 'Cost seg included' : 'Straight-line only'}</span>
-    </header>
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[610px] text-[.73rem]">
-        <thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Depreciable component</th><th className="text-left px-3 py-2.5">Method</th><th className="text-right px-3 py-2.5">Basis left</th><th className="text-right px-3 py-2.5">Recovery / left</th><th className="text-right px-4 py-2.5">{taxYear} deduction</th></tr></thead>
-        <tbody>{property.schedules.map((item) => <tr key={item.label} className="border-b last:border-b-0 border-border"><td className="px-4 py-3 font-semibold">{item.label}</td><td className="px-3 py-3"><span className={`font-mono text-[.58rem] uppercase tracking-[.04em] ${item.method === 'Cost segregation' ? 'text-a font-bold' : 'text-muted'}`}>{item.method}</span></td><td className="px-3 py-3 text-right font-mono font-bold">{money(item.basis)}</td><td className="px-3 py-3 text-right font-mono text-muted">{item.recoveryPeriod} / {item.yearsLeft} yrs</td><td className="px-4 py-3 text-right font-mono font-bold text-yellow">{money(item.annual)}</td></tr>)}</tbody>
-        <tfoot className="bg-surface2 border-t-[1.5px] border-border"><tr><td colSpan={2} className="px-4 py-3 font-mono text-[.57rem] uppercase tracking-[.07em] text-muted">Property totals → Partition Tool</td><td className="px-3 py-3 text-right font-mono text-[1rem] font-bold text-a">{money(remainingBasis)}</td><td /><td className="px-4 py-3 text-right font-mono text-[1rem] font-bold text-yellow">{money(taxYearDepreciation)}</td></tr></tfoot>
-      </table>
-    </div>
-  </article>;
+function GroupsTab({ groups, properties, onAdd, onUpdate, onRemove, onToggleMember, onUpload }: { groups: DealGroup[]; properties: PropertySchedule[]; onAdd: () => void; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, propertyId: string) => void; onUpload: () => void }) {
+  return <section><div className="flex flex-wrap justify-between items-end gap-4 mb-5"><div><div className="caption text-[.66rem] mb-1">Step 1 · Selection-unit setup</div><h2 className="font-serif text-[1.55rem] font-bold">Groups</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Define combined lots and economic packages here. This mapping controls the totals sent to the Partition Tool and the collapsed view in Remaining Depreciation; it never merges the underlying tax schedules.</p></div><button type="button" className="tool-btn tool-btn-primary" onClick={onAdd}>+ Add group</button></div>{properties.length === 0 && <div className="note mb-4">Create group names now if useful. After uploading tax returns, return here to assign the extracted properties to each group.<button type="button" className="ml-2 underline text-a cursor-pointer" onClick={onUpload}>Upload tax returns</button></div>}<div className="grid grid-cols-1 xl:grid-cols-2 gap-5">{groups.map((group) => <GroupCard key={group.id} group={group} properties={properties} onUpdate={onUpdate} onRemove={onRemove} onToggleMember={onToggleMember} />)}{groups.length === 0 && <div className="card p-8 text-center text-muted"><div className="font-serif text-[1.15rem] font-bold text-text">No groups defined</div><p className="max-w-md mx-auto mt-2 text-[.78rem]">Add only properties that should be selected as one combined lot or economic package. Ungrouped properties remain individual selection units.</p><button type="button" onClick={onAdd} className="tool-btn tool-btn-primary mt-5">+ Add first group</button></div>}</div></section>;
 }
+
+function GroupCard({ group, properties, onUpdate, onRemove, onToggleMember }: { group: DealGroup; properties: PropertySchedule[]; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, propertyId: string) => void }) { return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border flex justify-between gap-3"><div><div className="caption text-[.58rem]">Combined lot / economic package</div><input aria-label="Group name" value={group.name} onChange={(event) => onUpdate(group.id, { name: event.target.value })} className="mt-1 bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /></div><button type="button" onClick={() => onRemove(group.id)} className="font-mono text-[.6rem] uppercase text-muted hover:text-red cursor-pointer">Remove</button></header><div className="p-4"><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted mb-2">Member properties</div>{properties.length === 0 ? <p className="text-[.75rem] text-muted">Property choices will appear after tax-return import.</p> : <div className="flex flex-col gap-2">{properties.map((property) => <label key={property.id} className="flex gap-2.5 items-start cursor-pointer"><input type="checkbox" checked={group.members.includes(property.id)} onChange={() => onToggleMember(group.id, property.id)} className="mt-0.5 accent-[var(--a)]" /><span><span className="font-semibold text-[.78rem]">{property.property}</span><span className="block font-mono text-[.61rem] text-muted mt-0.5">{property.entity || 'Entity not detected'}</span></span></label>)}</div>}</div></article>; }
+
+function DepreciationTab({ taxYear, setTaxYear, properties, groups, groupedIds, expandedGroups, warnings, documents, onToggleExpanded, onUpdateProperty, onUpdateComponent, onGoGroups }: { taxYear: number; setTaxYear: (year: number) => void; properties: PropertySchedule[]; groups: DealGroup[]; groupedIds: Set<string>; expandedGroups: Set<string>; warnings: string[]; documents: string[]; onToggleExpanded: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; onGoGroups: () => void }) {
+  return <section><div className="flex flex-wrap justify-between items-end gap-4 mb-5"><div><div className="caption text-[.66rem] mb-1">Step 2 · Tax return schedule extraction</div><h2 className="font-serif text-[1.55rem] font-bold">Remaining Depreciation by Property</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Groups are collapsed to a single total. Expand a group to inspect every individual property and its tax-return depreciation sections.</p></div><label className="flex items-center gap-1.5 border-[1.5px] border-border rounded-[3px] bg-surface px-2.5 py-1.5"><span className="font-mono text-[.59rem] uppercase tracking-[.07em] text-muted">Tax year</span><input value={taxYear} onChange={(event) => setTaxYear(Number(event.target.value) || taxYear)} className="w-11 bg-transparent text-right outline-none font-mono text-[.74rem] font-bold" inputMode="numeric" /></label></div>{documents.length > 0 && <div className="mb-4 flex flex-wrap gap-2 items-center"><span className="caption text-[.61rem]">Imported returns</span>{documents.map((document) => <span key={document} className="font-mono text-[.65rem] border border-border rounded px-2 py-1 bg-surface">{document}</span>)}</div>}{warnings.length > 0 && <div className="mb-4 note border-l-red">{warnings.map((warning) => <div key={warning}>{warning}</div>)}</div>}{properties.length === 0 ? <div className="card text-center py-16 px-6"><div className="font-serif text-[1.25rem] font-bold">No tax returns imported</div><p className="text-muted max-w-md mx-auto mt-2 text-[.78rem]">Upload the Form 1065 packages above. The importer creates the property schedules automatically.</p></div> : <div className="flex flex-col gap-5">{groups.filter((group) => group.members.length).map((group) => { const members = properties.filter((property) => group.members.includes(property.id)); return <GroupedSchedule key={group.id} group={group} properties={members} taxYear={taxYear} expanded={expandedGroups.has(group.id)} onToggle={() => onToggleExpanded(group.id)} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />; })}{properties.filter((property) => !groupedIds.has(property.id)).map((property) => <PropertyScheduleCard key={property.id} property={property} taxYear={taxYear} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />)}</div>}<div className="mt-5 note max-w-5xl">The Groups tab controls these roll-ups. Return there to change membership; the group totals and the export to the Partition Tool update from the same mapping.<button type="button" onClick={onGoGroups} className="ml-2 underline text-a cursor-pointer">Open Groups</button></div></section>;
+}
+
+function GroupedSchedule({ group, properties, taxYear, expanded, onToggle, onUpdateProperty, onUpdateComponent }: { group: DealGroup; properties: PropertySchedule[]; taxYear: number; expanded: boolean; onToggle: () => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void }) { const total = totals(properties); return <article className="card overflow-hidden border-l-[4px] border-l-a"><button type="button" onClick={onToggle} className="w-full px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3 items-center text-left cursor-pointer hover:bg-bg"><div><div className="caption text-[.58rem]">Group total · {properties.length} properties</div><div className="font-serif text-[1.12rem] font-bold mt-1">{group.name}</div></div><div className="flex gap-7 text-right"><div><div className="caption text-[.56rem]">Basis left</div><div className="font-mono font-bold text-a mt-1">{money(total.basis)}</div></div><div><div className="caption text-[.56rem]">Depreciation {taxYear}</div><div className="font-mono font-bold text-yellow mt-1">{money(total.depreciation)}</div></div><div className="font-mono text-muted self-center">{expanded ? '▴ Collapse' : '▾ Expand'}</div></div></button>{expanded && <div className="p-4 bg-bg flex flex-col gap-4">{properties.map((property) => <PropertyScheduleCard key={property.id} property={property} taxYear={taxYear} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} nested />)}</div>}</article>; }
+
+function PropertyScheduleCard({ property, taxYear, onUpdateProperty, onUpdateComponent, nested = false }: { property: PropertySchedule; taxYear: number; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; nested?: boolean }) { const hasAccelerated = property.schedules.some((item) => item.method === 'MACRS / accelerated'); const total = totals([property]); return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3 items-start"><div className="grid gap-1.5"><input aria-label="Property name" value={property.property} onChange={(event) => onUpdateProperty(property.id, { property: event.target.value })} className="bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted">{property.entity} · {property.source}</div></div><span className={`font-mono text-[.59rem] uppercase tracking-[.06em] rounded px-1.5 py-1 ${hasAccelerated ? 'bg-a-light text-a' : 'bg-surface border border-border text-muted'}`}>{hasAccelerated ? 'MACRS included' : 'Straight-line only'}</span></header><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Depreciable section</th><th className="text-left px-3 py-2.5">Method</th><th className="text-right px-3 py-2.5">Basis left</th><th className="text-right px-3 py-2.5">Recovery / est. left</th><th className="text-right px-4 py-2.5">{taxYear} deduction</th></tr></thead><tbody>{property.schedules.map((item) => <tr key={item.id} className="border-b last:border-b-0 border-border"><td className="px-4 py-2.5 font-semibold">{item.label}</td><td className="px-3 py-2.5"><span className={`font-mono text-[.58rem] uppercase tracking-[.04em] ${item.method === 'MACRS / accelerated' ? 'text-a font-bold' : 'text-muted'}`}>{item.method}</span></td><td className="px-3 py-2.5"><NumberField label="Basis left" value={item.basis} onChange={(value) => onUpdateComponent(property.id, item.id, { basis: value })} /></td><td className="px-3 py-2.5 text-right font-mono text-muted">{item.recoveryPeriod}{item.yearsLeft ? ` / ${item.yearsLeft} yrs` : ''}</td><td className="px-4 py-2.5"><NumberField label={`${taxYear} deduction`} value={item.annual} onChange={(value) => onUpdateComponent(property.id, item.id, { annual: value })} tone="text-yellow" /></td></tr>)}</tbody><tfoot className="bg-surface2 border-t-[1.5px] border-border"><tr><td colSpan={2} className="px-4 py-3 font-mono text-[.57rem] uppercase tracking-[.07em] text-muted">Property totals → Partition Tool</td><td className="px-3 py-3 text-right font-mono text-[1rem] font-bold text-a">{money(total.basis)}</td><td /><td className="px-4 py-3 text-right font-mono text-[1rem] font-bold text-yellow">{money(total.depreciation)}</td></tr></tfoot></table></div></article>; }
+
+function NumberField({ label, value, onChange, tone = '' }: { label: string; value: number; onChange: (value: number) => void; tone?: string }) { return <input aria-label={label} value={value || ''} onChange={(event) => onChange(numeric(event.target.value))} inputMode="decimal" placeholder="0" className={`w-full bg-transparent border-b border-border focus:border-ink outline-none text-right font-mono font-bold ${tone}`} />; }

@@ -60,6 +60,7 @@ export type Action =
   | { type: 'partner/setPctA'; value: number | null }
   | { type: 'settings/discountRate'; value: number | null }
   | { type: 'settings/cashEquiv'; value: number | null }
+  | { type: 'settings/depreciationYear'; value: number }
   | { type: 'theme/set'; theme: Theme };
 
 function addProperties(state: AppState, inputs: readonly PropertyInput[]): AppState {
@@ -133,6 +134,11 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'settings/cashEquiv':
       return { ...state, cashEquiv: action.value };
+
+    case 'settings/depreciationYear':
+      return Number.isInteger(action.value) && action.value > 1900
+        ? { ...state, depreciationYear: action.value }
+        : state;
 
     case 'theme/set':
       return { ...state, theme: action.theme };
