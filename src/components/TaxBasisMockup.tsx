@@ -57,15 +57,6 @@ export function TaxBasisMockup() {
   const updateComponent = (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => setProperties((current) => current.map((property) => property.id === propertyId ? { ...property, schedules: property.schedules.map((component) => component.id === componentId ? { ...component, ...patch } : component) } : property));
   const updateGroup = (id: string, patch: Partial<DealGroup>) => setGroups((current) => current.map((group) => group.id === id ? { ...group, ...patch } : group));
   const removeGroup = (id: string) => setGroups((current) => current.filter((group) => group.id !== id));
-  const toggleMember = (groupId: string, property: PropertySchedule) => setGroups((current) => {
-    const selectedGroup = current.find((group) => group.id === groupId);
-    const isMember = selectedGroup ? hasMember(selectedGroup, property) : false;
-    const member: GroupMember = { property: property.property, entity: property.entity, city: '', state: '', zip: '', units: '', zoning: '', cert40yr: '' };
-    return current.map((group) => {
-      if (group.id === groupId) return { ...group, members: isMember ? group.members.filter((existing) => propertyKey(existing.property) !== propertyKey(property.property)) : [...group.members, member] };
-      return { ...group, members: group.members.filter((existing) => propertyKey(existing.property) !== propertyKey(property.property)) };
-    });
-  });
 
   const handleGroupsFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -136,7 +127,7 @@ export function TaxBasisMockup() {
     <input ref={groupsFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleGroupsFile(event)} />
     <main className="max-w-[1450px] mx-auto px-6 py-5">
       <nav className="flex gap-1 border-b border-border mb-5" aria-label="Tax basis workflow"><TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} number="1" label="Groups" /><TabButton active={activeTab === 'data'} onClick={() => setActiveTab('data')} number="2" label="Remaining Depreciation" /></nav>
-      {activeTab === 'groups' ? <GroupsTabView groups={groups} properties={properties} assignments={assignments} groupWorkbook={groupWorkbook} sortAsc={groupsSortAsc} onUpdate={updateGroup} onRemove={removeGroup} onToggleMember={toggleMember} /> : <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} expandedGroups={expandedGroups} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
+      {activeTab === 'groups' ? <GroupsTabView groups={groups} groupWorkbook={groupWorkbook} sortAsc={groupsSortAsc} onUpdate={updateGroup} onRemove={removeGroup} /> : <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} expandedGroups={expandedGroups} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
       <GroupsOutputDialog open={groupsOutputOpen} hasData={Boolean(groups.length || groupWorkbook?.individualProperties.length)} onClose={() => setGroupsOutputOpen(false)} onExport={() => void exportGroupsWorkbook()} />
     </main>
   </div>;
@@ -144,14 +135,14 @@ export function TaxBasisMockup() {
 
 function TabButton({ active, onClick, number, label }: { active: boolean; onClick: () => void; number: string; label: string }) { return <button type="button" onClick={onClick} className={`px-4 py-2.5 font-mono text-[.7rem] uppercase tracking-[.08em] cursor-pointer border-b-[3px] -mb-px ${active ? 'border-a text-a font-bold' : 'border-transparent text-muted hover:text-text'}`}><span className="mr-2 text-[.58rem]">{number}</span>{label}</button>; }
 
-function GroupsTabView({ groups, properties, assignments, groupWorkbook, sortAsc, onUpdate, onRemove, onToggleMember }: { groups: DealGroup[]; properties: PropertySchedule[]; assignments: Map<string, string>; groupWorkbook: { name: string; individualProperties: GroupMember[] } | null; sortAsc: boolean; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) {
+function GroupsTabView({ groups, groupWorkbook, sortAsc, onUpdate, onRemove }: { groups: DealGroup[]; groupWorkbook: { name: string; individualProperties: GroupMember[] } | null; sortAsc: boolean; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void }) {
   const byName = <T extends { name?: string; property?: string }>(left: T, right: T) => (left.name ?? left.property ?? '').localeCompare(right.name ?? right.property ?? '') * (sortAsc ? 1 : -1);
   const sortedGroups = [...groups].sort(byName);
   const sortedIndividuals = groupWorkbook ? [...groupWorkbook.individualProperties].sort(byName) : [];
   return <section>
-    <h2 className="font-serif text-[1.55rem] font-bold mb-5">Groups</h2>
+    <h2 className="font-serif text-[1.55rem] font-bold mb-5">Groups, Zoning, and Next 40-Yr Certification</h2>
     {!groupWorkbook && <div className="card mb-5 px-6 py-12 text-center"><h3 className="font-serif text-[1.45rem] font-bold">Upload the Groups workbook</h3><p className="max-w-2xl mx-auto mt-3 text-[.9rem] leading-snug">Use the Upload Groups Excel button in the toolbar. Properties with no group remain individual selection units.</p></div>}
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">{sortedGroups.map((group) => <ImportedGroupCard key={group.id} group={group} properties={properties} assignments={assignments} onUpdate={onUpdate} onRemove={onRemove} onToggleMember={onToggleMember} />)}</div>
+    <div className="flex flex-col gap-5">{sortedGroups.map((group) => <ImportedGroupCard key={group.id} group={group} onUpdate={onUpdate} onRemove={onRemove} />)}</div>
     {sortedIndividuals.length > 0 && <IndividualPropertiesCard properties={sortedIndividuals} />}
   </section>;
 }
@@ -160,9 +151,8 @@ function WorkbookPropertyDetails({ member }: { member: GroupMember }) {
   return <div className="font-mono text-[.61rem] text-muted mt-0.5"><span>{[member.entity, member.city, member.state, member.units && `${member.units} units`].filter(Boolean).join(' · ')}</span>{(member.zoning || member.cert40yr) && <span className="block mt-0.5">{[member.zoning && `Zoning: ${member.zoning}`, member.cert40yr && `Next 40-year: ${member.cert40yr}`].filter(Boolean).join(' · ')}</span>}</div>;
 }
 
-function ImportedGroupCard({ group, properties, assignments, onUpdate, onRemove, onToggleMember }: { group: DealGroup; properties: PropertySchedule[]; assignments: Map<string, string>; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) {
-  const unmatched = group.members.filter((member) => !properties.some((property) => propertyKey(member.property) === propertyKey(property.property)));
-  return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border flex justify-between gap-3"><div><div className="caption text-[.58rem]">Combined lot / economic package · {group.members.length} properties</div><input aria-label="Group name" value={group.name} onChange={(event) => onUpdate(group.id, { name: event.target.value })} className="mt-1 bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /></div><button type="button" onClick={() => onRemove(group.id)} className="font-mono text-[.6rem] uppercase text-muted hover:text-red cursor-pointer">Remove</button></header><div className="p-4"><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted mb-2">Member properties</div>{properties.length === 0 ? <div className="flex flex-col gap-3">{group.members.map((member) => <div key={member.property} className="text-[.78rem]"><div className="font-semibold">{member.property}</div><WorkbookPropertyDetails member={member} /></div>)}</div> : <div className="flex flex-col gap-3">{properties.map((property) => { const member = group.members.find((item) => propertyKey(item.property) === propertyKey(property.property)); return <label key={property.id} className="flex gap-2.5 items-start cursor-pointer"><input type="checkbox" checked={assignments.get(property.id) === group.id} onChange={() => onToggleMember(group.id, property)} className="mt-0.5 accent-[var(--a)]" /><span><span className="font-semibold text-[.78rem]">{property.property}</span>{member ? <WorkbookPropertyDetails member={member} /> : <span className="block font-mono text-[.61rem] text-muted mt-0.5">{property.entity || 'Entity not detected'}</span>}</span></label>; })}{unmatched.length > 0 && <div className="pt-2 border-t border-border font-mono text-[.61rem] text-muted">Waiting to match from tax returns: {unmatched.map((member) => member.property).join(', ')}</div>}</div>}</div></article>;
+function ImportedGroupCard({ group, onUpdate, onRemove }: { group: DealGroup; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void }) {
+  return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border flex justify-between gap-3"><div><div className="caption text-[.58rem]">Combined lot / economic package · {group.members.length} properties</div><input aria-label="Group name" value={group.name} onChange={(event) => onUpdate(group.id, { name: event.target.value })} className="mt-1 bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /></div><button type="button" onClick={() => onRemove(group.id)} className="font-mono text-[.6rem] uppercase text-muted hover:text-red cursor-pointer">Remove</button></header><div className="p-4"><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted mb-2">Member properties</div><div className="flex flex-col gap-2">{group.members.map((member) => <div key={member.property} className="text-[.78rem]"><div className="font-semibold">{member.property}</div><WorkbookPropertyDetails member={member} /></div>)}</div></div></article>;
 }
 
 function LegacyImportedGroupCard({ group, properties, assignments, onUpdate, onRemove, onToggleMember }: { group: DealGroup; properties: PropertySchedule[]; assignments: Map<string, string>; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) {
