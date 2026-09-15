@@ -8,6 +8,8 @@ First, enter the **Data**. The Partition Tool is populated only after the follow
 2. **Remaining Tax Basis and Depreciation**
 3. **Occupancy**
 4. **Loans**
+<span style="color:#FFFFFF">5. **Capital Expenses**</span>
+<span style="color:#FFFFFF">6. **Market Value**</span>
 
 ```text
 DATA
@@ -15,9 +17,18 @@ DATA
   2. Remaining Tax Basis and Depreciation
   3. Occupancy
   4. Loans
+  5. Capital Expenses
+  6. Market Value
         ↓
 PARTITION TOOL
 ```
+
+### Data retention and handoff
+
+- All imported Groups, tax-return, occupancy, and loan data remains in the tool locally after upload, through tab changes and browser refreshes, until the user selects the applicable **Clear All** action.
+- The source reports and extracted records do not need to be uploaded again to the Partition Tool.
+- After the user reviews each Data tab, **Send to Partition Tool** passes the matched group totals and individual-property values directly into the Partition Tool using the Groups workbook hierarchy.
+- A handoff is a copy of the reviewed values. The imported source data remains available in its Data tab unless the user clears it.
 
 ## 1. Groups, Zoning, and Next 40-Yr Certification
 
@@ -69,28 +80,34 @@ This is the second Data step. The user uploads partnership tax-return PDFs after
 
 ## 3. Occupancy
 
-This Data tab imports the rent roll. The rent roll includes all properties, and the tool must identify and match the occupancy information to each property in the Groups workbook.
+This Data tab imports the original rent-roll and occupancy reports exported from the property-management software. The reports include all properties, and the tool must identify and match the occupancy information to each property in the Groups workbook. A purpose-built template is **not** the primary input method.
 
 ### Occupancy requirements
 
-- **Rent-roll upload:** accept the rent roll source file and extract the occupancy information needed for each property.
+- **Original-report upload:** accept the property-management software's native rent-roll, occupancy, or unit-status reports without requiring the user to re-key or rearrange them into a template. Support the software's standard Excel, CSV, and text-based PDF exports.
+- **Report recognition:** identify the report type and its header row, even when introductory titles, portfolio headers, subtotals, or report dates appear before the data table.
+- **Extraction:** derive the property-level totals from either a property-summary report or individual unit rows. Extract total units, occupied units, vacant units when provided, occupancy percentage, scheduled rent, and the report's as-of date when available.
+- **Source traceability:** retain the source file, report title, page/sheet, and matched source property name for every extracted property value so the user can review how the result was obtained.
 - **Property matching:** match rent-roll property names or addresses to the canonical property records established in the Groups tab. Clearly flag any rent-roll property that cannot be matched.
+- **Review exceptions:** flag ambiguous property matches, missing required fields, duplicate property summaries, and totals that do not reconcile to the imported report. The user can correct a match without changing the original report.
 - **Property values:** display the occupancy values identified for each individual property, including the source information used to support the result.
 - **Group hierarchy:** use the Groups workbook as the controlling hierarchy. A collapsed group displays its occupancy total or summary; expanding the group displays the individual occupancy values for every member property.
 - **Individual properties:** properties with no Group remain separately visible with their own occupancy information.
 - **Consistent layout:** use the same presentation pattern as Remaining Tax Basis and Depreciation: grouped totals when collapsed and individual property detail when expanded.
 - **Partition handoff:** make the reviewed occupancy values available to the Partition Tool.
+- **Send to Partition Tool:** after review, send the matched occupancy values directly to the Partition Tool. Do not require a second file upload or duplicate entry there.
+- **Optional fallback:** a simple import template may be available only for exceptional reports that cannot be read directly. It is not part of the normal workflow.
 
 ### Occupancy mockup
 
 ```text
 DATA  /  OCCUPANCY
 
-[ Upload Rent Roll ]  [ Print / Export ]  [ Clear All ]  Sort [ Name v ]
+[ Upload Property-Management Reports ]  [ Print / Export ]  [ Clear All ]  Sort [ Name v ]
                                                      [ Expand All ] [ Collapse All ]
 
 Occupancy                                                        As of: 12/31/2025
-Rent roll values are matched to the Groups workbook hierarchy.
+Values extracted from property-management reports are matched to the Groups workbook hierarchy.
 
 > The Antiquera                                        GROUP TOTAL - 5 PROPERTIES
   Occupied Units: 39 / 41        Occupancy: 95.1%       Scheduled Rent: $48,600
@@ -112,28 +129,34 @@ INDIVIDUAL PROPERTIES
 
 ## 4. Loans
 
-This Data tab imports the loan information needed by the Partition Tool and assigns every loan to the appropriate property or group.
+This Data tab imports the original property-management software reports that contain debt, liability, mortgage, or property financial information. It extracts the loan information needed by the Partition Tool and assigns every loan to the appropriate property or group. A purpose-built loan template is **not** the primary input method.
 
 ### Loan requirements
 
-- **Loan-document upload:** accept the loan source documents and extract the values required by the Partition Tool.
+- **Original-report upload:** accept the property-management software's native loan, debt, liability, property financial, and owner-statement reports without requiring the user to re-key or rearrange them into a template. Support the software's standard Excel, CSV, and text-based PDF exports.
+- **Report recognition:** recognize report headings and column variations, including reports containing portfolio subtotals or multiple properties, and locate the actual loan detail table before extraction.
+- **Extraction:** capture each loan's secured property, lender, loan type, current/outstanding balance, monthly debt service, maturity date, and other loan terms available in the source report.
+- **Source traceability:** retain the source file, report title, page/sheet, matched source property name, and source loan label for each extracted loan record.
 - **Property matching:** identify the secured property or properties for each loan and match them to the canonical property records in the Groups workbook. Clearly flag a loan that cannot be matched.
-- **Partition inputs:** capture the loan values needed for the Partition Tool, including the current balance and any other required loan terms supplied by the source documents.
+- **Review exceptions:** flag ambiguous property matches, a loan allocated to multiple properties without an allocation method, missing balance or maturity information, and duplicate loan records. A user correction must preserve the original extracted source information.
+- **Partition inputs:** capture the loan values needed for the Partition Tool, including the current balance and any other required loan terms supplied by the source documents. When a property-management report does not contain a required loan term, show it as missing for review instead of estimating it.
 - **Group hierarchy:** use the Groups workbook as the controlling hierarchy. A collapsed group displays the combined loan value or summary; expanding the group displays the individual properties and their related loan values.
 - **Individual properties:** properties with no Group remain separately visible with their own related loan information.
 - **Consistent layout:** use the same presentation pattern as the other Data tabs: grouped totals when collapsed and individual property detail when expanded.
 - **Partition handoff:** make the reviewed loan values available to the Partition Tool without requiring duplicate manual entry.
+- **Send to Partition Tool:** after review, send the matched loan values directly to the Partition Tool. Do not require a second file upload or duplicate entry there.
+- **Optional fallback:** a simple import template may be available only for exceptional reports that cannot be read directly. It is not part of the normal workflow.
 
 ### Loans mockup
 
 ```text
 DATA  /  LOANS
 
-[ Upload Loan Documents ]  [ Print / Export ]  [ Clear All ]  Sort [ Name v ]
+[ Upload Property-Management Reports ]  [ Print / Export ]  [ Clear All ]  Sort [ Name v ]
                                                         [ Expand All ] [ Collapse All ]
 
 Loans
-Loan records are matched to the Groups workbook hierarchy.
+Loan records extracted from property-management reports are matched to the Groups workbook hierarchy.
 
 > The Antiquera                                       GROUP TOTAL - 5 PROPERTIES
   Outstanding Balance: $3,245,000     Monthly Debt Service: $21,450
@@ -153,15 +176,105 @@ INDIVIDUAL PROPERTIES
   220 Antilla Avenue      Loan: First Mortgage     Outstanding Balance: $940,000
 ```
 
+<div style="color:#FFFFFF">
+
+## 5. Capital Expenses
+
+This Data tab imports original capital-expenditure, work-order, budget, and property-financial reports exported from the property-management software. It extracts the actual capital expense need for each property and its approximate cost. A purpose-built template is not the primary input method.
+
+### Capital Expenses requirements
+
+- **Original-report upload:** accept native capital-expenditure, work-order, maintenance, budget, and property-financial reports in the property-management software's standard Excel, CSV, and text-based PDF exports.
+- **Report recognition and extraction:** recognize the report heading and detail table, despite portfolio headers, introductory pages, subtotals, or report dates. Extract the property, CapEx need/description, category when available, actual or proposed status, approximate cost, report date, and source reference.
+- **One line per need:** create a separate property-level line for every actual CapEx need identified in the report. Preserve multiple needs for the same property rather than combining their descriptions.
+- **Approximate cost:** use the report's estimated, budgeted, approved, or actual cost as provided. Clearly label the cost basis; do not invent an estimate where the report has none.
+- **Property matching and traceability:** match the report property name or address to the Groups workbook. Retain the source file, report title, page/sheet, source property name, and source line for every extracted need. Flag unmatched or ambiguous items for review.
+- **Group hierarchy:** the Groups workbook controls the display. A collapsed group shows the total approximate CapEx cost for its matched member properties; expanding the group shows every property and each individual CapEx need.
+- **Individual properties:** properties without a Group remain in a separate single-property list with their CapEx lines and totals.
+- **Review exceptions:** flag duplicate lines, missing approximate costs, and items that cannot be matched without changing the original source record.
+- **Required actions:** **Upload Property-Management Reports**, **Print / Export**, **Clear All**, **Sort by Name**, **Expand All**, **Collapse All**, and **Send to Partition Tool** after review.
+- **Data retention and handoff:** imported reports and extracted CapEx data remain locally in the tool until Clear All. Send reviewed values directly to the Partition Tool; do not require a second upload.
+
+### Capital Expenses mockup
+
+```text
+DATA  /  CAPITAL EXPENSES
+
+[ Upload Property-Management Reports ]  [ Print / Export ]  [ Clear All ]  Sort [ Name v ]
+                                                       [ Expand All ] [ Collapse All ]
+
+Capital Expenses
+Actual needs and approximate costs extracted from property-management reports.
+
+> The Antiquera                                         GROUP TOTAL - 5 PROPERTIES
+  CapEx Needs: 4                    Total Approximate Cost: $186,000       [ Expand ]
+
+v The 600-930                                          GROUP TOTAL - 2 PROPERTIES
+  CapEx Needs: 2                    Total Approximate Cost: $68,000        [ Collapse ]
+
+  600 SW 9 Ave
+  Roof replacement              Actual need             Approx. Cost: $52,000
+  Fire-panel upgrade            Actual need             Approx. Cost: $16,000
+
+INDIVIDUAL PROPERTIES
+  220 Antilla Avenue
+  Elevator modernization        Actual need             Approx. Cost: $74,000
+```
+
+## 6. Market Value
+
+This Data tab imports original valuation, property-financial, appraisal, listing, or market-value reports exported from the property-management software. It extracts the reported market value for each property. A purpose-built template is not the primary input method.
+
+### Market Value requirements
+
+- **Original-report upload:** accept native property-management software valuation, appraisal, portfolio, listing, and property-financial reports in standard Excel, CSV, and text-based PDF exports.
+- **Report recognition and extraction:** recognize the report title and detail table, even with portfolio headers, subtotals, or report dates. Extract property, reported market value, value date/as-of date, value type or method when supplied, and source reference.
+- **Property matching and traceability:** match each source property name or address to the Groups workbook. Retain the source file, report title, page/sheet, source property name, and source value for review. Flag unmatched, ambiguous, duplicate, or missing values.
+- **Group hierarchy:** the Groups workbook controls the display. A collapsed group shows the sum of the reported market values for its matched member properties; expanding the group shows each individual property value.
+- **Individual properties:** properties without a Group remain in a separate single-property list with their individual market values.
+- **Review exceptions:** never estimate or allocate market value automatically when the report does not provide a reliable property value. Show the property as needing review instead.
+- **Required actions:** **Upload Property-Management Reports**, **Print / Export**, **Clear All**, **Sort by Name**, **Expand All**, **Collapse All**, and **Send to Partition Tool** after review.
+- **Data retention and handoff:** imported reports and extracted market values remain locally in the tool until Clear All. Send reviewed values directly to the Partition Tool; do not require a second upload.
+
+### Market Value mockup
+
+```text
+DATA  /  MARKET VALUE
+
+[ Upload Property-Management Reports ]  [ Print / Export ]  [ Clear All ]  Sort [ Name v ]
+                                                       [ Expand All ] [ Collapse All ]
+
+Market Value                                                   As of: 12/31/2025
+Reported values extracted from property-management reports.
+
+> The Antiquera                                         GROUP TOTAL - 5 PROPERTIES
+  Reported Market Value: $8,920,000                                    [ Expand ]
+
+v The 600-930                                          GROUP TOTAL - 2 PROPERTIES
+  Reported Market Value: $4,180,000                                   [ Collapse ]
+
+  600 SW 9 Ave        Reported Market Value: $2,740,000
+  930 SW 6th Street   Reported Market Value: $1,440,000
+
+INDIVIDUAL PROPERTIES
+  220 Antilla Avenue  Reported Market Value: $3,360,000
+```
+
+</div>
+
 ## Populate the Partition Tool
 
 After the Data steps are reviewed, the user sends the calculated values to the Partition Tool. The handoff uses the same Groups workbook hierarchy for tax basis and depreciation, occupancy, and loans.
 
 - **Grouped properties:** send one selection-unit record for each group using the sum of the matched member properties' remaining tax basis and tax-year depreciation.
 - **Group detail in the Partition Tool:** display the group total and allow the user to see the individual member-property values that make up that total. Grouped properties remain visibly connected to their group; their underlying values are not replaced or hidden by the roll-up.
+<span style="color:#00C853">- **Group zoning display:** when member properties have different zoning classifications, display every distinct zoning class in the group's designated Zoning box. Keep each class visible, separated clearly; never select or overwrite it with only one member's value.</span>
+<span style="color:#00C853">- **Group next 40-year certification display:** when member properties have different next 40-year certification dates, display every distinct date in the group's designated Next 40-Year Certification box. Keep each date visible, separated clearly; never collapse them into a single date.</span>
 - **Individual properties:** send each ungrouped property as its own selection-unit record with its individual remaining basis and tax-year depreciation.
 - **Tax year:** carry the selected tax year with the depreciation values sent to the Partition Tool.
 - **Occupancy and loans:** carry the reviewed occupancy and loan values from their respective Data tabs to the Partition Tool.
+<span style="color:#FFFFFF">- **Capital expenses and market value:** carry the reviewed property-level CapEx needs, approximate costs, and market values from their respective Data tabs to the Partition Tool using the same Groups hierarchy.</span>
+- **No second upload:** the user uploads source reports once into the relevant Data tab. The reviewed results are sent directly to the Partition Tool, rather than being uploaded again.
 - **No manual duplication:** the Data workflow is the source for tax-basis and depreciation values; the Partition Tool consumes those calculated totals rather than requiring the user to re-enter them.
 
 ## Success condition
