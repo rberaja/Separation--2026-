@@ -29,6 +29,8 @@ PARTITION TOOL
 - The source reports and extracted records do not need to be uploaded again to the Partition Tool.
 - After the user reviews each Data tab, **Send to Partition Tool** passes the matched group totals and individual-property values directly into the Partition Tool using the Groups workbook hierarchy.
 - A handoff is a copy of the reviewed values. The imported source data remains available in its Data tab unless the user clears it.
+<span style="color:#FFFFFF">- **Browser-local persistence:** all imported source-report data, extracted property tables, property matches, group mappings, and user review corrections remain available after the user closes and reopens the tool in the same browser on the same device. Persist this data locally in the browser (using IndexedDB for report data and structured tables) until the user selects Clear All.</span>
+<span style="color:#FFFFFF">- **User / device / browser scope:** saved data belongs only to that browser profile on that device. It is not automatically shared with another browser, device, or user, and it is removed if the user selects Clear All or clears this site's browser storage. Private-browsing sessions are not expected to retain it after the session ends.</span>
 
 ## 1. Groups, Zoning, and Next 40-Yr Certification
 
@@ -268,8 +270,8 @@ After the Data steps are reviewed, the user sends the calculated values to the P
 
 - **Grouped properties:** send one selection-unit record for each group using the sum of the matched member properties' remaining tax basis and tax-year depreciation.
 - **Group detail in the Partition Tool:** display the group total and allow the user to see the individual member-property values that make up that total. Grouped properties remain visibly connected to their group; their underlying values are not replaced or hidden by the roll-up.
-<span style="color:#00C853">- **Group zoning display:** when member properties have different zoning classifications, display every distinct zoning class in the group's designated Zoning box. Keep each class visible, separated clearly; never select or overwrite it with only one member's value.</span>
-<span style="color:#00C853">- **Group next 40-year certification display:** when member properties have different next 40-year certification dates, display every distinct date in the group's designated Next 40-Year Certification box. Keep each date visible, separated clearly; never collapse them into a single date.</span>
+<span style="color:#FFFFFF">- **Group zoning display:** when member properties have different zoning classifications, display every distinct zoning class in the group's designated Zoning box. Keep each class visible, separated clearly; never select or overwrite it with only one member's value.</span>
+<span style="color:#FFFFFF">- **Group next 40-year certification display:** when member properties have different next 40-year certification dates, display every distinct date in the group's designated Next 40-Year Certification box. Keep each date visible, separated clearly; never collapse them into a single date.</span>
 - **Individual properties:** send each ungrouped property as its own selection-unit record with its individual remaining basis and tax-year depreciation.
 - **Tax year:** carry the selected tax year with the depreciation values sent to the Partition Tool.
 - **Occupancy and loans:** carry the reviewed occupancy and loan values from their respective Data tabs to the Partition Tool.
