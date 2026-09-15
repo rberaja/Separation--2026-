@@ -4,7 +4,9 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
-const isGitHubPagesBuild = process.env.GITHUB_ACTIONS === 'true';
+/** @type {typeof globalThis & { process?: { env?: Record<string, string | undefined> } }} */
+const runtime = globalThis;
+const isGitHubPagesBuild = runtime.process?.env?.GITHUB_ACTIONS === 'true';
 
 // https://astro.build/config
 export default defineConfig({

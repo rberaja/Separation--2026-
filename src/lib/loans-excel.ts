@@ -7,6 +7,8 @@ export type LoanRecord = {
   outstandingBalance: number;
   monthlyDebtService: number;
   maturityDate: string;
+  /** Exact worksheet row used for this value; retained for audit and correction. */
+  source?: string;
 };
 
 export class LoansImportError extends Error {
@@ -33,10 +35,10 @@ export function parseLoansWorkbook(data: ArrayBuffer): LoanRecord[] {
   const debtServiceColumn = columnFor(headers, ['monthlydebtservice', 'debtservice', 'monthlypayment', 'payment']);
   const maturityColumn = columnFor(headers, ['maturitydate', 'maturity', 'duedate']);
   if (propertyColumn < 0) throw new LoansImportError('The loan schedule needs a Property or Address column.');
-  const records = rows.slice(headerRow + 1).map((row) => ({
+  const records = rows.slice(headerRow + 1).map((row, rowIndex) => ({
     property: text(row, propertyColumn), lender: lenderColumn >= 0 ? text(row, lenderColumn) : '', loanType: typeColumn >= 0 ? text(row, typeColumn) : '',
     outstandingBalance: balanceColumn >= 0 ? amount(row[balanceColumn]) : 0, monthlyDebtService: debtServiceColumn >= 0 ? amount(row[debtServiceColumn]) : 0,
-    maturityDate: maturityColumn >= 0 ? text(row, maturityColumn) : '',
+    maturityDate: maturityColumn >= 0 ? text(row, maturityColumn) : '', source: `${workbook.SheetNames[0] ?? 'Report'} row ${headerRow + rowIndex + 2}`,
   })).filter((record) => record.property);
   if (!records.length) throw new LoansImportError('No property rows were found in the loan schedule.');
   return records;
@@ -67,10 +69,10 @@ export function downloadLoansWorkbook(records: readonly LoanRecord[]) {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet([
     ['Loan Schedule Export'],
-    ['Property', 'Lender', 'Loan Type', 'Outstanding Balance', 'Monthly Debt Service', 'Maturity Date'],
-    ...records.map((record) => [record.property, record.lender, record.loanType, record.outstandingBalance, record.monthlyDebtService, record.maturityDate]),
+    ['Property', 'Lender', 'Loan Type', 'Outstanding Balance', 'Monthly Debt Service', 'Maturity Date', 'Source'],
+    ...records.map((record) => [record.property, record.lender, record.loanType, record.outstandingBalance, record.monthlyDebtService, record.maturityDate, record.source ?? '']),
   ]);
-  sheet['!cols'] = [34, 28, 20, 20, 22, 18].map((wch) => ({ wch }));
+  sheet['!cols'] = [34, 28, 20, 20, 22, 18, 28].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Loans');
   XLSX.writeFile(workbook, 'Loans Export.xlsx');
 }

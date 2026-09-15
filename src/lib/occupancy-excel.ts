@@ -6,6 +6,8 @@ export type OccupancyRecord = {
   occupiedUnits: number;
   scheduledRent: number;
   asOf: string;
+  /** Exact worksheet row used for this value; retained for audit and correction. */
+  source?: string;
 };
 
 export class OccupancyImportError extends Error {
@@ -42,10 +44,11 @@ export function parseOccupancyWorkbook(data: ArrayBuffer): OccupancyRecord[] {
   if (propertyColumn < 0) throw new OccupancyImportError('The rent roll needs a Property or Address column.');
 
   const combined = new Map<string, OccupancyRecord>();
-  for (const row of rows.slice(headerRow + 1)) {
+  for (const [rowIndex, row] of rows.slice(headerRow + 1).entries()) {
     const property = text(row, propertyColumn);
     if (!property) continue;
-    const existing = combined.get(property.toLowerCase()) ?? { property, units: 0, occupiedUnits: 0, scheduledRent: 0, asOf: '' };
+    const source = `${workbook.SheetNames[0] ?? 'Report'} row ${headerRow + rowIndex + 2}`;
+    const existing = combined.get(property.toLowerCase()) ?? { property, units: 0, occupiedUnits: 0, scheduledRent: 0, asOf: '', source };
     const explicitUnits = unitsColumn >= 0 ? amount(row[unitsColumn]) : 0;
     const explicitOccupied = occupiedColumn >= 0 ? amount(row[occupiedColumn]) : 0;
     const isUnitRow = unitColumn >= 0 && Boolean(text(row, unitColumn));
@@ -55,6 +58,7 @@ export function parseOccupancyWorkbook(data: ArrayBuffer): OccupancyRecord[] {
     existing.occupiedUnits += explicitOccupied || (isUnitRow ? occupiedFromStatus : 0);
     existing.scheduledRent += rentColumn >= 0 ? amount(row[rentColumn]) : 0;
     if (!existing.asOf && asOfColumn >= 0) existing.asOf = text(row, asOfColumn);
+    existing.source = existing.source === source ? source : `${existing.source}; ${source}`;
     combined.set(property.toLowerCase(), existing);
   }
   const records = [...combined.values()];
@@ -87,10 +91,10 @@ export function downloadOccupancyWorkbook(records: readonly OccupancyRecord[]) {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet([
     ['Occupancy Export'],
-    ['Property', 'Units', 'Occupied Units', 'Occupancy %', 'Scheduled Rent', 'As Of'],
-    ...records.map((record) => [record.property, record.units, record.occupiedUnits, record.units ? record.occupiedUnits / record.units : 0, record.scheduledRent, record.asOf]),
+    ['Property', 'Units', 'Occupied Units', 'Occupancy %', 'Scheduled Rent', 'As Of', 'Source'],
+    ...records.map((record) => [record.property, record.units, record.occupiedUnits, record.units ? record.occupiedUnits / record.units : 0, record.scheduledRent, record.asOf, record.source ?? '']),
   ]);
-  sheet['!cols'] = [34, 12, 18, 14, 18, 16].map((wch) => ({ wch }));
+  sheet['!cols'] = [34, 12, 18, 14, 18, 16, 28].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Occupancy');
   XLSX.writeFile(workbook, 'Occupancy Export.xlsx');
 }

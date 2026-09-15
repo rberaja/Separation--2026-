@@ -2,16 +2,19 @@ import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'r
 import type { GroupMember } from '../lib/groups-excel';
 import type { OccupancyRecord } from '../lib/occupancy-excel';
 import type { LoanRecord } from '../lib/loans-excel';
+import type { CapitalExpenseRecord } from '../lib/capital-expenses-excel';
+import type { MarketValueRecord } from '../lib/market-value-excel';
+import { deleteSourceReports, loadWorkspaceSnapshot, saveSourceReport, saveWorkspaceSnapshot, type StoredSource } from '../lib/browser-data';
 import type { ExtractedMethod, ExtractionProgress } from '../lib/tax-return-pdf';
 import { useApp } from '../store/AppContext';
 
 type ScheduleItem = { id: string; label: string; method: ExtractedMethod; basis: number; recoveryPeriod: string; yearsLeft: number; annual: number };
 type PropertySchedule = { id: string; property: string; entity: string; source: string; schedules: ScheduleItem[] };
 type DealGroup = { id: string; name: string; members: GroupMember[] };
-type Tab = 'groups' | 'data' | 'occupancy' | 'loans';
+type Tab = 'groups' | 'data' | 'occupancy' | 'loans' | 'capitalExpenses' | 'marketValue';
 type GroupsSortKey = 'name' | 'zoning' | 'cert40yr';
 type GroupWorkbook = { name: string; individualProperties: GroupMember[] };
-type PersistedState = { taxYear: number; groups: DealGroup[]; groupWorkbook: GroupWorkbook | null; properties: PropertySchedule[]; documents: string[]; warnings: string[]; occupancy: OccupancyRecord[]; loans: LoanRecord[] };
+type PersistedState = { taxYear: number; groups: DealGroup[]; groupWorkbook: GroupWorkbook | null; properties: PropertySchedule[]; documents: string[]; warnings: string[]; occupancy: OccupancyRecord[]; loans: LoanRecord[]; capitalExpenses: CapitalExpenseRecord[]; marketValues: MarketValueRecord[]; sourceReports: StoredSource[] };
 
 /** Imported Groups and tax-return data survive tab switches and reloads until the user clears them. */
 const STORAGE_KEY = 'separation.taxBasis.v1';
@@ -21,7 +24,7 @@ function loadPersisted(): PersistedState | null {
     if (!raw) return null;
     const saved = JSON.parse(raw) as Partial<PersistedState>;
     if (!Array.isArray(saved.groups) || !Array.isArray(saved.properties)) return null;
-    return { taxYear: Number(saved.taxYear) || new Date().getFullYear() - 1, groups: saved.groups, groupWorkbook: saved.groupWorkbook ?? null, properties: saved.properties, documents: saved.documents ?? [], warnings: saved.warnings ?? [], occupancy: saved.occupancy ?? [], loans: saved.loans ?? [] };
+    return { taxYear: Number(saved.taxYear) || new Date().getFullYear() - 1, groups: saved.groups, groupWorkbook: saved.groupWorkbook ?? null, properties: saved.properties, documents: saved.documents ?? [], warnings: saved.warnings ?? [], occupancy: saved.occupancy ?? [], loans: saved.loans ?? [], capitalExpenses: saved.capitalExpenses ?? [], marketValues: saved.marketValues ?? [], sourceReports: saved.sourceReports ?? [] };
   } catch { return null; }
 }
 function savePersisted(state: PersistedState) { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* storage unavailable (private window, quota) — keep working in memory */ } }
@@ -93,28 +96,57 @@ export function TaxBasisMockup() {
   const [dataSortAsc, setDataSortAsc] = useState(true);
   const [occupancy, setOccupancy] = useState<OccupancyRecord[]>([]);
   const [loans, setLoans] = useState<LoanRecord[]>([]);
+  const [capitalExpenses, setCapitalExpenses] = useState<CapitalExpenseRecord[]>([]);
+  const [marketValues, setMarketValues] = useState<MarketValueRecord[]>([]);
+  const [sourceReports, setSourceReports] = useState<StoredSource[]>([]);
   const [occupancyExpanded, setOccupancyExpanded] = useState<Set<string>>(new Set());
   const [loansExpanded, setLoansExpanded] = useState<Set<string>>(new Set());
   const [occupancyOutputOpen, setOccupancyOutputOpen] = useState(false);
   const [loansOutputOpen, setLoansOutputOpen] = useState(false);
   const [occupancySortAsc, setOccupancySortAsc] = useState(true);
   const [loansSortAsc, setLoansSortAsc] = useState(true);
+  const [capitalExpensesExpanded, setCapitalExpensesExpanded] = useState<Set<string>>(new Set());
+  const [marketValueExpanded, setMarketValueExpanded] = useState<Set<string>>(new Set());
+  const [capitalExpensesOutputOpen, setCapitalExpensesOutputOpen] = useState(false);
+  const [marketValueOutputOpen, setMarketValueOutputOpen] = useState(false);
+  const [capitalExpensesSortAsc, setCapitalExpensesSortAsc] = useState(true);
+  const [marketValueSortAsc, setMarketValueSortAsc] = useState(true);
   const returnFileRef = useRef<HTMLInputElement>(null);
   const groupsFileRef = useRef<HTMLInputElement>(null);
   const occupancyFileRef = useRef<HTMLInputElement>(null);
   const loansFileRef = useRef<HTMLInputElement>(null);
+  const capitalExpensesFileRef = useRef<HTMLInputElement>(null);
+  const marketValueFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = loadPersisted();
     if (saved) {
       reserveIds([...saved.groups.map((group) => group.id), ...saved.properties.flatMap((property) => [property.id, ...property.schedules.map((item) => item.id)])]);
-      setTaxYear(saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents); setWarnings(saved.warnings); setOccupancy(saved.occupancy); setLoans(saved.loans);
+      setTaxYear(saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents); setWarnings(saved.warnings); setOccupancy(saved.occupancy); setLoans(saved.loans); setCapitalExpenses(saved.capitalExpenses); setMarketValues(saved.marketValues); setSourceReports(saved.sourceReports);
       const restoredParts = [saved.groups.length ? `${saved.groups.length} groups${saved.groupWorkbook ? ` from ${saved.groupWorkbook.name}` : ''}` : '', saved.properties.length ? `${saved.properties.length} property ${saved.properties.length === 1 ? 'schedule' : 'schedules'}` : ''].filter(Boolean);
       if (restoredParts.length) setNotice(`Restored ${restoredParts.join(' and ')}. Use Clear All to start over.`);
     }
     setRestored(true);
   }, []);
-  useEffect(() => { if (restored) savePersisted({ taxYear, groups, groupWorkbook, properties, documents, warnings, occupancy, loans }); }, [restored, taxYear, groups, groupWorkbook, properties, documents, warnings, occupancy, loans]);
+  useEffect(() => {
+    if (!restored) return;
+    const snapshot = { taxYear, groups, groupWorkbook, properties, documents, warnings, occupancy, loans, capitalExpenses, marketValues, sourceReports };
+    savePersisted(snapshot);
+    void saveWorkspaceSnapshot(snapshot).catch(() => { /* localStorage fallback is still available */ });
+  }, [restored, taxYear, groups, groupWorkbook, properties, documents, warnings, occupancy, loans, capitalExpenses, marketValues, sourceReports]);
+
+  useEffect(() => {
+    void loadWorkspaceSnapshot<PersistedState>().then((saved) => {
+      if (!saved || !Array.isArray(saved.groups) || !Array.isArray(saved.properties)) return;
+      setTaxYear(saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents ?? []); setWarnings(saved.warnings ?? []); setOccupancy(saved.occupancy ?? []); setLoans(saved.loans ?? []); setCapitalExpenses(saved.capitalExpenses ?? []); setMarketValues(saved.marketValues ?? []); setSourceReports(saved.sourceReports ?? []);
+    }).catch(() => { /* IndexedDB may be disabled; localStorage was already tried */ });
+  }, []);
+
+  const preserveSource = (kind: string, file: File) => {
+    const source: StoredSource = { id: `${kind}-${file.name}-${file.lastModified}-${file.size}`, kind, name: file.name, type: file.type || 'application/octet-stream', importedAt: new Date().toISOString() };
+    setSourceReports((current) => [...current.filter((item) => item.id !== source.id), source]);
+    void saveSourceReport(source, file).catch(() => setNotice('The extracted values were kept, but this browser could not retain the original report file.'));
+  };
 
   const updateProperty = (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => setProperties((current) => current.map((property) => property.id === id ? { ...property, ...patch } : property));
   const updateComponent = (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => setProperties((current) => current.map((property) => property.id === propertyId ? { ...property, schedules: property.schedules.map((component) => component.id === componentId ? { ...component, ...patch } : component) } : property));
@@ -132,6 +164,7 @@ export function TaxBasisMockup() {
       setGroupWorkbook({ name: file.name, individualProperties: imported.individualProperties });
       setNotice(`Loaded ${imported.groups.length} groups from ${file.name}. ${imported.individualProperties.length} properties will remain individual selection units.`);
       setActiveTab('groups');
+      preserveSource('groups', file);
     } catch (error) { setNotice(`Could not read the Groups workbook: ${error instanceof Error ? error.message : String(error)}`); }
   };
 
@@ -141,10 +174,11 @@ export function TaxBasisMockup() {
     if (!file) return;
     try {
       const { parseOccupancyWorkbook } = await import('../lib/occupancy-excel');
-      const imported = parseOccupancyWorkbook(await file.arrayBuffer());
+      const imported = parseOccupancyWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
       setOccupancy(imported);
       setNotice(`Loaded occupancy for ${imported.length} ${imported.length === 1 ? 'property' : 'properties'} from ${file.name}.`);
       setActiveTab('occupancy');
+      preserveSource('occupancy', file);
     } catch (error) { setNotice(`Could not read the rent roll: ${error instanceof Error ? error.message : String(error)}`); }
   };
 
@@ -154,11 +188,27 @@ export function TaxBasisMockup() {
     if (!file) return;
     try {
       const { parseLoansWorkbook } = await import('../lib/loans-excel');
-      const imported = parseLoansWorkbook(await file.arrayBuffer());
+      const imported = parseLoansWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
       setLoans(imported);
       setNotice(`Loaded ${imported.length} ${imported.length === 1 ? 'loan' : 'loans'} from ${file.name}.`);
       setActiveTab('loans');
+      preserveSource('loans', file);
     } catch (error) { setNotice(`Could not read the loan schedule: ${error instanceof Error ? error.message : String(error)}`); }
+  };
+
+  const handleCapitalExpensesFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (!file) return;
+    try {
+      const { parseCapitalExpensesWorkbook } = await import('../lib/capital-expenses-excel'); const imported = parseCapitalExpensesWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
+      setCapitalExpenses(imported); preserveSource('capital-expenses', file); setNotice(`Loaded ${imported.length} Capital Expenses items from ${file.name}.`); setActiveTab('capitalExpenses');
+    } catch (error) { setNotice(`Could not read the Capital Expenses report: ${error instanceof Error ? error.message : String(error)}`); }
+  };
+  const handleMarketValueFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (!file) return;
+    try {
+      const { parseMarketValueWorkbook } = await import('../lib/market-value-excel'); const imported = parseMarketValueWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
+      setMarketValues(imported); preserveSource('market-value', file); setNotice(`Loaded market values for ${imported.length} ${imported.length === 1 ? 'property' : 'properties'} from ${file.name}.`); setActiveTab('marketValue');
+    } catch (error) { setNotice(`Could not read the Market Value report: ${error instanceof Error ? error.message : String(error)}`); }
   };
 
   const importReturns = async (files: File[]) => {
@@ -167,6 +217,7 @@ export function TaxBasisMockup() {
     try {
       const { extractTaxReturnSchedules } = await import('../lib/tax-return-pdf');
       const result = await extractTaxReturnSchedules(files, setImportProgress);
+      files.forEach((file) => preserveSource('tax-returns', file));
       const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
       // Re-importing a return replaces that return's schedules; everything else already loaded is kept.
       const scheduleKey = (property: { entity: string; property: string }) => `${property.entity}|${property.property}`.toLocaleLowerCase();
@@ -198,32 +249,34 @@ export function TaxBasisMockup() {
   };
 
   const exportToPartition = () => {
-    const assignments = groupAssignments(groups, properties);
-    const groupedIds = new Set(assignments.keys());
-    const units = [
-      ...groups.map((group) => ({ name: group.name.trim(), properties: properties.filter((property) => assignments.get(property.id) === group.id) })).filter((unit) => unit.name && unit.properties.length),
-      ...properties.filter((property) => !groupedIds.has(property.id)).map((property) => ({ name: property.property.trim(), properties: [property] })).filter((unit) => unit.name),
-    ];
-    if (!units.length) { setNotice('Upload property schedules before sending grouped totals to the Partition Tool.'); return; }
+    const groupFor = (name: string) => groups.find((group) => group.members.some((member) => propertyMatches(member.property, name)));
+    const names = new Map<string, string>();
+    const importedNames = [...properties.map((item) => item.property), ...(groupWorkbook?.individualProperties.map((item) => item.property) ?? []), ...groups.flatMap((group) => group.members.map((member) => member.property)), ...occupancy.map((item) => item.property), ...loans.map((item) => item.property), ...capitalExpenses.map((item) => item.property), ...marketValues.map((item) => item.property)];
+    importedNames.filter(Boolean).forEach((name) => names.set(propertyKey(name), name));
+    if (!names.size) { setNotice('Upload at least one Data report before sending values to the Partition Tool.'); return; }
     dispatch({ type: 'settings/depreciationYear', value: taxYear });
-    for (const unit of units) {
-      const total = totals(unit.properties);
-      const match = state.properties.find((property) => property.name.trim().toLocaleLowerCase() === unit.name.toLocaleLowerCase());
-      if (match) dispatch({ type: 'property/update', id: match.id, patch: { remainingBasis: total.basis, depreciation: total.depreciation } });
-      else dispatch({ type: 'property/add', input: { name: unit.name, remainingBasis: total.basis, depreciation: total.depreciation } });
+    for (const name of names.values()) {
+      const tax = properties.filter((item) => propertyMatches(item.property, name)); const taxTotal = totals(tax);
+      const member = groups.flatMap((group) => group.members).find((item) => propertyMatches(item.property, name)) ?? groupWorkbook?.individualProperties.find((item) => propertyMatches(item.property, name));
+      const occupancyRecord = occupancy.find((item) => propertyMatches(item.property, name)); const loanItems = loans.filter((item) => propertyMatches(item.property, name));
+      const capex = capitalExpenses.filter((item) => propertyMatches(item.property, name)).reduce((sum, item) => sum + item.approximateCost, 0); const market = marketValues.find((item) => propertyMatches(item.property, name)); const group = groupFor(name);
+      const patch = { groupName: group?.name ?? '', remainingBasis: tax.length ? taxTotal.basis : null, depreciation: tax.length ? taxTotal.depreciation : null, zoning: member?.zoning ?? '', cert40yr: member?.cert40yr ?? '', occupancyPct: occupancyRecord?.units ? (occupancyRecord.occupiedUnits / occupancyRecord.units) * 100 : null, loanBal: loanItems.length ? loanItems.reduce((sum, item) => sum + item.outstandingBalance, 0) : null, monthlyPmt: loanItems.length ? loanItems.reduce((sum, item) => sum + item.monthlyDebtService, 0) : null, capex: capex || null, marketVal: market?.marketValue ?? null };
+      const match = state.properties.find((property) => propertyKey(property.name) === propertyKey(name));
+      if (match) dispatch({ type: 'property/update', id: match.id, patch });
+      else dispatch({ type: 'property/add', input: { name, ...patch } });
     }
-    setNotice(`Sent ${units.length} selection ${units.length === 1 ? 'unit' : 'units'}—groups plus ungrouped properties—to the Partition Tool for ${taxYear}.`);
+    setNotice(`Sent ${names.size} individual properties and group metadata to the Partition Tool for ${taxYear}.`);
   };
 
   const clearGroups = () => {
     if ((groups.length || properties.length || groupWorkbook) && !window.confirm('Clear all imported Groups and tax-return data? This cannot be undone.')) return;
-    setGroups([]); setProperties([]); setGroupWorkbook(null); setDocuments([]); setWarnings([]); setExpandedGroups(new Set()); setCollapsedProperties(new Set());
+    setGroups([]); setProperties([]); setGroupWorkbook(null); setDocuments([]); setWarnings([]); setExpandedGroups(new Set()); setCollapsedProperties(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'groups' && item.kind !== 'tax-returns')); void Promise.all([deleteSourceReports('groups'), deleteSourceReports('tax-returns')]);
     setNotice('Groups data cleared. Upload a Groups workbook to begin.');
   };
 
   const clearTaxReturns = () => {
     if (properties.length && !window.confirm('Clear all imported tax-return data? Groups are kept. This cannot be undone.')) return;
-    setProperties([]); setDocuments([]); setWarnings([]); setExpandedGroups(new Set()); setCollapsedProperties(new Set());
+    setProperties([]); setDocuments([]); setWarnings([]); setExpandedGroups(new Set()); setCollapsedProperties(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'tax-returns')); void deleteSourceReports('tax-returns');
     setNotice('Tax-return data cleared. Upload the Form 1065 packages to begin again.');
   };
   const expandAll = () => { setExpandedGroups(new Set(groups.map((group) => group.id))); setCollapsedProperties(new Set()); };
@@ -244,11 +297,11 @@ export function TaxBasisMockup() {
 
   const clearOccupancy = () => {
     if (occupancy.length && !window.confirm('Clear all imported occupancy data? This cannot be undone.')) return;
-    setOccupancy([]); setOccupancyExpanded(new Set()); setNotice('Occupancy data cleared. Upload a rent roll to begin again.');
+    setOccupancy([]); setOccupancyExpanded(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'occupancy')); void deleteSourceReports('occupancy'); setNotice('Occupancy data cleared. Upload a rent roll to begin again.');
   };
   const clearLoans = () => {
     if (loans.length && !window.confirm('Clear all imported loan data? This cannot be undone.')) return;
-    setLoans([]); setLoansExpanded(new Set()); setNotice('Loan data cleared. Upload a loan schedule to begin again.');
+    setLoans([]); setLoansExpanded(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'loans')); void deleteSourceReports('loans'); setNotice('Loan data cleared. Upload a loan schedule to begin again.');
   };
   const exportOccupancyWorkbook = async () => {
     const { downloadOccupancyWorkbook } = await import('../lib/occupancy-excel');
@@ -258,39 +311,61 @@ export function TaxBasisMockup() {
     const { downloadLoansWorkbook } = await import('../lib/loans-excel');
     downloadLoansWorkbook(loans); setLoansOutputOpen(false);
   };
+  const clearCapitalExpenses = () => { if (capitalExpenses.length && !window.confirm('Clear all imported Capital Expenses data? This cannot be undone.')) return; setCapitalExpenses([]); setCapitalExpensesExpanded(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'capital-expenses')); void deleteSourceReports('capital-expenses'); setNotice('Capital Expenses data cleared.'); };
+  const clearMarketValues = () => { if (marketValues.length && !window.confirm('Clear all imported Market Value data? This cannot be undone.')) return; setMarketValues([]); setMarketValueExpanded(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'market-value')); void deleteSourceReports('market-value'); setNotice('Market Value data cleared.'); };
+  const exportCapitalExpensesWorkbook = async () => { const { downloadCapitalExpensesWorkbook } = await import('../lib/capital-expenses-excel'); downloadCapitalExpensesWorkbook(capitalExpenses); setCapitalExpensesOutputOpen(false); };
+  const exportMarketValueWorkbook = async () => { const { downloadMarketValueWorkbook } = await import('../lib/market-value-excel'); downloadMarketValueWorkbook(marketValues); setMarketValueOutputOpen(false); };
 
   const assignments = groupAssignments(groups, properties);
   const toggleExpanded = (id: string) => setExpandedGroups((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const togglePropertyCollapsed = (id: string) => setCollapsedProperties((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const toggleOccupancyExpanded = (id: string) => setOccupancyExpanded((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const toggleLoansExpanded = (id: string) => setLoansExpanded((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  const toggleCapitalExpensesExpanded = (id: string) => setCapitalExpensesExpanded((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  const toggleMarketValueExpanded = (id: string) => setMarketValueExpanded((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
 
   return <div className="min-h-screen bg-bg text-text relative" onDragOver={handleDragOver} onDragEnter={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
     {dragActive && <div className="fixed inset-0 z-40 pointer-events-none bg-a/10 flex items-center justify-center p-8" aria-hidden="true"><div className="border-[3px] border-dashed border-a rounded-md bg-surface px-10 py-8 text-center shadow-xl"><div className="font-serif text-[1.4rem] font-bold">Drop tax return PDFs to import</div><div className="mt-1 font-mono text-[.66rem] uppercase tracking-[.07em] text-muted">Form 1065 packages · read locally in your browser</div></div></div>}
     <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></header>
     <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['zoning', 'Zoning'], ['cert40yr', 'Next 40-Yr Cert']] as const).map(([key, label]) => { const active = groupsSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setGroupsSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: true })}><span>{label}</span><span className="text-[.75rem]">{active && !groupsSort.asc ? '↓' : '↑'}</span></button>; })}</>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length || isImporting} onClick={exportToPartition}>⇧ Send grouped basis to Partition Tool</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={() => setDataOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!properties.length} onClick={clearTaxReturns}>▣ Clear All</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={expandAll}>▾ Expand</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={collapseAll}>▴ Collapse</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setDataSortAsc((current) => !current)}><span>Name</span><span className="text-[.75rem]">{dataSortAsc ? '↑' : '↓'}</span></button></>}<span className="ml-auto font-mono text-[0.65rem] text-muted" role="status">{notice}</span></div>
-    {(activeTab === 'occupancy' || activeTab === 'loans') && <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5">
-      {activeTab === 'occupancy' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => occupancyFileRef.current?.click()}>↑ Upload Rent Roll</button><button type="button" className="tool-btn" onClick={() => void import('../lib/occupancy-excel').then(({ downloadOccupancyTemplate }) => downloadOccupancyTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={() => setOccupancyOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!occupancy.length} onClick={clearOccupancy}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setOccupancySortAsc((current) => !current)}>Name {occupancySortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={() => setOccupancyExpanded(new Set(groups.map((group) => group.id)))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={() => setOccupancyExpanded(new Set())}>▴ Collapse all</button></>}
-      {activeTab === 'loans' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => loansFileRef.current?.click()}>↑ Upload Loan Schedule</button><button type="button" className="tool-btn" onClick={() => void import('../lib/loans-excel').then(({ downloadLoansTemplate }) => downloadLoansTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!loans.length} onClick={clearLoans}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setLoansSortAsc((current) => !current)}>Name {loansSortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansExpanded(new Set(groups.map((group) => group.id)))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansExpanded(new Set())}>▴ Collapse all</button></>}
+    {(activeTab === 'occupancy' || activeTab === 'loans' || activeTab === 'capitalExpenses' || activeTab === 'marketValue') && <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5">
+      {activeTab === 'occupancy' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => occupancyFileRef.current?.click()}>↑ Upload Rent Roll</button><button type="button" className="tool-btn" onClick={() => void import('../lib/occupancy-excel').then(({ downloadOccupancyTemplate }) => downloadOccupancyTemplate())}>⇩ Fallback Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={exportToPartition}>⇧ Send to Partition Tool</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={() => setOccupancyOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!occupancy.length} onClick={clearOccupancy}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setOccupancySortAsc((current) => !current)}>Name {occupancySortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={() => setOccupancyExpanded(new Set(groups.map((group) => group.id)))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={() => setOccupancyExpanded(new Set())}>▴ Collapse all</button></>}
+      {activeTab === 'loans' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => loansFileRef.current?.click()}>↑ Upload Loan Report</button><button type="button" className="tool-btn" onClick={() => void import('../lib/loans-excel').then(({ downloadLoansTemplate }) => downloadLoansTemplate())}>⇩ Fallback Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={exportToPartition}>⇧ Send to Partition Tool</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!loans.length} onClick={clearLoans}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setLoansSortAsc((current) => !current)}>Name {loansSortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansExpanded(new Set(groups.map((group) => group.id)))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansExpanded(new Set())}>▴ Collapse all</button></>}
+      {activeTab === 'capitalExpenses' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => capitalExpensesFileRef.current?.click()}>↑ Upload CapEx Report</button><button type="button" className="tool-btn" onClick={() => void import('../lib/capital-expenses-excel').then(({ downloadCapitalExpensesTemplate }) => downloadCapitalExpensesTemplate())}>⇩ Fallback Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!capitalExpenses.length} onClick={exportToPartition}>⇧ Send to Partition Tool</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!capitalExpenses.length} onClick={() => setCapitalExpensesOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!capitalExpenses.length} onClick={clearCapitalExpenses}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setCapitalExpensesSortAsc((current) => !current)}>Name {capitalExpensesSortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!capitalExpenses.length} onClick={() => setCapitalExpensesExpanded(new Set(groups.map((group) => group.id)))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!capitalExpenses.length} onClick={() => setCapitalExpensesExpanded(new Set())}>▴ Collapse all</button></>}
+      {activeTab === 'marketValue' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => marketValueFileRef.current?.click()}>↑ Upload Market Value Report</button><button type="button" className="tool-btn" onClick={() => void import('../lib/market-value-excel').then(({ downloadMarketValueTemplate }) => downloadMarketValueTemplate())}>⇩ Fallback Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!marketValues.length} onClick={exportToPartition}>⇧ Send to Partition Tool</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!marketValues.length} onClick={() => setMarketValueOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!marketValues.length} onClick={clearMarketValues}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setMarketValueSortAsc((current) => !current)}>Name {marketValueSortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!marketValues.length} onClick={() => setMarketValueExpanded(new Set(groups.map((group) => group.id)))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!marketValues.length} onClick={() => setMarketValueExpanded(new Set())}>▴ Collapse all</button></>}
     </div>}
     <input ref={groupsFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleGroupsFile(event)} />
-    <input ref={occupancyFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleOccupancyFile(event)} />
-    <input ref={loansFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleLoansFile(event)} />
+    <input ref={occupancyFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleOccupancyFile(event)} />
+    <input ref={loansFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleLoansFile(event)} />
+    <input ref={capitalExpensesFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleCapitalExpensesFile(event)} />
+    <input ref={marketValueFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleMarketValueFile(event)} />
     <main className="max-w-none mx-0 px-6 py-5">
-      <nav className="flex flex-wrap gap-1 border-b border-border mb-5" aria-label="Tax basis workflow"><TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} number="1" label="Groups" /><TabButton active={activeTab === 'data'} onClick={() => setActiveTab('data')} number="2" label="Remaining Depreciation" /><TabButton active={activeTab === 'occupancy'} onClick={() => setActiveTab('occupancy')} number="3" label="Occupancy" /><TabButton active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} number="4" label="Loans" /></nav>
+      <nav className="flex flex-wrap gap-1 border-b border-border mb-5" aria-label="Data workflow"><TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} number="1" label="Groups" /><TabButton active={activeTab === 'data'} onClick={() => setActiveTab('data')} number="2" label="Remaining Tax Basis" /><TabButton active={activeTab === 'occupancy'} onClick={() => setActiveTab('occupancy')} number="3" label="Occupancy" /><TabButton active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} number="4" label="Loans" /><TabButton active={activeTab === 'capitalExpenses'} onClick={() => setActiveTab('capitalExpenses')} number="5" label="Capital Expenses" /><TabButton active={activeTab === 'marketValue'} onClick={() => setActiveTab('marketValue')} number="6" label="Market Value" /></nav>
+      <SourceReports reports={sourceReports} activeTab={activeTab} />
       {activeTab === 'groups' && <GroupsTabView groups={groups} groupWorkbook={groupWorkbook} sort={groupsSort} onUpdate={updateGroup} onRemove={removeGroup} />}
       {activeTab === 'data' && <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} sortAsc={dataSortAsc} importing={isImporting} progress={importProgress} importError={importError} onUpload={() => returnFileRef.current?.click()} expandedGroups={expandedGroups} collapsedProperties={collapsedProperties} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onTogglePropertyCollapsed={togglePropertyCollapsed} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
       {activeTab === 'occupancy' && <OccupancyTabView records={occupancy} groups={groups} expandedGroups={occupancyExpanded} sortAsc={occupancySortAsc} onToggleGroup={toggleOccupancyExpanded} onUpload={() => occupancyFileRef.current?.click()} />}
       {activeTab === 'loans' && <LoansTabView records={loans} groups={groups} expandedGroups={loansExpanded} sortAsc={loansSortAsc} onToggleGroup={toggleLoansExpanded} onUpload={() => loansFileRef.current?.click()} />}
+      {activeTab === 'capitalExpenses' && <CapitalExpensesTabView records={capitalExpenses} groups={groups} expandedGroups={capitalExpensesExpanded} sortAsc={capitalExpensesSortAsc} onToggleGroup={toggleCapitalExpensesExpanded} onUpload={() => capitalExpensesFileRef.current?.click()} />}
+      {activeTab === 'marketValue' && <MarketValueTabView records={marketValues} groups={groups} expandedGroups={marketValueExpanded} sortAsc={marketValueSortAsc} onToggleGroup={toggleMarketValueExpanded} onUpload={() => marketValueFileRef.current?.click()} />}
       <GroupsOutputDialog open={groupsOutputOpen} hasData={Boolean(groups.length || groupWorkbook?.individualProperties.length)} onClose={() => setGroupsOutputOpen(false)} onExport={() => void exportGroupsWorkbook()} />
       <GroupsOutputDialog open={dataOutputOpen} hasData={properties.length > 0} caption="Remaining depreciation output" title="Print or export Remaining Depreciation" description="Export every property schedule—basis left, method, and current-year deduction—to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setDataOutputOpen(false)} onExport={() => void exportDepreciationWorkbook()} />
       <GroupsOutputDialog open={occupancyOutputOpen} hasData={occupancy.length > 0} caption="Occupancy output" title="Print or export Occupancy" description="Export the property occupancy values to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setOccupancyOutputOpen(false)} onExport={() => void exportOccupancyWorkbook()} />
       <GroupsOutputDialog open={loansOutputOpen} hasData={loans.length > 0} caption="Loans output" title="Print or export Loans" description="Export the loan schedule to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setLoansOutputOpen(false)} onExport={() => void exportLoansWorkbook()} />
+      <GroupsOutputDialog open={capitalExpensesOutputOpen} hasData={capitalExpenses.length > 0} caption="Capital Expenses output" title="Print or export Capital Expenses" description="Export the property-level Capital Expenses report to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setCapitalExpensesOutputOpen(false)} onExport={() => void exportCapitalExpensesWorkbook()} />
+      <GroupsOutputDialog open={marketValueOutputOpen} hasData={marketValues.length > 0} caption="Market Value output" title="Print or export Market Value" description="Export the property-level Market Value report to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setMarketValueOutputOpen(false)} onExport={() => void exportMarketValueWorkbook()} />
     </main>
   </div>;
 }
 
 function TabButton({ active, onClick, number, label }: { active: boolean; onClick: () => void; number: string; label: string }) { return <button type="button" onClick={onClick} className={`px-4 py-2.5 font-mono text-[.7rem] uppercase tracking-[.08em] cursor-pointer border-b-[3px] -mb-px ${active ? 'border-a text-a font-bold' : 'border-transparent text-muted hover:text-text'}`}><span className="mr-2 text-[.58rem]">{number}</span>{label}</button>; }
+
+function SourceReports({ reports, activeTab }: { reports: StoredSource[]; activeTab: Tab }) {
+  const kind = ({ groups: 'groups', data: 'tax-returns', occupancy: 'occupancy', loans: 'loans', capitalExpenses: 'capital-expenses', marketValue: 'market-value' } as const)[activeTab];
+  const relevant = reports.filter((report) => report.kind === kind);
+  if (!relevant.length) return null;
+  return <div className="mb-4 note max-w-5xl"><span className="font-bold">Source report retained in this browser:</span>{relevant.map((report) => <span key={report.id} className="ml-2 inline-block font-mono text-[.64rem] border border-border rounded px-1.5 py-0.5 bg-surface">{report.name}</span>)}<span className="ml-2 text-muted">It remains available on this device and browser until Clear All.</span></div>;
+}
 
 function GroupsTabView({ groups, groupWorkbook, sort, onUpdate, onRemove }: { groups: DealGroup[]; groupWorkbook: { name: string; individualProperties: GroupMember[] } | null; sort: { key: GroupsSortKey; asc: boolean }; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void }) {
   const memberValue = (member: GroupMember) => member[sort.key === 'name' ? 'property' : sort.key].toLocaleLowerCase();
@@ -371,6 +446,16 @@ function LoansGroupCard({ group, properties, expanded, onToggle }: { group: Deal
 function LoanPropertyCard({ property, nested = false }: { property: LoanProperty; nested?: boolean }) {
   return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3"><div><div className="font-serif text-[1.08rem] font-bold">{property.property}</div><div className="caption text-[.56rem] mt-1">{property.loans.length} {property.loans.length === 1 ? 'loan' : 'loans'}</div></div><div className="flex gap-6 text-right"><Metric label="Outstanding balance" value={money(property.outstandingBalance)} /><Metric label="Monthly debt service" value={money(property.monthlyDebtService)} /></div></header><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Lender</th><th className="text-left px-3 py-2.5">Loan type</th><th className="text-right px-3 py-2.5">Outstanding balance</th><th className="text-right px-3 py-2.5">Monthly debt service</th><th className="text-right px-4 py-2.5">Maturity</th></tr></thead><tbody>{property.loans.map((loan, index) => <tr key={`${loan.lender}-${index}`} className="border-b last:border-b-0 border-border"><td className="px-4 py-2.5 font-semibold">{loan.lender || '—'}</td><td className="px-3 py-2.5">{loan.loanType || '—'}</td><td className="px-3 py-2.5 text-right font-mono font-bold text-a">{money(loan.outstandingBalance)}</td><td className="px-3 py-2.5 text-right font-mono">{money(loan.monthlyDebtService)}</td><td className="px-4 py-2.5 text-right">{loan.maturityDate || '—'}</td></tr>)}</tbody></table></div></article>;
 }
+
+type CapexProperty = { property: string; records: CapitalExpenseRecord[]; approximateCost: number };
+function capexProperties(records: CapitalExpenseRecord[]) { const values = new Map<string, CapexProperty>(); for (const record of records) { const item = values.get(propertyKey(record.property)) ?? { property: record.property, records: [], approximateCost: 0 }; item.records.push(record); item.approximateCost += record.approximateCost; values.set(propertyKey(record.property), item); } return [...values.values()]; }
+function CapitalExpensesTabView({ records, groups, expandedGroups, sortAsc, onToggleGroup, onUpload }: { records: CapitalExpenseRecord[]; groups: DealGroup[]; expandedGroups: Set<string>; sortAsc: boolean; onToggleGroup: (id: string) => void; onUpload: () => void }) { const properties = capexProperties(records); const assignments = recordGroupAssignments(groups, properties); const compare = (left: string, right: string) => (sortAsc ? 1 : -1) * left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }); const ungrouped = properties.filter((_p, index) => !assignments.has(index)).sort((a, b) => compare(a.property, b.property)); return <section><div className="mb-5"><div className="caption text-[.66rem] mb-1">Step 5 · Property-management report</div><h2 className="font-serif text-[1.55rem] font-bold">Capital Expenses</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Upload the native CapEx, work-order, budget, or property-financial report. Each property keeps its actual need and approximate cost; groups show the sum of their parts.</p></div>{records.length === 0 ? <EmptyDataCard title="No Capital Expenses report imported" description="Upload the source property-management report. A fallback template is available only if a report export is unavailable." onUpload={onUpload} button="↑ Upload CapEx Report" /> : <div className="flex flex-col gap-5">{[...groups].sort((a, b) => compare(a.name, b.name)).map((group) => { const entries = properties.filter((_p, index) => assignments.get(index) === group.id); return entries.length ? <CapitalExpensesGroupCard key={group.id} group={group} properties={entries} expanded={expandedGroups.has(group.id)} onToggle={() => onToggleGroup(group.id)} /> : null; })}{ungrouped.map((property) => <CapitalExpensesPropertyCard key={property.property} property={property} />)}</div>}<GroupingNote /></section>; }
+function CapitalExpensesGroupCard({ group, properties, expanded, onToggle }: { group: DealGroup; properties: CapexProperty[]; expanded: boolean; onToggle: () => void }) { const total = properties.reduce((sum, property) => sum + property.approximateCost, 0); return <article className="card overflow-hidden border-l-[4px] border-l-a"><button type="button" onClick={onToggle} className="w-full px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3 items-center text-left cursor-pointer hover:bg-bg"><div><div className="caption text-[.58rem]">Group total · {properties.length} properties</div><div className="font-serif text-[1.12rem] font-bold mt-1">{group.name}</div></div><div className="flex gap-6 text-right"><Metric label="Approximate cost" value={money(total)} /><span className="font-mono text-[.62rem] text-muted self-center">{expanded ? '▴ Collapse' : '▾ Expand'}</span></div></button>{expanded && <div className="p-4 bg-bg flex flex-col gap-4">{properties.map((property) => <CapitalExpensesPropertyCard key={property.property} property={property} nested />)}</div>}</article>; }
+function CapitalExpensesPropertyCard({ property, nested = false }: { property: CapexProperty; nested?: boolean }) { return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3"><div><div className="font-serif text-[1.08rem] font-bold">{property.property}</div><div className="caption text-[.56rem] mt-1">{property.records.length} Capital Expenses item{property.records.length === 1 ? '' : 's'}</div></div><Metric label="Approximate cost" value={money(property.approximateCost)} /></header><div className="overflow-x-auto"><table className="w-full min-w-[680px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Need / Description</th><th className="text-left px-3 py-2.5">Category</th><th className="text-left px-3 py-2.5">Status</th><th className="text-right px-3 py-2.5">Approx. cost</th><th className="text-right px-4 py-2.5">As of / source</th></tr></thead><tbody>{property.records.map((record, index) => <tr key={`${record.need}-${index}`} className="border-b last:border-b-0 border-border"><td className="px-4 py-2.5 font-semibold">{record.need || '—'}</td><td className="px-3 py-2.5">{record.category || '—'}</td><td className="px-3 py-2.5">{record.status || '—'}</td><td className="px-3 py-2.5 text-right font-mono font-bold text-a">{money(record.approximateCost)}</td><td className="px-4 py-2.5 text-right text-muted">{[record.asOf, record.source].filter(Boolean).join(' · ') || '—'}</td></tr>)}</tbody></table></div></article>; }
+
+function MarketValueTabView({ records, groups, expandedGroups, sortAsc, onToggleGroup, onUpload }: { records: MarketValueRecord[]; groups: DealGroup[]; expandedGroups: Set<string>; sortAsc: boolean; onToggleGroup: (id: string) => void; onUpload: () => void }) { const assignments = recordGroupAssignments(groups, records); const compare = (left: string, right: string) => (sortAsc ? 1 : -1) * left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }); const ungrouped = records.filter((_r, index) => !assignments.has(index)).sort((a, b) => compare(a.property, b.property)); return <section><div className="mb-5"><div className="caption text-[.66rem] mb-1">Step 6 · Valuation report</div><h2 className="font-serif text-[1.55rem] font-bold">Market Value</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Upload the valuation, appraisal, listing, or property-financial report. Group totals equal the market values of the properties in that group.</p></div>{records.length === 0 ? <EmptyDataCard title="No Market Value report imported" description="Upload the source valuation report. A fallback template is available only if a report export is unavailable." onUpload={onUpload} button="↑ Upload Market Value Report" /> : <div className="flex flex-col gap-5">{[...groups].sort((a, b) => compare(a.name, b.name)).map((group) => { const entries = records.filter((_r, index) => assignments.get(index) === group.id); return entries.length ? <MarketValueGroupCard key={group.id} group={group} records={entries} expanded={expandedGroups.has(group.id)} onToggle={() => onToggleGroup(group.id)} /> : null; })}{ungrouped.map((record) => <MarketValuePropertyCard key={record.property} record={record} />)}</div>}<GroupingNote /></section>; }
+function MarketValueGroupCard({ group, records, expanded, onToggle }: { group: DealGroup; records: MarketValueRecord[]; expanded: boolean; onToggle: () => void }) { const total = records.reduce((sum, record) => sum + record.marketValue, 0); return <article className="card overflow-hidden border-l-[4px] border-l-a"><button type="button" onClick={onToggle} className="w-full px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3 items-center text-left cursor-pointer hover:bg-bg"><div><div className="caption text-[.58rem]">Group total · {records.length} properties</div><div className="font-serif text-[1.12rem] font-bold mt-1">{group.name}</div></div><div className="flex gap-6 text-right"><Metric label="Market value" value={money(total)} /><span className="font-mono text-[.62rem] text-muted self-center">{expanded ? '▴ Collapse' : '▾ Expand'}</span></div></button>{expanded && <div className="p-4 bg-bg flex flex-col gap-4">{records.map((record) => <MarketValuePropertyCard key={record.property} record={record} nested />)}</div>}</article>; }
+function MarketValuePropertyCard({ record, nested = false }: { record: MarketValueRecord; nested?: boolean }) { return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3"><div><div className="font-serif text-[1.08rem] font-bold">{record.property}</div><div className="caption text-[.56rem] mt-1">{[record.valueType, record.asOf].filter(Boolean).join(' · ') || 'Market Value report'}</div></div><Metric label="Market value" value={money(record.marketValue)} /></header><div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 py-3 text-[.75rem]"><Detail label="Value type" value={record.valueType || '—'} /><Detail label="As of" value={record.asOf || '—'} /><Detail label="Source" value={record.source || '—'} /></div></article>; }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div><div className="caption text-[.56rem]">{label}</div><div className="font-mono font-bold text-a mt-1">{value}</div></div>; }
 function Detail({ label, value }: { label: string; value: string }) { return <div><div className="caption text-[.56rem]">{label}</div><div className="mt-1 font-mono">{value}</div></div>; }

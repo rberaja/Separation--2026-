@@ -38,6 +38,8 @@ export interface Property {
   depreciation: number | null;
   zoning: string;
   cert40yr: string;
+  /** Data-workspace group; used only to present a roll-up in the Partition view. */
+  groupName: string;
 }
 
 /** Keys of `Property` that hold a nullable number (everything editable in a number input). */
@@ -77,6 +79,7 @@ export const DEFAULT_PROPERTY: Omit<Property, 'id'> = {
   depreciation: null,
   zoning: '',
   cert40yr: '',
+  groupName: '',
 };
 
 export function createProperty(id: number, input: PropertyInput = {}): Property {
