@@ -4,8 +4,13 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
+const isGitHubPagesBuild = process.env.GITHUB_ACTIONS === 'true';
+
 // https://astro.build/config
 export default defineConfig({
+  // GitHub Pages serves project sites beneath /<repository-name>/.
+  site: isGitHubPagesBuild ? 'https://rberaja.github.io' : undefined,
+  base: isGitHubPagesBuild ? '/Separation--2026-' : undefined,
   integrations: [react()],
 
   vite: {
