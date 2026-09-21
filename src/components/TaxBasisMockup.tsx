@@ -5,7 +5,8 @@ import type { LoanRecord } from '../lib/loans-excel';
 import type { CapitalExpenseRecord } from '../lib/capital-expenses-excel';
 import type { MarketValueRecord } from '../lib/market-value-excel';
 import type { IncomeExpenseRecord } from '../lib/income-expenses-excel';
-import { deleteSourceReports, loadWorkspaceSnapshot, saveSourceReport, saveWorkspaceSnapshot, type StoredSource } from '../lib/browser-data';
+import { propertyKey, propertyMatches } from '../lib/property-match';
+import { deleteSourceReport, deleteSourceReports, loadWorkspaceSnapshot, saveSourceReport, saveWorkspaceSnapshot, type StoredSource } from '../lib/browser-data';
 import type { ExtractedMethod, ExtractionProgress } from '../lib/tax-return-pdf';
 import { useApp } from '../store/AppContext';
 
@@ -36,28 +37,6 @@ const reserveIds = (ids: string[]) => { for (const id of ids) { const n = Number
 const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 const numeric = (value: string) => Math.max(0, Number(value.replace(/[^\d.]/g, '')) || 0);
 const totals = (properties: PropertySchedule[]) => ({ basis: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.basis, 0), 0), depreciation: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.annual, 0), 0) });
-/** Normalizes common address variations between the Groups workbook and tax-return schedules. */
-const propertyKey = (value: string) => value
-  .toLocaleUpperCase()
-  .replace(/\b(\d+)(?:ST|ND|RD|TH)\b/g, '$1')
-  .replace(/\bAVENUE\b/g, 'AVE')
-  .replace(/\bSTREET\b/g, 'ST')
-  .replace(/\bBOULEVARD\b/g, 'BLVD')
-  .replace(/\bDRIVE\b/g, 'DR')
-  .replace(/\bROAD\b/g, 'RD')
-  .replace(/\bNORTH\b/g, 'N')
-  .replace(/\bSOUTH\b/g, 'S')
-  .replace(/\bEAST\b/g, 'E')
-  .replace(/\bWEST\b/g, 'W')
-  .replace(/[^A-Z0-9]/g, '');
-const propertyMatches = (workbookProperty: string, taxReturnProperty: string) => {
-  const workbookKey = propertyKey(workbookProperty);
-  const taxReturnKey = propertyKey(taxReturnProperty);
-  if (!workbookKey || !taxReturnKey) return false;
-  if (workbookKey === taxReturnKey) return true;
-  const [shorter, longer] = workbookKey.length <= taxReturnKey.length ? [workbookKey, taxReturnKey] : [taxReturnKey, workbookKey];
-  return shorter.length >= 8 && longer.startsWith(shorter);
-};
 const hasMember = (group: DealGroup, property: PropertySchedule) => group.members.some((member) => propertyMatches(member.property, property.property));
 
 /** One property can appear in multiple historical returns; only its newest schedule may feed Partition. */
@@ -156,8 +135,9 @@ export function TaxBasisMockup() {
     }).catch(() => { /* IndexedDB may be disabled; localStorage was already tried */ });
   }, []);
 
+  const sourceId = (kind: string, file: File) => `${kind}-${file.name}-${file.lastModified}-${file.size}`;
   const preserveSource = (kind: string, file: File) => {
-    const source: StoredSource = { id: `${kind}-${file.name}-${file.lastModified}-${file.size}`, kind, name: file.name, type: file.type || 'application/octet-stream', importedAt: new Date().toISOString() };
+    const source: StoredSource = { id: sourceId(kind, file), kind, name: file.name, type: file.type || 'application/octet-stream', importedAt: new Date().toISOString() };
     setSourceReports((current) => [...current.filter((item) => item.id !== source.id), source]);
     void saveSourceReport(source, file).catch(() => setNotice('The extracted values were kept, but this browser could not retain the original report file.'));
   };
@@ -238,9 +218,19 @@ export function TaxBasisMockup() {
     try {
       const { extractTaxReturnSchedules } = await import('../lib/tax-return-pdf');
       const result = await extractTaxReturnSchedules(files, setImportProgress);
-      files.forEach((file) => preserveSource('tax-returns', file));
       const importedAt = Date.now();
       const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, importedAt: schedule.sourceModifiedAt || importedAt, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
+      if (!extracted.length) {
+        const fileNames = new Set(files.map((file) => file.name));
+        setDocuments((current) => current.filter((name) => !fileNames.has(name)));
+        setWarnings((current) => current.filter((warning) => !files.some((file) => warning.startsWith(file.name))));
+        setSourceReports((current) => current.filter((report) => report.kind !== 'tax-returns' || !fileNames.has(report.name)));
+        void Promise.all(files.map((file) => deleteSourceReport(sourceId('tax-returns', file))));
+        setWarnings((current) => [...current, ...result.warnings]);
+        setNotice('No property depreciation schedules were found. This return was not retained, so you can upload another return or use Clear All at any time.');
+        return;
+      }
+      files.forEach((file) => preserveSource('tax-returns', file));
       // Keep one schedule per property across all imports. The more recent tax
       // return wins even when the filing entity spelling has changed.
       setProperties((current) => {
@@ -337,7 +327,8 @@ export function TaxBasisMockup() {
   };
 
   const clearTaxReturns = () => {
-    if (properties.length && !window.confirm('Clear all imported tax-return data? Groups are kept. This cannot be undone.')) return;
+    const hasTaxReturnData = Boolean(properties.length || documents.length || warnings.length || sourceReports.some((item) => item.kind === 'tax-returns'));
+    if (hasTaxReturnData && !window.confirm('Clear all imported tax-return data and retained tax-return files? Groups are kept. This cannot be undone.')) return;
     setProperties([]); setDocuments([]); setWarnings([]); setExpandedGroups(new Set()); setCollapsedProperties(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'tax-returns')); void deleteSourceReports('tax-returns');
     setNotice('Tax-return data cleared. Upload the Form 1065 packages to begin again.');
   };
@@ -381,6 +372,7 @@ export function TaxBasisMockup() {
   const exportIncomeExpensesWorkbook = async () => { const { downloadIncomeExpensesWorkbook } = await import('../lib/income-expenses-excel'); downloadIncomeExpensesWorkbook(incomeExpenses); setIncomeExpensesOutputOpen(false); };
 
   const assignments = groupAssignments(groups, properties);
+  const hasTaxReturnData = Boolean(properties.length || documents.length || warnings.length || sourceReports.some((item) => item.kind === 'tax-returns'));
   const toggleExpanded = (id: string) => setExpandedGroups((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const togglePropertyCollapsed = (id: string) => setCollapsedProperties((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const toggleOccupancyExpanded = (id: string) => setOccupancyExpanded((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -395,7 +387,7 @@ export function TaxBasisMockup() {
   return <div className="min-h-screen bg-bg text-text relative" onDragOver={handleDragOver} onDragEnter={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
     {dragActive && <div className="fixed inset-0 z-40 pointer-events-none bg-a/10 flex items-center justify-center p-8" aria-hidden="true"><div className="border-[3px] border-dashed border-a rounded-md bg-surface px-10 py-8 text-center shadow-xl"><div className="font-serif text-[1.4rem] font-bold">Drop tax return PDFs to import</div><div className="mt-1 font-mono text-[.66rem] uppercase tracking-[.07em] text-muted">Form 1065 packages · read locally in your browser</div></div></div>}
     <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></header>
-    <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['zoning', 'Zoning'], ['cert40yr', 'Next 40-Yr Cert']] as const).map(([key, label]) => { const active = groupsSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setGroupsSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: true })}><span>{label}</span><span className="text-[.75rem]">{active && !groupsSort.asc ? '↓' : '↑'}</span></button>; })}</>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={() => setDataOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!properties.length} onClick={clearTaxReturns}>▣ Clear All</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={expandAll}>▾ Expand</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={collapseAll}>▴ Collapse</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setDataSortAsc((current) => !current)}><span>Name</span><span className="text-[.75rem]">{dataSortAsc ? '↑' : '↓'}</span></button></>}</div>
+    <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['zoning', 'Zoning'], ['cert40yr', 'Next 40-Yr Cert']] as const).map(([key, label]) => { const active = groupsSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setGroupsSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: true })}><span>{label}</span><span className="text-[.75rem]">{active && !groupsSort.asc ? '↓' : '↑'}</span></button>; })}</>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={() => setDataOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!hasTaxReturnData} onClick={clearTaxReturns}>▣ Clear All</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={expandAll}>▾ Expand</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={collapseAll}>▴ Collapse</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setDataSortAsc((current) => !current)}><span>Name</span><span className="text-[.75rem]">{dataSortAsc ? '↑' : '↓'}</span></button></>}</div>
     {(activeTab === 'occupancy' || activeTab === 'loans' || activeTab === 'capitalExpenses' || activeTab === 'marketValue' || activeTab === 'incomeExpenses') && <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5">
       {activeTab === 'occupancy' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => occupancyFileRef.current?.click()}>↑ Upload Rent Roll</button><button type="button" className="tool-btn" onClick={() => void import('../lib/occupancy-excel').then(({ downloadOccupancyTemplate }) => downloadOccupancyTemplate())}>⇩ Manual Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={() => setOccupancyOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!occupancy.length} onClick={clearOccupancy}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setOccupancySortAsc((current) => !current)}>Name {occupancySortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={expandAllOccupancy}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!occupancy.length} onClick={collapseAllOccupancy}>▴ Collapse all</button></>}
       {activeTab === 'loans' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => loansFileRef.current?.click()}>↑ Upload Loan Report</button><button type="button" className="tool-btn" onClick={() => void import('../lib/loans-excel').then(({ downloadLoansTemplate }) => downloadLoansTemplate())}>⇩ Manual Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!loans.length} onClick={clearLoans}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setLoansSortAsc((current) => !current)}>Name {loansSortAsc ? '↑' : '↓'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansExpanded(new Set(groups.map((group) => group.id)))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!loans.length} onClick={() => setLoansExpanded(new Set())}>▴ Collapse all</button></>}
@@ -547,21 +539,24 @@ const incomeExpenseTotals = (records: readonly IncomeExpenseRecord[]): IncomeExp
 function IncomeExpensesTabView({ records, groups, expandedGroups, sort, onToggleGroup, onUpload }: { records: IncomeExpenseRecord[]; groups: DealGroup[]; expandedGroups: Set<string>; sort: { key: 'income' | 'expenses' | 'noi'; asc: boolean }; onToggleGroup: (id: string) => void; onUpload: () => void }) {
   const assignments = recordGroupAssignments(groups, records);
   const compare = (left: number, right: number) => (left - right) * (sort.asc ? 1 : -1);
-  const grouped = groups.map((group) => ({ group, records: records.filter((_record, index) => assignments.get(index) === group.id) })).filter((item) => item.records.length).sort((left, right) => compare(incomeExpenseTotals(left.records)[sort.key], incomeExpenseTotals(right.records)[sort.key]));
+  const grouped = groups.map((group) => ({ group, records: records.filter((_record, index) => assignments.get(index) === group.id) })).sort((left, right) => compare(incomeExpenseTotals(left.records)[sort.key], incomeExpenseTotals(right.records)[sort.key]));
   const ungrouped = records.filter((_record, index) => !assignments.has(index)).sort((left, right) => compare(left[sort.key], right[sort.key]));
   return <section><div className="mb-5"><div className="caption text-[.66rem] mb-1">Step 6 · AppFolio property summary</div><h2 className="font-serif text-[1.55rem] font-bold">Income &amp; Expenses</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Upload an AppFolio property-summary Income Statement or P&amp;L. The tool extracts total income, total expenses, and NOI; the same Groups workbook determines every roll-up.</p></div>{records.length === 0 ? <EmptyDataCard title="No Income & Expenses report imported" description="Upload the AppFolio property-summary report, or use the manual template if an export is unavailable." onUpload={onUpload} button="↑ Upload AppFolio Report" /> : <div className="flex flex-col gap-5">{grouped.map(({ group, records: groupRecords }) => <IncomeExpensesGroupCard key={group.id} group={group} records={groupRecords} expanded={expandedGroups.has(group.id)} onToggle={() => onToggleGroup(group.id)} />)}{ungrouped.map((record) => <IncomeExpensesPropertyCard key={record.property} record={record} />)}</div>}<GroupingNote /></section>;
 }
 
 function IncomeExpensesGroupCard({ group, records, expanded, onToggle }: { group: DealGroup; records: IncomeExpenseRecord[]; expanded: boolean; onToggle: () => void }) {
   const total = incomeExpenseTotals(records);
-  return <article className="card overflow-hidden border-l-[4px] border-l-a"><button type="button" onClick={onToggle} className="w-full px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3 items-center text-left cursor-pointer hover:bg-bg"><GroupHeading name={group.name} detail={`Group total · ${records.length} imported properties`} /><IncomeExpenseMetrics total={total} /><span className="font-mono text-[.62rem] text-muted self-center">{expanded ? '▴ Collapse' : '▾ Expand'}</span></button>{expanded && <div className="p-4 bg-bg flex flex-col gap-4">{records.map((record) => <IncomeExpensesPropertyCard key={record.property} record={record} nested />)}</div>}</article>;
+  const unmatchedMembers = group.members.filter((member) => !records.some((record) => propertyMatches(member.property, record.property)));
+  return <article className="card overflow-hidden border-l-[4px] border-l-a"><button type="button" onClick={onToggle} className="w-full px-4 py-3 bg-surface2 border-b border-border flex flex-wrap gap-3 items-center text-left cursor-pointer hover:bg-bg"><GroupHeading name={group.name} detail={`Group total · ${group.members.length} properties`} /><IncomeExpenseMetrics total={total} className="ml-auto mr-5" /><span className="w-16 text-right font-mono text-[.62rem] text-muted self-center">{expanded ? '▴ Collapse' : '▾ Expand'}</span></button>{expanded && <div className="p-4 bg-bg flex flex-col gap-4">{records.map((record) => <IncomeExpensesPropertyCard key={record.property} record={record} displayName={group.members.find((member) => propertyMatches(member.property, record.property))?.property} nested />)}{unmatchedMembers.map((member) => <MissingIncomeExpensesPropertyCard key={member.property} member={member} />)}</div>}</article>;
 }
 
-function IncomeExpensesPropertyCard({ record, nested = false }: { record: IncomeExpenseRecord; nested?: boolean }) {
-  return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3"><div><div className="font-serif text-[1.08rem] font-bold">{record.property}</div><div className="caption text-[.56rem] mt-1">{[record.asOf, record.source].filter(Boolean).join(' · ') || 'AppFolio report'}</div></div><IncomeExpenseMetrics total={record} /></header></article>;
+function IncomeExpensesPropertyCard({ record, displayName = record.property, nested = false }: { record: IncomeExpenseRecord; displayName?: string; nested?: boolean }) {
+  return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-3"><div><div className="font-serif text-[1.08rem] font-bold">{displayName}</div><div className="caption text-[.56rem] mt-1">{[record.asOf, record.source].filter(Boolean).join(' · ') || 'AppFolio report'}{displayName !== record.property ? ` · AppFolio: ${record.property}` : ''}</div></div><IncomeExpenseMetrics total={record} /></header></article>;
 }
 
-function IncomeExpenseMetrics({ total }: { total: IncomeExpenseTotals }) { return <div className="flex gap-6 text-right"><Metric label="Income" value={money(total.income)} /><Metric label="Expenses" value={money(total.expenses)} /><Metric label="NOI" value={money(total.noi)} /></div>; }
+function MissingIncomeExpensesPropertyCard({ member }: { member: GroupMember }) { return <article className="card border border-dashed border-border bg-surface px-4 py-3"><div className="font-serif text-[1.08rem] font-bold">{member.property}</div><WorkbookPropertyDetails member={member} /><div className="mt-2 font-mono text-[.61rem] text-muted">No Income &amp; Expenses record was found for this grouped property in the uploaded report.</div></article>; }
+
+function IncomeExpenseMetrics({ total, className = '' }: { total: IncomeExpenseTotals; className?: string }) { return <div className={`flex gap-6 text-right ${className}`}><Metric label="Income" value={money(total.income)} /><Metric label="Expenses" value={money(total.expenses)} /><Metric label="NOI" value={money(total.noi)} /></div>; }
 
 function GroupHeading({ name, detail }: { name: string; detail: string }) { return <div><div className="font-serif text-[1.12rem] font-bold">{name}</div><div className="caption text-[.58rem] mt-1">{detail}</div></div>; }
 

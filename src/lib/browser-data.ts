@@ -57,6 +57,19 @@ export async function saveSourceReport(source: StoredSource, file: File) {
   await put(`source:${source.id}`, { source, blob: file });
 }
 
+/** Remove one retained report without disturbing the other Data-tab sources. */
+export async function deleteSourceReport(id: string) {
+  if (!('indexedDB' in window)) return;
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    transaction.objectStore(STORE_NAME).delete(`source:${id}`);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  db.close();
+}
+
 export async function deleteSourceReports(kind?: string) {
   if (!('indexedDB' in window)) return;
   const db = await openDb();

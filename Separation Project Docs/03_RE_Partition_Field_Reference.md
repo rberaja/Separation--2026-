@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.10
+# RE Partition Tool — Field Reference V1.11
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -56,9 +56,15 @@
 
 </div>
 
-<div style="color:#FF0000">
+<div style="color:#FFFFFF">
 
 **V1.10 AppFolio Income Statement – Property Comparison import:** the Income & Expenses tab now recognizes AppFolio reports with properties arranged in columns beneath **Account Name**. For each property column, it reads **Total Operating Income**, **Total Operating Expense**, and **NOI – Net Operating Income**. The report-wide **Total** column is excluded, the report's **Date Range** is retained as source context, and imported properties continue to roll up using the existing Groups hierarchy.
+
+</div>
+
+<div style="color:#00A651">
+
+**V1.11 AppFolio grouping and tax-return recovery:** Capital Expenses and Income &amp; Expenses now match common AppFolio address variants—reordered addresses, abbreviated property labels, and report ZIP suffixes—against the Groups workbook without grouping a different numbered address. Group-header Income, Expenses, and NOI totals align with the property-level values. A tax-return PDF with no depreciation schedules is not retained; **Clear All** remains available whenever a tax-return source, warning, or label is stored, even when zero schedules were extracted.
 
 </div>
 
@@ -172,7 +178,8 @@
 
 | Version | Change |
 |---|---|
-| V1.10 | <span style="color:#FF0000">Added AppFolio Income Statement – Property Comparison support. The Income &amp; Expenses importer now reads property columns beneath Account Name, extracts Total Operating Income, Total Operating Expense, and NOI – Net Operating Income, excludes the report-wide Total column, and retains the Date Range as source context.</span> |
+| V1.11 | <span style="color:#00A651">Improved AppFolio-to-Groups matching for reordered, abbreviated, and ZIP-suffixed property labels while protecting distinct street numbers from accidental grouping. Aligned Income &amp; Expenses group totals with property values. Tax returns without depreciation schedules are no longer retained, and Clear All now removes stored tax-return sources, warnings, and labels even when no schedules exist.</span> |
+| V1.10 | <span style="color:#FFFFFF">Added AppFolio Income Statement – Property Comparison support. The Income &amp; Expenses importer now reads property columns beneath Account Name, extracts Total Operating Income, Total Operating Expense, and NOI – Net Operating Income, excludes the report-wide Total column, and retains the Date Range as source context.</span> |
 | V1.9 | <span style="color:#FFFFFF">Standardized the Data-workspace hierarchy: the group/property name or address now leads every card header and supporting information follows below. Removed the visible Groups Remove control and normalized spacing across the Data tabs, including Groups and Remaining Tax Basis.</span> |
 | V1.8 | <span style="color:#FFFFFF">Added the AppFolio Income &amp; Expenses Data tab: it extracts Total Income, Total Expenses, and NOI by property; retains the Groups hierarchy with aggregate collapsed headers; supports upload, Manual Template, Print / Export, Clear All, and Income / Expenses / NOI sorting; and automatically updates the Partition Tool NOI field. Data-workspace notices are now centered and Send to Partition Tool buttons were removed because synchronization is automatic.</span> |
 | V1.7 | <span style="color:#FFFFFF">Partner assignment is controlled at the consolidated selection-unit level; group counts are one property; Expand All, Collapse All, and Sort controls are in the top action bar; Cash & Equivalents stays fixed until replaced.</span> |
