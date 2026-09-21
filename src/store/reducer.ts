@@ -30,6 +30,8 @@ export interface AppState {
   cashEquiv: number | null;
   /** Tax year shown on the Depreciation field — read from the _meta sheet (Remaining Depreciation Tool). */
   depreciationYear: number;
+  /** Collapsed Partition selection-unit cards, controlled from the top toolbar. */
+  collapsedSelectionUnits: string[];
   sort: SortState;
   theme: Theme;
   upload: UploadStatus;
@@ -43,6 +45,7 @@ export const initialState: AppState = {
   discountRate: DEFAULTS.discountRate,
   cashEquiv: DEFAULTS.cashEquiv,
   depreciationYear: DEFAULTS.depreciationYear,
+  collapsedSelectionUnits: [],
   sort: { key: 'name', asc: true },
   theme: 'light',
   upload: { kind: 'idle', message: IDLE_UPLOAD_MESSAGE },
@@ -52,6 +55,9 @@ export type Action =
   | { type: 'property/add'; input?: PropertyInput }
   | { type: 'property/update'; id: number; patch: PropertyInput }
   | { type: 'property/assign'; id: number; partner: Assignment }
+  | { type: 'properties/assign'; ids: number[]; partner: Assignment }
+  | { type: 'selectionUnits/setCollapsed'; keys: string[] }
+  | { type: 'selectionUnits/toggleCollapsed'; key: string }
   | { type: 'property/delete'; id: number }
   | { type: 'properties/clear' }
   | { type: 'properties/clearDataManaged' }
@@ -89,14 +95,28 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'property/assign':
       return patchProperty(state, action.id, { assign: action.partner });
 
+    case 'properties/assign': {
+      const ids = new Set(action.ids);
+      return { ...state, properties: state.properties.map((property) => ids.has(property.id) ? { ...property, assign: action.partner } : property) };
+    }
+
+    case 'selectionUnits/setCollapsed':
+      return { ...state, collapsedSelectionUnits: [...new Set(action.keys)] };
+
+    case 'selectionUnits/toggleCollapsed': {
+      const keys = new Set(state.collapsedSelectionUnits);
+      keys.has(action.key) ? keys.delete(action.key) : keys.add(action.key);
+      return { ...state, collapsedSelectionUnits: [...keys] };
+    }
+
     case 'property/delete':
       return { ...state, properties: state.properties.filter((p) => p.id !== action.id) };
 
     case 'properties/clear':
-      return { ...state, properties: [], nextId: 1, upload: initialState.upload };
+      return { ...state, properties: [], nextId: 1, collapsedSelectionUnits: [], upload: initialState.upload };
 
     case 'properties/clearDataManaged':
-      return { ...state, properties: state.properties.filter((property) => !property.dataManaged) };
+      return { ...state, properties: state.properties.filter((property) => !property.dataManaged), collapsedSelectionUnits: [] };
 
     case 'import/apply': {
       const { properties, meta } = action.result;
@@ -105,6 +125,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         properties: [],
         nextId: 1,
+        collapsedSelectionUnits: [],
         partnerNames: {
           a: meta.partnerAName ?? state.partnerNames.a,
           b: meta.partnerBName ?? state.partnerNames.b,

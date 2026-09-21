@@ -1,18 +1,11 @@
 import { useCallback, useRef, useState, type ChangeEvent } from 'react';
 import { downloadTemplate, loadExcel } from '../lib/excel-lazy';
+import { selectionUnitKey } from '../lib/settlement';
 import { SORT_OPTIONS } from '../lib/sort';
 import { useApp } from '../store/AppContext';
-import type { UploadKind } from '../store/reducer';
 import { ColumnGuideModal } from './ColumnGuideModal';
 import { ExportModal } from './ExportModal';
 import { DownloadIcon, InfoIcon, PrintIcon, TrashIcon, UploadIcon } from './ui/Icons';
-
-const STATUS_CLASS: Record<UploadKind, string> = {
-  idle: 'text-muted',
-  busy: 'text-muted',
-  ok: 'text-green font-semibold',
-  err: 'text-red font-semibold',
-};
 
 export function Toolbar() {
   const { state, dispatch } = useApp();
@@ -50,13 +43,13 @@ export function Toolbar() {
     <div className="flex flex-wrap items-center gap-2.5 bg-surface border-b border-border px-7 py-2">
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
 
-      <button type="button" className="tool-btn tool-btn-primary" onClick={() => fileRef.current?.click()}>
+      <button type="button" className="tool-btn tool-btn-primary hidden" onClick={() => fileRef.current?.click()}>
         <UploadIcon /> Upload Excel
       </button>
-      <button type="button" className="tool-btn" onClick={() => setGuideOpen(true)}>
+      <button type="button" className="tool-btn hidden" onClick={() => setGuideOpen(true)}>
         <InfoIcon /> Column Guide
       </button>
-      <button type="button" className="tool-btn" onClick={() => void downloadTemplate()}>
+      <button type="button" className="tool-btn hidden" onClick={() => void downloadTemplate()}>
         <DownloadIcon /> Download Template
       </button>
       <button
@@ -71,30 +64,18 @@ export function Toolbar() {
       <button type="button" className="tool-btn tool-btn-danger" onClick={clearAll}>
         <TrashIcon /> Clear All
       </button>
+      <button type="button" className="tool-btn disabled:opacity-40" disabled={!hasData} onClick={() => dispatch({ type: 'selectionUnits/setCollapsed', keys: [] })}>▾ Expand All</button>
+      <button type="button" className="tool-btn disabled:opacity-40" disabled={!hasData} onClick={() => dispatch({ type: 'selectionUnits/setCollapsed', keys: state.properties.map(selectionUnitKey) })}>▴ Collapse All</button>
 
       <Divider />
-
       <span className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold whitespace-nowrap">Sort</span>
       {SORT_OPTIONS.map(({ key, label }) => {
         const active = state.sort.key === key;
-        return (
-          <button
-            key={key}
-            type="button"
-            className={`sort-btn ${active ? 'sort-btn-active' : ''}`}
-            onClick={() => dispatch({ type: 'sort/set', key })}
-          >
-            <span>{label}</span>
-            <span className="text-[0.75rem]">{active && !state.sort.asc ? '↓' : '↑'}</span>
-          </button>
-        );
+        return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => dispatch({ type: 'sort/set', key })}>
+          <span>{label}</span>
+          <span className="text-[0.75rem]">{active && !state.sort.asc ? '↓' : '↑'}</span>
+        </button>;
       })}
-
-      <Divider />
-
-      <span className={`ml-auto font-mono text-[0.75rem] font-bold ${STATUS_CLASS[state.upload.kind]}`} role="status">
-        {state.upload.message}
-      </span>
 
       <ColumnGuideModal open={guideOpen} onClose={closeGuide} />
       <ExportModal open={exportOpen} onClose={closeExport} />

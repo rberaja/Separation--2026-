@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.6
+# RE Partition Tool — Field Reference V1.7
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -32,9 +32,15 @@
 | 11 | NOI / yr | **noi** | ↑ Uploaded | Y | Net Operating Income per year in dollars — rental income minus operating expenses, before any debt service. |
 | 12 | Occupancy Actual % | **occupancy_actual_pct** | ↑ Uploaded | Y | Current actual occupancy as a percentage (e.g. 91.5 for 91.5%). Reflects today's occupied-unit reality. |
 
-<div style="color:#D64545">
+<div style="color:#FFFFFF">
 
 **V1.6 AppFolio Project Directory CapEx import:** `Name` is the project description and `Total Budget` is Deferred CapEx. When a row has no date, the report metadata — **As of**, **Exported On**, or **Report Date** — supplies the item’s As Of date. The worksheet row remains available as source traceability.
+
+</div>
+
+<div style="color:#00A651">
+
+**V1.7 consolidated selection units:** partner assignment is made on a consolidated group header and applies to every member property; ungrouped properties remain individual selection units. Partner totals, the Unassigned indicator, and exports count each consolidated group as one property. **Expand All**, **Collapse All**, and Sort controls live in the top Partition action bar, while legacy upload, column-guide, and template controls remain hidden until needed. Cash & Equivalents is not recalculated by assignment and changes only when the user enters a replacement value.
 
 </div>
 
@@ -148,7 +154,8 @@
 
 | Version | Change |
 |---|---|
-| V1.6 | <span style="color:#D64545">AppFolio Project Directory CapEx imports map Name to description and Total Budget to Deferred CapEx; the report date supplies As Of when the row has no date.</span> |
+| V1.7 | <span style="color:#00A651">Partner assignment is controlled at the consolidated selection-unit level; group counts are one property; Expand All, Collapse All, and Sort controls are in the top action bar; Cash & Equivalents stays fixed until replaced.</span> |
+| V1.6 | <span style="color:#FFFFFF">AppFolio Project Directory CapEx imports map Name to description and Total Budget to Deferred CapEx; the report date supplies As Of when the row has no date.</span> |
 | V1.5 | <span style="color:#FFFFFF">Unassigned properties no longer default to Partner B: they are excluded from both partners and from the targets, shown in the new Unassigned indicator (row 6), and the Final Settlement is marked Provisional until every property is assigned (rows 44, 65).</span> |
 | V1.4 | <span style="color:#FFFFFF">Tax-basis vocabulary aligned with the White Paper: rows 31/45 *Remaining Tax Basis*, row 59 *Basis Shortfall* (§11.3), row 61 *Basis True-Up* (§11.4, §14.1); the separate tool is the *Tax Basis Tool*. Import header confirmed as `remaining_tax_basis` and now actually accepted (V1.3 listed it as confirmed, but the v7.5 tool used `remaining_basis`, which is still accepted). Row 33 is now `depreciation` with the year supplied via `_meta` `depreciation_year` (legacy `depreciation_2025` accepted). `cash_equivalents` added to the `_meta` import sheet (row 5). Added the Print / Export section.</span> |
 | V1.3 | <span style="color:#FFFFFF">Aligned with White Paper v6.10. Gap sign convention is now uniformly target − actual (positive = owed) — the former "Proportionality vs Target" rows 48–54 had the subtraction reversed and contradicted rows 56–62. Total True-Up now consists of NPV Equity gap + Basis True-Up + Bid Difference gap + Cash & Equivalents gap only (§14.1); Adj. Market Value, Debt Service and Net Cash Flow gaps are reference only. "Proportionality vs Target" rows rewritten to describe the section C bars (actual shares vs target tick) rather than duplicating the gap formulas. Reference rows are listed first (56–59), then the settlement metrics (60–65), matching the tool. Added Final Settlement (row 65).</span> |

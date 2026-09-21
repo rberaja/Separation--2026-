@@ -19,7 +19,18 @@ const ASSIGN_BTN: Record<Partner, string> = {
   b: 'bg-b border-b text-white',
 };
 
-export function PropertyCard({ property: p }: { property: Property }) {
+export function PropertyCard({
+  property: p,
+  showAssignment = true,
+  collapsed = false,
+  onToggleCollapsed,
+}: {
+  property: Property;
+  /** Group members inherit the consolidated selection-unit assignment. */
+  showAssignment?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
+}) {
   const { state, dispatch } = useApp();
   const names = usePartnerNames();
   const m = computeMetrics(p, useDiscountRate());
@@ -39,7 +50,7 @@ export function PropertyCard({ property: p }: { property: Property }) {
           value={p.name}
           onChange={(e) => dispatch({ type: 'property/update', id: p.id, patch: { name: e.target.value } })}
         />
-        <div className="flex gap-[3px]" role="group" aria-label="Assign to partner">
+        {showAssignment && <div className="flex gap-[3px]" role="group" aria-label="Assign to partner">
           {PARTNERS.map((partner) => (
             <button
               key={partner}
@@ -53,10 +64,14 @@ export function PropertyCard({ property: p }: { property: Property }) {
               {names[partner].split(' ')[0]}
             </button>
           ))}
-        </div>
+        </div>}
+        {onToggleCollapsed && <button type="button" className="font-mono text-[.61rem] text-muted hover:text-text cursor-pointer" aria-expanded={!collapsed} onClick={onToggleCollapsed}>
+          {collapsed ? '▾ Expand' : '▴ Collapse'}
+        </button>}
       </div>
 
       {/* Inputs — three columns */}
+      {!collapsed && <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start">
         <Column label="Property">
           <Field label="Market Value" term="marketVal">
@@ -121,6 +136,7 @@ export function PropertyCard({ property: p }: { property: Property }) {
         <Cell label={TAX.remainingBasis} term="remainingBasis" tone="neu">{fmtMoney(p.remainingBasis ?? 0)}</Cell>
         <Cell label={depreciationLabel(state.depreciationYear)} term="depreciation" tone="yel">{fmtMoney(p.depreciation ?? 0)}</Cell>
       </Strip>
+      </>}
     </article>
   );
 }

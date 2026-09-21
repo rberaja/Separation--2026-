@@ -45,6 +45,7 @@ export function MarketRateBar() {
           {unassigned.count}
         </div>
       </Setting>
+
     </div>
   );
 }

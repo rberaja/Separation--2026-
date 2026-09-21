@@ -23,6 +23,17 @@ describe('computeSettlement', () => {
     expect(totals.b.bidDiff).toBe(-5000);
   });
 
+  it('counts a consolidated group as one assigned property', () => {
+    const grouped = [
+      createProperty(1, { name: '600 SW 9 AVE', groupName: 'The 600-930', assign: 'a', marketVal: 1000000 }),
+      createProperty(2, { name: '930 SW 6th Street', groupName: 'The 600-930', assign: 'a', marketVal: 500000 }),
+    ];
+
+    const { totals } = computeSettlement(grouped, DR, 0.4, 0);
+    expect(totals.a.marketVal).toBe(1500000);
+    expect(totals.a.count).toBe(1);
+  });
+
   it('computes value gaps as A target − A actual (positive = A is owed)', () => {
     const { gaps, totals } = computeSettlement(props, DR, 0.4, 0);
     const totalAmv = totals.a.amv + totals.b.amv;

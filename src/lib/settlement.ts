@@ -3,7 +3,13 @@
  * and the settlement ledger.
  */
 import { computeMetrics, nv } from './finance';
-import type { Partner, Property } from './types';
+import type { Assignment, Partner, Property } from './types';
+
+/** A consolidated group is one selection unit; an ungrouped property is its own unit. */
+export function selectionUnitKey(property: Property): string {
+  const group = property.groupName.trim();
+  return group ? `group:${group}` : `property:${property.id}`;
+}
 
 export interface PartnerTotals {
   marketVal: number;
@@ -74,6 +80,7 @@ export function computeSettlement(
   // An unassigned property belongs to neither partner (v7.5 silently gave it to B); it is
   // tallied separately and left out of the portfolio the targets are taken from.
   const unassigned = emptyTotals();
+  const units: Record<Assignment, Set<string>> = { a: new Set(), b: new Set(), none: new Set() };
 
   for (const p of properties) {
     const m = computeMetrics(p, discountRate);
@@ -87,13 +94,16 @@ export function computeSettlement(
     t.noi += nv(p.noi);
     t.ads += m.ads;
     t.ncf += m.ncf;
-    t.count += 1;
+    units[p.assign].add(selectionUnitKey(p));
     t.remainingBasis += nv(p.remainingBasis);
     t.depreciation += nv(p.depreciation);
     t.bidDiff += nv(p.bidDiff);
   }
 
   const { a, b } = totals;
+  a.count = units.a.size;
+  b.count = units.b.size;
+  unassigned.count = units.none.size;
   /**
    * Gaps are Partner A's; Partner B's are the negative. Sign convention (White Paper
    * v6.10 §14.1): positive = A is owed cash, negative = A pays.

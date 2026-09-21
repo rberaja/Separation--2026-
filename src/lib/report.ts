@@ -8,7 +8,7 @@ import { APP_VERSION } from './constants';
 import { computeMetrics, nv, type PropertyMetrics } from './finance';
 import { fmtMoney } from './format';
 import { GAP_LABELS, GAP_REFERENCE_ROWS, PARTNER_TOTAL_GROUPS, TAX, WHITE_PAPER_VERSION, depreciationLabel } from './labels';
-import { isBalanced, type PartnerTotals, type Settlement } from './settlement';
+import { isBalanced, selectionUnitKey, type PartnerTotals, type Settlement } from './settlement';
 import type { Assignment, Partner, Property } from './types';
 
 export type CellKind = 'text' | 'money' | 'pct' | 'num';
@@ -170,8 +170,9 @@ export function buildReport(input: ReportInput): Report {
   const dr = nv(discountRate) / 100;
   const split = splitLabel(pctA);
 
-  const counts: Record<Assignment, number> = { a: 0, b: 0, none: 0 };
-  for (const p of properties) counts[p.assign] += 1;
+  const countUnits: Record<Assignment, Set<string>> = { a: new Set(), b: new Set(), none: new Set() };
+  for (const property of properties) countUnits[property.assign].add(selectionUnitKey(property));
+  const counts: Record<Assignment, number> = { a: countUnits.a.size, b: countUnits.b.size, none: countUnits.none.size };
 
   const totalsRows: ReportTotalsRow[] = PARTNER_TOTAL_GROUPS.flat().map(({ key, label }) => ({
     key,
