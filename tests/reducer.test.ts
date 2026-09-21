@@ -10,4 +10,11 @@ describe('Data-managed Partition properties', () => {
 
     expect(reducer(state, { type: 'properties/clearDataManaged' }).properties).toEqual([manual]);
   });
+
+  it('returns a property to Unassigned when a selected partner is clicked again', () => {
+    const assigned = createProperty(1, { name: 'Selected property', assign: 'a' });
+    const state = { ...initialState, properties: [assigned], nextId: 2 };
+
+    expect(reducer(state, { type: 'property/assign', id: assigned.id, partner: 'none' }).properties[0]?.assign).toBe('none');
+  });
 });

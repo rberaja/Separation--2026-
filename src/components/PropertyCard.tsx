@@ -45,7 +45,7 @@ export function PropertyCard({ property: p }: { property: Property }) {
               key={partner}
               type="button"
               aria-pressed={p.assign === partner}
-              onClick={() => dispatch({ type: 'property/assign', id: p.id, partner })}
+              onClick={() => dispatch({ type: 'property/assign', id: p.id, partner: p.assign === partner ? 'none' : partner })}
               className={`px-2 py-[3px] rounded-[3px] border-[1.5px] font-mono text-[0.6rem] tracking-[0.05em] font-semibold cursor-pointer transition-all duration-100 ${
                 p.assign === partner ? ASSIGN_BTN[partner] : 'border-border bg-transparent text-muted'
               }`}
@@ -54,14 +54,6 @@ export function PropertyCard({ property: p }: { property: Property }) {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          aria-label="Delete property"
-          className="text-muted2 hover:text-red text-base leading-none px-0.5 cursor-pointer transition-colors"
-          onClick={() => dispatch({ type: 'property/delete', id: p.id })}
-        >
-          ×
-        </button>
       </div>
 
       {/* Inputs — three columns */}

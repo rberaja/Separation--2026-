@@ -101,7 +101,7 @@ This Data tab imports the original rent-roll and occupancy reports exported from
 - **Partition handoff:** make the reviewed occupancy values available to the Partition Tool.
 - **Send to Partition Tool:** after review, send the matched occupancy values directly to the Partition Tool. Do not require a second file upload or duplicate entry there.
 - **Optional fallback:** a simple import template may be available only for exceptional reports that cannot be read directly. It is not part of the normal workflow.
-<span style="color:#D64545">- **Individual-card expand/collapse:** give every ungrouped, single-property occupancy card the same compact summary and Expand / Collapse control as group cards. Keep its occupancy, occupied-unit, and scheduled-rent summary visible while its detail row is collapsed. Include these cards in Occupancy’s Expand All and Collapse All controls so the page remains visually consistent.</span>
+<span style="color:#FFFFFF">- **Individual-card expand/collapse:** give every ungrouped, single-property occupancy card the same compact summary and Expand / Collapse control as group cards. Keep its occupancy, occupied-unit, and scheduled-rent summary visible while its detail row is collapsed. Include these cards in Occupancy’s Expand All and Collapse All controls so the page remains visually consistent.</span>
 
 ### Occupancy mockup
 
@@ -151,6 +151,7 @@ This Data tab imports the original property-management software reports that con
 - **Partition handoff:** make the reviewed loan values available to the Partition Tool without requiring duplicate manual entry.
 - **Send to Partition Tool:** after review, send the matched loan values directly to the Partition Tool. Do not require a second file upload or duplicate entry there.
 - **Optional fallback:** a simple import template may be available only for exceptional reports that cannot be read directly. It is not part of the normal workflow.
+<span style="color:#00A651">- **AppFolio Loans report mapping:** for AppFolio&rsquo;s Loans export, map Property, Ending Balance, Monthly Payment (P&amp;I), Interest Rate, Next Interest Rate Date, and Maturity Date. Preserve formatted dates rather than Excel serial numbers. Use the report&rsquo;s As of date and the earlier of next-rate date or maturity to calculate the residual loan term. Send balance, interest rate, residual term, and monthly P&amp;I to the Partition Tool; leave unavailable loan terms clearly blank for review rather than estimating them.</span>
 
 ### Loans mockup
 
@@ -278,11 +279,13 @@ After the Data steps are reviewed, the user sends the calculated values to the P
 - **Individual properties:** send each ungrouped property as its own selection-unit record with its individual remaining basis and tax-year depreciation.
 - **Tax year:** carry the selected tax year with the depreciation values sent to the Partition Tool.
 - **Occupancy and loans:** carry the reviewed occupancy and loan values from their respective Data tabs to the Partition Tool.
+<span style="color:#00A651">- **Safe partner assignment:** clicking an already-selected partner returns the property to Unassigned. Do not provide a property-card delete control that could remove a property inadvertently.</span>
 <span style="color:#FFFFFF">- **Capital expenses and market value:** carry the reviewed property-level CapEx needs, approximate costs, and market values from their respective Data tabs to the Partition Tool using the same Groups hierarchy.</span>
 - **No second upload:** the user uploads source reports once into the relevant Data tab. The reviewed results are sent directly to the Partition Tool, rather than being uploaded again.
 - **No manual duplication:** the Data workflow is the source for tax-basis and depreciation values; the Partition Tool consumes those calculated totals rather than requiring the user to re-enter them.
 <span style="color:#FFFFFF">- **Canonical property matching and duplicate prevention:** the Groups workbook is the canonical property list for the Partition Tool. Match tax-return address variants (for example, abbreviated versus expanded street names or supplemental locality text) to the same Groups property. On handoff, update that existing property card, preserve its group assignment, and remove any historical duplicate card rather than creating a second property.</span>
 <span style="color:#FFFFFF">- **Proportionality totals and depreciation year:** in the Partition proportionality check, the center (Unassigned) amount for every metric starts as the full unassigned portfolio total and decreases as either partner receives properties. Include Remaining Tax Basis and tax-year Depreciation in this check, and label the depreciation metric with the active Data tax year.</span>
+<span style="color:#00A651">- **Debt NPV proportionality:** show Debt NPV—not annual debt service—in the proportionality panel. Treat it as a negative liability in the Partner A / Unassigned / Partner B amounts, so the gray Unassigned value begins as the full negative debt NPV and declines toward zero as properties are assigned.</span>
 
 ## Success condition
 

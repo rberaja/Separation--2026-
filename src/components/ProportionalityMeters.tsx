@@ -10,13 +10,15 @@ interface MeterSpec {
   key: keyof PartnerTotals;
   /** Clamp negative totals to zero before drawing the bar. */
   floorZero: boolean;
+  /** Debt is a liability, so present its NPV as a negative value. */
+  liability?: boolean;
   ref: RefKey;
 }
 
 const METERS: readonly MeterSpec[] = [
   { label: 'Adj. Market Value', key: 'amv', floorZero: true, ref: 'shareAmv' },
   { label: 'NPV Equity', key: 'npvEquity', floorZero: true, ref: 'shareNpvEquity' },
-  { label: 'Debt Service', key: 'ads', floorZero: false, ref: 'shareAds' },
+  { label: 'Debt NPV', key: 'debtNpv', floorZero: false, liability: true, ref: 'debtNpv' },
   { label: 'Net Cash Flow', key: 'ncf', floorZero: true, ref: 'shareNcf' },
   { label: 'Remaining Tax Basis', key: 'remainingBasis', floorZero: true, ref: 'totalRemainingBasis' },
   { label: 'Depreciation', key: 'depreciation', floorZero: true, ref: 'depreciation' },
@@ -45,15 +47,16 @@ export function ProportionalityMeters() {
         <LegendItem swatch="bg-ink w-[2px]"><Term term="targetSplit">Target split (tick)</Term></LegendItem>
       </div>
 
-      {METERS.map(({ label, key, floorZero, ref }) => {
+      {METERS.map(({ label, key, floorZero, liability = false, ref }) => {
         const displayLabel = key === 'depreciation' ? `${label} ${state.depreciationYear}` : label;
-        const a = floorZero ? Math.max(0, totals.a[key]) : totals.a[key];
-        const u = floorZero ? Math.max(0, unassigned[key]) : unassigned[key];
-        const b = floorZero ? Math.max(0, totals.b[key]) : totals.b[key];
+        const sign = liability ? -1 : 1;
+        const a = sign * (floorZero ? Math.max(0, totals.a[key]) : totals.a[key]);
+        const u = sign * (floorZero ? Math.max(0, unassigned[key]) : unassigned[key]);
+        const b = sign * (floorZero ? Math.max(0, totals.b[key]) : totals.b[key]);
         const portfolioTotal = a + u + b;
         // The middle amount is the live portfolio balance still available to
         // assign. It begins as the full total and declines with each A or B assignment.
-        const unassignedTotal = Math.max(0, portfolioTotal - a - b);
+        const unassignedTotal = floorZero ? Math.max(0, portfolioTotal - a - b) : portfolioTotal - a - b;
         const pct = (v: number) => (portfolioTotal > 0 ? (v / portfolioTotal) * 100 : 0);
         const shareA = pct(a);
         const shareU = pct(unassignedTotal);

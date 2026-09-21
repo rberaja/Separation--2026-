@@ -4,6 +4,7 @@ import { clamp } from '../lib/format';
 import { nextSort } from '../lib/sort';
 import {
   createProperty,
+  type Assignment,
   type Partner,
   type Property,
   type PropertyInput,
@@ -50,7 +51,7 @@ export const initialState: AppState = {
 export type Action =
   | { type: 'property/add'; input?: PropertyInput }
   | { type: 'property/update'; id: number; patch: PropertyInput }
-  | { type: 'property/assign'; id: number; partner: Partner }
+  | { type: 'property/assign'; id: number; partner: Assignment }
   | { type: 'property/delete'; id: number }
   | { type: 'properties/clear' }
   | { type: 'properties/clearDataManaged' }
