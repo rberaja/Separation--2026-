@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 
-export type MarketValueRecord = { property: string; marketValue: number; asOf: string; valueType: string; source: string };
+export type MarketValueSource = 'bov' | 'appraisal' | 'income-model' | 'city-appraised' | 'construction-land' | 'comps' | 'legacy';
+export type MarketValueRecord = { property: string; marketValue: number; asOf: string; valueType: string; source: string; id?: string; provider?: string; sourceKind?: MarketValueSource; selected?: boolean; capRate?: number };
 export class MarketValueImportError extends Error { override name = 'MarketValueImportError'; }
 const key = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''); const text = (row: unknown[], index: number) => String(row[index] ?? '').trim(); const amount = (value: unknown) => Math.max(0, Number(String(value ?? '').replace(/[^0-9.-]/g, '')) || 0); const columnFor = (headers: string[], names: string[]) => headers.findIndex((header) => names.includes(header));
 /** Reads valuation, appraisal, listing, or property-financial reports with a property/value column. */
