@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { fmtMoney } from '../lib/format';
 import type { PartnerTotals } from '../lib/settlement';
 import type { RefKey } from '../lib/glossary';
-import { useOwnership, usePartnerNames, useSettlement } from '../store/AppContext';
+import { useApp, useOwnership, usePartnerNames, useSettlement } from '../store/AppContext';
 import { Term } from './ui/Term';
 
 interface MeterSpec {
@@ -18,11 +18,14 @@ const METERS: readonly MeterSpec[] = [
   { label: 'NPV Equity', key: 'npvEquity', floorZero: true, ref: 'shareNpvEquity' },
   { label: 'Debt Service', key: 'ads', floorZero: false, ref: 'shareAds' },
   { label: 'Net Cash Flow', key: 'ncf', floorZero: true, ref: 'shareNcf' },
+  { label: 'Remaining Tax Basis', key: 'remainingBasis', floorZero: true, ref: 'totalRemainingBasis' },
+  { label: 'Depreciation', key: 'depreciation', floorZero: true, ref: 'depreciation' },
   { label: 'Bid Difference', key: 'bidDiff', floorZero: true, ref: 'shareBidDiff' },
 ];
 
 /** Side-by-side A/B share bars with a tick at the target ownership split. */
 export function ProportionalityMeters() {
+  const { state } = useApp();
   const { totals, unassigned } = useSettlement();
   const share = useOwnership();
   const names = usePartnerNames();
@@ -43,29 +46,33 @@ export function ProportionalityMeters() {
       </div>
 
       {METERS.map(({ label, key, floorZero, ref }) => {
+        const displayLabel = key === 'depreciation' ? `${label} ${state.depreciationYear}` : label;
         const a = floorZero ? Math.max(0, totals.a[key]) : totals.a[key];
         const u = floorZero ? Math.max(0, unassigned[key]) : unassigned[key];
         const b = floorZero ? Math.max(0, totals.b[key]) : totals.b[key];
-        const total = a + u + b;
-        const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0);
+        const portfolioTotal = a + u + b;
+        // The middle amount is the live portfolio balance still available to
+        // assign. It begins as the full total and declines with each A or B assignment.
+        const unassignedTotal = Math.max(0, portfolioTotal - a - b);
+        const pct = (v: number) => (portfolioTotal > 0 ? (v / portfolioTotal) * 100 : 0);
         const shareA = pct(a);
-        const shareU = pct(u);
+        const shareU = pct(unassignedTotal);
         const shareB = pct(b);
 
         return (
           <div key={key} className="mb-[13px] last:mb-0">
             {/* Three amounts rarely fit beside the label in the aside; let them drop to their own line, right-aligned. */}
             <div className="flex flex-wrap justify-between items-baseline gap-x-3 mb-[5px]">
-              <Term term={ref} className="font-mono text-[0.77rem] uppercase tracking-[0.04em] text-text font-bold">{label}</Term>
+              <Term term={ref} className="font-mono text-[0.77rem] uppercase tracking-[0.04em] text-text font-bold">{displayLabel}</Term>
               <span className="ml-auto font-mono text-[0.75rem] text-muted2 font-bold whitespace-nowrap">
-                <span className="text-a">{fmtMoney(a)}</span> / <span className="text-muted">{fmtMoney(u)}</span> /{' '}
+                <span className="text-a">{fmtMoney(a)}</span> / <span className="text-muted">{fmtMoney(unassignedTotal)}</span> /{' '}
                 <span className="text-b">{fmtMoney(b)}</span>
               </span>
             </div>
             <div
               className="relative h-[6px] bg-border rounded-[3px]"
               role="img"
-              aria-label={`${label}: A ${shareA.toFixed(0)}%, unassigned ${shareU.toFixed(0)}%, B ${shareB.toFixed(0)}%`}
+              aria-label={`${displayLabel}: A ${shareA.toFixed(0)}%, unassigned ${shareU.toFixed(0)}%, B ${shareB.toFixed(0)}%`}
             >
               {/* A grows from the left, B from the right; whatever is unassigned sits in the middle in grey. */}
               <div className="absolute left-0 top-0 h-full bg-a rounded-l-[3px] transition-[width] duration-300" style={{ width: `${shareA}%` }} />

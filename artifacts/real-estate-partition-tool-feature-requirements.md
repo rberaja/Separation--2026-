@@ -31,6 +31,7 @@ PARTITION TOOL
 - A handoff is a copy of the reviewed values. The imported source data remains available in its Data tab unless the user clears it.
 <span style="color:#FFFFFF">- **Browser-local persistence:** all imported source-report data, extracted property tables, property matches, group mappings, and user review corrections remain available after the user closes and reopens the tool in the same browser on the same device. Persist this data locally in the browser (using IndexedDB for report data and structured tables) until the user selects Clear All.</span>
 <span style="color:#FFFFFF">- **User / device / browser scope:** saved data belongs only to that browser profile on that device. It is not automatically shared with another browser, device, or user, and it is removed if the user selects Clear All or clears this site's browser storage. Private-browsing sessions are not expected to retain it after the session ends.</span>
+<span style="color:#00A651">- **Persistent Groups-to-Partition display:** whenever a Groups workbook remains retained in Data, automatically restore and display its group hierarchy and member-property cards in Partition, including after a browser refresh. Keep those Data-created cards visible until the user selects **Clear All** in Data → Groups; that action removes them from Partition.</span>
 
 ## 1. Groups, Zoning, and Next 40-Yr Certification
 
@@ -64,7 +65,7 @@ This is the second Data step. The user uploads partnership tax-return PDFs after
 - Display **Basis Left** as currency.
 - Support both MACRS/accelerated components and straight-line components. A property does not need a cost-segregation study to calculate residual tax basis.
 - Calculate estimated remaining life from the combined remaining basis and annual deduction, constrained by the recovery period when known. Do not display implausible estimates.
-<span style="color:#00A651">- **Latest return wins:** when a property appears in more than one imported tax return, retain only the most recent return's remaining-basis and tax-year depreciation schedule. Historical schedules must not be added to, or displayed as a duplicate of, the current property record.</span>
+<span style="color:#FFFFFF">- **Latest return wins:** when a property appears in more than one imported tax return, retain only the most recent return's remaining-basis and tax-year depreciation schedule. Historical schedules must not be added to, or displayed as a duplicate of, the current property record.</span>
 
 ### Hierarchy and totals
 
@@ -279,7 +280,8 @@ After the Data steps are reviewed, the user sends the calculated values to the P
 <span style="color:#FFFFFF">- **Capital expenses and market value:** carry the reviewed property-level CapEx needs, approximate costs, and market values from their respective Data tabs to the Partition Tool using the same Groups hierarchy.</span>
 - **No second upload:** the user uploads source reports once into the relevant Data tab. The reviewed results are sent directly to the Partition Tool, rather than being uploaded again.
 - **No manual duplication:** the Data workflow is the source for tax-basis and depreciation values; the Partition Tool consumes those calculated totals rather than requiring the user to re-enter them.
-<span style="color:#00A651">- **Canonical property matching and duplicate prevention:** the Groups workbook is the canonical property list for the Partition Tool. Match tax-return address variants (for example, abbreviated versus expanded street names or supplemental locality text) to the same Groups property. On handoff, update that existing property card, preserve its group assignment, and remove any historical duplicate card rather than creating a second property.</span>
+<span style="color:#FFFFFF">- **Canonical property matching and duplicate prevention:** the Groups workbook is the canonical property list for the Partition Tool. Match tax-return address variants (for example, abbreviated versus expanded street names or supplemental locality text) to the same Groups property. On handoff, update that existing property card, preserve its group assignment, and remove any historical duplicate card rather than creating a second property.</span>
+<span style="color:#00A651">- **Proportionality totals and depreciation year:** in the Partition proportionality check, the center (Unassigned) amount for every metric starts as the full unassigned portfolio total and decreases as either partner receives properties. Include Remaining Tax Basis and tax-year Depreciation in this check, and label the depreciation metric with the active Data tax year.</span>
 
 ## Success condition
 

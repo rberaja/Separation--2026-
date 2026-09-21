@@ -52,7 +52,9 @@ function Pages() {
           <PrintReport />
         </>
       )}
-      {active === 'depreciation' && <TaxBasisMockup />}
+      {/* Keep Data mounted while Partition is active so its browser-persisted Groups
+          hierarchy can immediately restore the corresponding Partition cards. */}
+      <div hidden={active !== 'depreciation'}><TaxBasisMockup /></div>
       {planned && <PlannedWorkspace workspace={planned} />}
     </>
   );

@@ -6,7 +6,7 @@ const DR = 0.065;
 
 describe('computeSettlement', () => {
   const props = [
-    createProperty(1, { name: 'A1', assign: 'a', marketVal: 1000000, capex: 100000, noi: 60000, loanBal: 400000, loanRate: 5, loanTerm: 5, bidDiff: 10000, remainingBasis: 500000 }),
+  createProperty(1, { name: 'A1', assign: 'a', marketVal: 1000000, capex: 100000, noi: 60000, loanBal: 400000, loanRate: 5, loanTerm: 5, bidDiff: 10000, remainingBasis: 500000, depreciation: 25000 }),
     createProperty(2, { name: 'B1', assign: 'b', marketVal: 1500000, capex: 0, noi: 90000, loanBal: 600000, loanRate: 5, loanTerm: 5, bidDiff: -5000, remainingBasis: 700000 }),
   ];
 
@@ -16,6 +16,7 @@ describe('computeSettlement', () => {
     expect(totals.a.amv).toBe(900000);
     expect(totals.a.count).toBe(1);
     expect(totals.a.remainingBasis).toBe(500000);
+    expect(totals.a.depreciation).toBe(25000);
     expect(totals.a.bidDiff).toBe(10000);
     expect(totals.b.marketVal).toBe(1500000);
     expect(totals.b.count).toBe(1);

@@ -40,6 +40,8 @@ export interface Property {
   cert40yr: string;
   /** Data-workspace group; used only to present a roll-up in the Partition view. */
   groupName: string;
+  /** Set only for cards created by the Data workspace; Groups Clear All removes these cards. */
+  dataManaged: 'data' | '';
 }
 
 /** Keys of `Property` that hold a nullable number (everything editable in a number input). */
@@ -80,6 +82,7 @@ export const DEFAULT_PROPERTY: Omit<Property, 'id'> = {
   zoning: '',
   cert40yr: '',
   groupName: '',
+  dataManaged: '',
 };
 
 export function createProperty(id: number, input: PropertyInput = {}): Property {

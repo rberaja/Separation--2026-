@@ -17,6 +17,7 @@ export interface PartnerTotals {
   ncf: number;
   count: number;
   remainingBasis: number;
+  depreciation: number;
   bidDiff: number;
 }
 
@@ -55,6 +56,7 @@ const emptyTotals = (): PartnerTotals => ({
   ncf: 0,
   count: 0,
   remainingBasis: 0,
+  depreciation: 0,
   bidDiff: 0,
 });
 
@@ -87,6 +89,7 @@ export function computeSettlement(
     t.ncf += m.ncf;
     t.count += 1;
     t.remainingBasis += nv(p.remainingBasis);
+    t.depreciation += nv(p.depreciation);
     t.bidDiff += nv(p.bidDiff);
   }
 

@@ -53,6 +53,7 @@ export type Action =
   | { type: 'property/assign'; id: number; partner: Partner }
   | { type: 'property/delete'; id: number }
   | { type: 'properties/clear' }
+  | { type: 'properties/clearDataManaged' }
   | { type: 'import/apply'; result: ImportResult; fileName: string }
   | { type: 'upload/status'; status: UploadStatus }
   | { type: 'sort/set'; key: SortKey }
@@ -92,6 +93,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'properties/clear':
       return { ...state, properties: [], nextId: 1, upload: initialState.upload };
+
+    case 'properties/clearDataManaged':
+      return { ...state, properties: state.properties.filter((property) => !property.dataManaged) };
 
     case 'import/apply': {
       const { properties, meta } = action.result;
