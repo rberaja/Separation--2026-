@@ -26,8 +26,31 @@ const NOI_HEADERS = ['noi', 'netoperatingincome', 'netoperatingincomeloss'];
 
 function reportDate(rows: unknown[][], end: number) {
   const metadata = rows.slice(0, end).flat().map((value) => String(value ?? '').trim());
-  const line = metadata.find((value) => /^(as\s+of|for\s+the\s+period|report\s+date|exported\s+on)\s*:/i.test(value)) ?? '';
-  return line.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/)?.[0] ?? '';
+  const line = metadata.find((value) => /^(as\s+of|for\s+the\s+period|report\s+date|exported\s+on|date\s+range)\s*:/i.test(value)) ?? '';
+  return line.replace(/^[^:]+:\s*/, '').trim();
+}
+
+/** Reads AppFolio's Income Statement - Property Comparison, where each property is a column. */
+function parseAppFolioPropertyComparison(rows: unknown[][], sheetName: string | undefined): IncomeExpenseRecord[] | null {
+  const headerRow = rows.findIndex((row) => key(row[0]) === 'accountname');
+  if (headerRow < 0) return null;
+  const incomeRow = rows.findIndex((row) => key(row[0]) === 'totaloperatingincome');
+  const expensesRow = rows.findIndex((row) => ['totaloperatingexpense', 'totaloperatingexpenses'].includes(key(row[0])));
+  const noiRow = rows.findIndex((row) => ['noinetoperatingincome', 'netoperatingincome'].includes(key(row[0])));
+  if (incomeRow < 0 || expensesRow < 0 || noiRow < 0) return null;
+
+  const headers = rows[headerRow] ?? [];
+  const asOf = reportDate(rows, headerRow);
+  const source = `${sheetName ?? 'Report'} rows ${incomeRow + 1}, ${expensesRow + 1}, ${noiRow + 1}`;
+  return headers.slice(1).map((header, index) => {
+    const column = index + 1;
+    const property = String(header ?? '').trim();
+    if (!property || /^total$/i.test(property)) return null;
+    const income = amount(rows[incomeRow]?.[column]);
+    const expenses = amount(rows[expensesRow]?.[column]);
+    const reportedNoi = number(rows[noiRow]?.[column]);
+    return { property, income, expenses, noi: Number.isFinite(reportedNoi) ? reportedNoi : income - expenses, asOf, source };
+  }).filter((record): record is IncomeExpenseRecord => record !== null);
 }
 
 /**
@@ -41,6 +64,8 @@ export function parseIncomeExpensesWorkbook(data: ArrayBuffer): IncomeExpenseRec
   const sheetName = workbook.SheetNames[0];
   const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
   const rows = sheet ? XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', raw: false }) : [];
+  const propertyComparison = parseAppFolioPropertyComparison(rows, sheetName);
+  if (propertyComparison?.length) return propertyComparison;
   const headerRow = rows.findIndex((row) => {
     const headers = row.map(key);
     return headers.some((header) => PROPERTY_HEADERS.includes(header))

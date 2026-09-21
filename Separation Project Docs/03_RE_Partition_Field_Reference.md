@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.7
+# RE Partition Tool — Field Reference V1.10
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -38,9 +38,27 @@
 
 </div>
 
-<div style="color:#00A651">
+<div style="color:#FFFFFF">
 
 **V1.7 consolidated selection units:** partner assignment is made on a consolidated group header and applies to every member property; ungrouped properties remain individual selection units. Partner totals, the Unassigned indicator, and exports count each consolidated group as one property. **Expand All**, **Collapse All**, and Sort controls live in the top Partition action bar, while legacy upload, column-guide, and template controls remain hidden until needed. Cash & Equivalents is not recalculated by assignment and changes only when the user enters a replacement value.
+
+</div>
+
+<div style="color:#FFFFFF">
+
+**V1.8 AppFolio Income & Expenses workspace:** the new Data tab accepts AppFolio property-summary Income Statement or P&amp;L reports (Excel, CSV, or text-based PDF) and extracts **Total Income**, **Total Expenses**, and **NOI** for each property. When both income and expenses are supplied, NOI is calculated as Income − Expenses; otherwise the reported NOI is retained. The existing Groups workbook controls the hierarchy: collapsed group bars show aggregate Income, Expenses, and NOI, and expanded groups show their member properties. The imported NOI automatically updates the Partition Tool's **noi** field, so no manual **Send to Partition Tool** action is needed. Every Data tab now shows its workflow/status notice in a centered banner and labels its optional spreadsheet download **Manual Template**.
+
+</div>
+
+<div style="color:#FFFFFF">
+
+**V1.9 Data-workspace hierarchy and layout:** group/property names (or addresses) now lead every card header, with the group count, report context, and other descriptive information below. The Groups cards no longer expose a **Remove** action. Data-tab spacing is now uniform, including the Groups and Remaining Tax Basis tabs.
+
+</div>
+
+<div style="color:#FF0000">
+
+**V1.10 AppFolio Income Statement – Property Comparison import:** the Income & Expenses tab now recognizes AppFolio reports with properties arranged in columns beneath **Account Name**. For each property column, it reads **Total Operating Income**, **Total Operating Expense**, and **NOI – Net Operating Income**. The report-wide **Total** column is excluded, the report's **Date Range** is retained as source context, and imported properties continue to roll up using the existing Groups hierarchy.
 
 </div>
 
@@ -154,7 +172,10 @@
 
 | Version | Change |
 |---|---|
-| V1.7 | <span style="color:#00A651">Partner assignment is controlled at the consolidated selection-unit level; group counts are one property; Expand All, Collapse All, and Sort controls are in the top action bar; Cash & Equivalents stays fixed until replaced.</span> |
+| V1.10 | <span style="color:#FF0000">Added AppFolio Income Statement – Property Comparison support. The Income &amp; Expenses importer now reads property columns beneath Account Name, extracts Total Operating Income, Total Operating Expense, and NOI – Net Operating Income, excludes the report-wide Total column, and retains the Date Range as source context.</span> |
+| V1.9 | <span style="color:#FFFFFF">Standardized the Data-workspace hierarchy: the group/property name or address now leads every card header and supporting information follows below. Removed the visible Groups Remove control and normalized spacing across the Data tabs, including Groups and Remaining Tax Basis.</span> |
+| V1.8 | <span style="color:#FFFFFF">Added the AppFolio Income &amp; Expenses Data tab: it extracts Total Income, Total Expenses, and NOI by property; retains the Groups hierarchy with aggregate collapsed headers; supports upload, Manual Template, Print / Export, Clear All, and Income / Expenses / NOI sorting; and automatically updates the Partition Tool NOI field. Data-workspace notices are now centered and Send to Partition Tool buttons were removed because synchronization is automatic.</span> |
+| V1.7 | <span style="color:#FFFFFF">Partner assignment is controlled at the consolidated selection-unit level; group counts are one property; Expand All, Collapse All, and Sort controls are in the top action bar; Cash & Equivalents stays fixed until replaced.</span> |
 | V1.6 | <span style="color:#FFFFFF">AppFolio Project Directory CapEx imports map Name to description and Total Budget to Deferred CapEx; the report date supplies As Of when the row has no date.</span> |
 | V1.5 | <span style="color:#FFFFFF">Unassigned properties no longer default to Partner B: they are excluded from both partners and from the targets, shown in the new Unassigned indicator (row 6), and the Final Settlement is marked Provisional until every property is assigned (rows 44, 65).</span> |
 | V1.4 | <span style="color:#FFFFFF">Tax-basis vocabulary aligned with the White Paper: rows 31/45 *Remaining Tax Basis*, row 59 *Basis Shortfall* (§11.3), row 61 *Basis True-Up* (§11.4, §14.1); the separate tool is the *Tax Basis Tool*. Import header confirmed as `remaining_tax_basis` and now actually accepted (V1.3 listed it as confirmed, but the v7.5 tool used `remaining_basis`, which is still accepted). Row 33 is now `depreciation` with the year supplied via `_meta` `depreciation_year` (legacy `depreciation_2025` accepted). `cash_equivalents` added to the `_meta` import sheet (row 5). Added the Print / Export section.</span> |
