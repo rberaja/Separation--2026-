@@ -31,7 +31,7 @@ PARTITION TOOL
 - A handoff is a copy of the reviewed values. The imported source data remains available in its Data tab unless the user clears it.
 <span style="color:#FFFFFF">- **Browser-local persistence:** all imported source-report data, extracted property tables, property matches, group mappings, and user review corrections remain available after the user closes and reopens the tool in the same browser on the same device. Persist this data locally in the browser (using IndexedDB for report data and structured tables) until the user selects Clear All.</span>
 <span style="color:#FFFFFF">- **User / device / browser scope:** saved data belongs only to that browser profile on that device. It is not automatically shared with another browser, device, or user, and it is removed if the user selects Clear All or clears this site's browser storage. Private-browsing sessions are not expected to retain it after the session ends.</span>
-<span style="color:#00A651">- **Persistent Groups-to-Partition display:** whenever a Groups workbook remains retained in Data, automatically restore and display its group hierarchy and member-property cards in Partition, including after a browser refresh. Keep those Data-created cards visible until the user selects **Clear All** in Data → Groups; that action removes them from Partition.</span>
+<span style="color:#FFFFFF">- **Persistent Groups-to-Partition display:** whenever a Groups workbook remains retained in Data, automatically restore and display its group hierarchy and member-property cards in Partition, including after a browser refresh. Keep those Data-created cards visible until the user selects **Clear All** in Data → Groups; that action removes them from Partition.</span>
 
 ## 1. Groups, Zoning, and Next 40-Yr Certification
 
@@ -101,6 +101,7 @@ This Data tab imports the original rent-roll and occupancy reports exported from
 - **Partition handoff:** make the reviewed occupancy values available to the Partition Tool.
 - **Send to Partition Tool:** after review, send the matched occupancy values directly to the Partition Tool. Do not require a second file upload or duplicate entry there.
 - **Optional fallback:** a simple import template may be available only for exceptional reports that cannot be read directly. It is not part of the normal workflow.
+<span style="color:#D64545">- **Individual-card expand/collapse:** give every ungrouped, single-property occupancy card the same compact summary and Expand / Collapse control as group cards. Keep its occupancy, occupied-unit, and scheduled-rent summary visible while its detail row is collapsed. Include these cards in Occupancy’s Expand All and Collapse All controls so the page remains visually consistent.</span>
 
 ### Occupancy mockup
 
@@ -281,7 +282,7 @@ After the Data steps are reviewed, the user sends the calculated values to the P
 - **No second upload:** the user uploads source reports once into the relevant Data tab. The reviewed results are sent directly to the Partition Tool, rather than being uploaded again.
 - **No manual duplication:** the Data workflow is the source for tax-basis and depreciation values; the Partition Tool consumes those calculated totals rather than requiring the user to re-enter them.
 <span style="color:#FFFFFF">- **Canonical property matching and duplicate prevention:** the Groups workbook is the canonical property list for the Partition Tool. Match tax-return address variants (for example, abbreviated versus expanded street names or supplemental locality text) to the same Groups property. On handoff, update that existing property card, preserve its group assignment, and remove any historical duplicate card rather than creating a second property.</span>
-<span style="color:#00A651">- **Proportionality totals and depreciation year:** in the Partition proportionality check, the center (Unassigned) amount for every metric starts as the full unassigned portfolio total and decreases as either partner receives properties. Include Remaining Tax Basis and tax-year Depreciation in this check, and label the depreciation metric with the active Data tax year.</span>
+<span style="color:#FFFFFF">- **Proportionality totals and depreciation year:** in the Partition proportionality check, the center (Unassigned) amount for every metric starts as the full unassigned portfolio total and decreases as either partner receives properties. Include Remaining Tax Basis and tax-year Depreciation in this check, and label the depreciation metric with the active Data tax year.</span>
 
 ## Success condition
 
