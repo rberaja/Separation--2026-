@@ -64,6 +64,7 @@ This is the second Data step. The user uploads partnership tax-return PDFs after
 - Display **Basis Left** as currency.
 - Support both MACRS/accelerated components and straight-line components. A property does not need a cost-segregation study to calculate residual tax basis.
 - Calculate estimated remaining life from the combined remaining basis and annual deduction, constrained by the recovery period when known. Do not display implausible estimates.
+<span style="color:#00A651">- **Latest return wins:** when a property appears in more than one imported tax return, retain only the most recent return's remaining-basis and tax-year depreciation schedule. Historical schedules must not be added to, or displayed as a duplicate of, the current property record.</span>
 
 ### Hierarchy and totals
 
@@ -278,6 +279,7 @@ After the Data steps are reviewed, the user sends the calculated values to the P
 <span style="color:#FFFFFF">- **Capital expenses and market value:** carry the reviewed property-level CapEx needs, approximate costs, and market values from their respective Data tabs to the Partition Tool using the same Groups hierarchy.</span>
 - **No second upload:** the user uploads source reports once into the relevant Data tab. The reviewed results are sent directly to the Partition Tool, rather than being uploaded again.
 - **No manual duplication:** the Data workflow is the source for tax-basis and depreciation values; the Partition Tool consumes those calculated totals rather than requiring the user to re-enter them.
+<span style="color:#00A651">- **Canonical property matching and duplicate prevention:** the Groups workbook is the canonical property list for the Partition Tool. Match tax-return address variants (for example, abbreviated versus expanded street names or supplemental locality text) to the same Groups property. On handoff, update that existing property card, preserve its group assignment, and remove any historical duplicate card rather than creating a second property.</span>
 
 ## Success condition
 

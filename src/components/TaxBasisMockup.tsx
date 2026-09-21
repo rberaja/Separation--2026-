@@ -9,7 +9,7 @@ import type { ExtractedMethod, ExtractionProgress } from '../lib/tax-return-pdf'
 import { useApp } from '../store/AppContext';
 
 type ScheduleItem = { id: string; label: string; method: ExtractedMethod; basis: number; recoveryPeriod: string; yearsLeft: number; annual: number };
-type PropertySchedule = { id: string; property: string; entity: string; source: string; schedules: ScheduleItem[] };
+type PropertySchedule = { id: string; property: string; entity: string; source: string; importedAt?: number; schedules: ScheduleItem[] };
 type DealGroup = { id: string; name: string; members: GroupMember[] };
 type Tab = 'groups' | 'data' | 'occupancy' | 'loans' | 'capitalExpenses' | 'marketValue';
 type GroupsSortKey = 'name' | 'zoning' | 'cert40yr';
@@ -58,6 +58,13 @@ const propertyMatches = (workbookProperty: string, taxReturnProperty: string) =>
   return shorter.length >= 8 && longer.startsWith(shorter);
 };
 const hasMember = (group: DealGroup, property: PropertySchedule) => group.members.some((member) => propertyMatches(member.property, property.property));
+
+/** One property can appear in multiple historical returns; only its newest schedule may feed Partition. */
+const latestTaxSchedule = (properties: PropertySchedule[], propertyName: string) => properties
+  .filter((property) => propertyMatches(property.property, propertyName))
+  .reduce<PropertySchedule | undefined>((latest, property) =>
+    !latest || (property.importedAt ?? 0) >= (latest.importedAt ?? 0) ? property : latest,
+  undefined);
 
 function groupAssignments(groups: DealGroup[], properties: PropertySchedule[]) {
   const assignments = new Map<string, string>();
@@ -218,11 +225,19 @@ export function TaxBasisMockup() {
       const { extractTaxReturnSchedules } = await import('../lib/tax-return-pdf');
       const result = await extractTaxReturnSchedules(files, setImportProgress);
       files.forEach((file) => preserveSource('tax-returns', file));
-      const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
-      // Re-importing a return replaces that return's schedules; everything else already loaded is kept.
-      const scheduleKey = (property: { entity: string; property: string }) => `${property.entity}|${property.property}`.toLocaleLowerCase();
-      const replaced = new Set(extracted.map(scheduleKey));
-      setProperties((current) => [...current.filter((property) => !replaced.has(scheduleKey(property))), ...extracted]);
+      const importedAt = Date.now();
+      const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, importedAt: schedule.sourceModifiedAt || importedAt, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
+      // Keep one schedule per property across all imports. The more recent tax
+      // return wins even when the filing entity spelling has changed.
+      setProperties((current) => {
+        const newest = new Map<string, PropertySchedule>();
+        for (const schedule of [...current, ...extracted]) {
+          const key = propertyKey(schedule.property);
+          const existing = newest.get(key);
+          if (!existing || (schedule.importedAt ?? 0) >= (existing.importedAt ?? 0)) newest.set(key, schedule);
+        }
+        return [...newest.values()];
+      });
       setDocuments((current) => [...current.filter((name) => !result.sourceFiles.includes(name)), ...result.sourceFiles]);
       setWarnings((current) => [...current.filter((warning) => !result.sourceFiles.some((name) => warning.startsWith(name))), ...result.warnings]);
       setNotice(extracted.length ? `Extracted ${extracted.length} property ${extracted.length === 1 ? 'schedule' : 'schedules'}. Group membership is matched from the Groups workbook.` : 'No property depreciation schedules could be extracted from the selected PDFs.');
@@ -250,22 +265,40 @@ export function TaxBasisMockup() {
 
   const exportToPartition = () => {
     const groupFor = (name: string) => groups.find((group) => group.members.some((member) => propertyMatches(member.property, name)));
-    const names = new Map<string, string>();
-    const importedNames = [...properties.map((item) => item.property), ...(groupWorkbook?.individualProperties.map((item) => item.property) ?? []), ...groups.flatMap((group) => group.members.map((member) => member.property)), ...occupancy.map((item) => item.property), ...loans.map((item) => item.property), ...capitalExpenses.map((item) => item.property), ...marketValues.map((item) => item.property)];
-    importedNames.filter(Boolean).forEach((name) => names.set(propertyKey(name), name));
-    if (!names.size) { setNotice('Upload at least one Data report before sending values to the Partition Tool.'); return; }
+    // The Groups workbook supplies the canonical property label. Every later
+    // source is matched by address, so labels such as "AVE" and
+    // "AVENUE MIAMI PAGE" cannot create an additional Partition card.
+    const importedNames = [
+      ...groups.flatMap((group) => group.members.map((member) => member.property)),
+      ...(groupWorkbook?.individualProperties.map((item) => item.property) ?? []),
+      ...properties.map((item) => item.property),
+      ...occupancy.map((item) => item.property),
+      ...loans.map((item) => item.property),
+      ...capitalExpenses.map((item) => item.property),
+      ...marketValues.map((item) => item.property),
+    ];
+    const names = importedNames.filter(Boolean).reduce<string[]>((unique, name) => {
+      if (!unique.some((current) => propertyMatches(current, name))) unique.push(name);
+      return unique;
+    }, []);
+    if (!names.length) { setNotice('Upload at least one Data report before sending values to the Partition Tool.'); return; }
     dispatch({ type: 'settings/depreciationYear', value: taxYear });
-    for (const name of names.values()) {
-      const tax = properties.filter((item) => propertyMatches(item.property, name)); const taxTotal = totals(tax);
+    for (const name of names) {
+      const latestTax = latestTaxSchedule(properties, name); const taxTotal = latestTax ? totals([latestTax]) : { basis: 0, depreciation: 0 };
       const member = groups.flatMap((group) => group.members).find((item) => propertyMatches(item.property, name)) ?? groupWorkbook?.individualProperties.find((item) => propertyMatches(item.property, name));
       const occupancyRecord = occupancy.find((item) => propertyMatches(item.property, name)); const loanItems = loans.filter((item) => propertyMatches(item.property, name));
       const capex = capitalExpenses.filter((item) => propertyMatches(item.property, name)).reduce((sum, item) => sum + item.approximateCost, 0); const market = marketValues.find((item) => propertyMatches(item.property, name)); const group = groupFor(name);
-      const patch = { groupName: group?.name ?? '', remainingBasis: tax.length ? taxTotal.basis : null, depreciation: tax.length ? taxTotal.depreciation : null, zoning: member?.zoning ?? '', cert40yr: member?.cert40yr ?? '', occupancyPct: occupancyRecord?.units ? (occupancyRecord.occupiedUnits / occupancyRecord.units) * 100 : null, loanBal: loanItems.length ? loanItems.reduce((sum, item) => sum + item.outstandingBalance, 0) : null, monthlyPmt: loanItems.length ? loanItems.reduce((sum, item) => sum + item.monthlyDebtService, 0) : null, capex: capex || null, marketVal: market?.marketValue ?? null };
-      const match = state.properties.find((property) => propertyKey(property.name) === propertyKey(name));
-      if (match) dispatch({ type: 'property/update', id: match.id, patch });
+      const patch = { groupName: group?.name ?? '', remainingBasis: latestTax ? taxTotal.basis : null, depreciation: latestTax ? taxTotal.depreciation : null, zoning: member?.zoning ?? '', cert40yr: member?.cert40yr ?? '', occupancyPct: occupancyRecord?.units ? (occupancyRecord.occupiedUnits / occupancyRecord.units) * 100 : null, loanBal: loanItems.length ? loanItems.reduce((sum, item) => sum + item.outstandingBalance, 0) : null, monthlyPmt: loanItems.length ? loanItems.reduce((sum, item) => sum + item.monthlyDebtService, 0) : null, capex: capex || null, marketVal: market?.marketValue ?? null };
+      const matches = state.properties.filter((property) => propertyMatches(property.name, name));
+      const match = matches.find((property) => propertyKey(property.name) === propertyKey(name)) ?? matches[0];
+      if (match) {
+        dispatch({ type: 'property/update', id: match.id, patch });
+        // Clean up historical duplicates created before address-variant matching.
+        matches.filter((property) => property.id !== match.id).forEach((property) => dispatch({ type: 'property/delete', id: property.id }));
+      }
       else dispatch({ type: 'property/add', input: { name, ...patch } });
     }
-    setNotice(`Sent ${names.size} individual properties and group metadata to the Partition Tool for ${taxYear}.`);
+    setNotice(`Sent ${names.length} individual properties and group metadata to the Partition Tool for ${taxYear}.`);
   };
 
   const clearGroups = () => {

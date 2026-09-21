@@ -19,6 +19,8 @@ export interface ExtractedPropertySchedule {
   property: string;
   entity: string;
   source: string;
+  /** File timestamp used to prefer the newest return when a property appears in more than one return. */
+  sourceModifiedAt: number;
   schedules: ExtractedComponent[];
 }
 
@@ -138,10 +140,16 @@ function combineAssets(assets: ParsedAsset[]): ExtractedComponent[] {
 
 /** Extracts Form 8825 depreciation-detail pages from a text-based partnership return PDF. */
 export async function extractTaxReturnSchedules(files: File[], onProgress?: (progress: ExtractionProgress) => void): Promise<TaxReturnExtraction> {
-  const schedules = new Map<string, { property: string; entity: string; source: string; assets: ParsedAsset[] }>();
+  // Process older files first. A later tax return replaces an earlier return for
+  // the same property; multiple detail pages inside one return are still combined.
+  const orderedFiles = files
+    .map((file, index) => ({ file, index }))
+    .sort((left, right) => (left.file.lastModified - right.file.lastModified) || (left.index - right.index));
+  const schedules = new Map<string, { property: string; entity: string; source: string; sourceModifiedAt: number; assets: ParsedAsset[] }>();
   const warnings: string[] = [];
 
-  for (const [fileIndex, file] of files.entries()) {
+  for (const [fileIndex, { file }] of orderedFiles.entries()) {
+    const schedulesInFile = new Map<string, { property: string; entity: string; source: string; sourceModifiedAt: number; assets: ParsedAsset[] }>();
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await getDocument({ data }).promise;
     let detailPages = 0;
@@ -163,11 +171,23 @@ export async function extractTaxReturnSchedules(files: File[], onProgress?: (pro
       detailPages += 1;
       const parsed = parseDepreciationPage(items);
       if (!parsed.property || !parsed.assets.length) continue;
-      const key = `${parsed.entity}|${parsed.property}`.toLocaleLowerCase();
-      const existing = schedules.get(key) ?? { property: parsed.property, entity: parsed.entity ?? '', source: `${file.name}, p. ${pageNumber}`, assets: [] };
+      // Property is the authoritative key for the Partition Tool. An entity can
+      // change between filings, but the newer filing must still replace the old one.
+      const key = parsed.property.toLocaleLowerCase();
+      const existing = schedulesInFile.get(key) ?? {
+        property: parsed.property,
+        entity: parsed.entity ?? '',
+        source: `${file.name}, p. ${pageNumber}`,
+        sourceModifiedAt: file.lastModified,
+        assets: [],
+      };
       existing.assets.push(...parsed.assets);
-      schedules.set(key, existing);
+      schedulesInFile.set(key, existing);
     }
+
+    // Because files are ordered oldest to newest, this overwrites only the
+    // older filing for a matching property.
+    for (const [key, schedule] of schedulesInFile) schedules.set(key, schedule);
 
     // A filing copy carries Form 4562 summaries only; remaining basis per property needs the preparer's asset-level listing.
     if (!detailPages) warnings.push(form4562Pages
