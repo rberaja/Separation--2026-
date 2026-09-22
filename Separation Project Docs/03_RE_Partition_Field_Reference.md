@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.17
+# RE Partition Tool — Field Reference V1.18
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -98,9 +98,15 @@
 
 </div>
 
-<div style="color:#FF0000">
+<div style="color:#FFFFFF">
 
 **V1.17 consistent standalone-property collapse:** All report-based Data tabs now give ungrouped properties the same collapsible heading behavior as group cards. **Capital Expenses**, **Loans**, and **Income &amp; Expenses** property cards collapse from their own headings while retaining their aggregate values; the top **Expand all** and **Collapse all** controls now include both group cards and standalone-property cards. In Loans, expansion reveals the loan-detail table. In Income &amp; Expenses, expansion reveals the report as-of date and source. Clearing either report also resets its standalone-card collapse state. Remaining Tax Basis, Occupancy, and Market Value already used this pattern.
+
+</div>
+
+<div style="color:#FF0000">
+
+**V1.18 AppFolio T12 workflow and settlement-display corrections:** The Income &amp; Expenses upload action is now labeled **Upload AppFolio T12 Report**. Before the file chooser opens, the user supplies the report date; that date is retained on every imported property line and replaces an ambiguous import timestamp. Occupancy now supports an **Occupancy** sort in addition to Name. Market Value row selections remain changeable after leaving and returning to the tab, including valuations restored from earlier saved browser data that do not carry a record identifier. In **C. Proportionality vs. Target**, the A / Unassigned / B money readout now always shows the calculated NPV Equity, including a negative balance. A negative amount is floored only when drawing a positive-share bar; it is never replaced with `$0` in the displayed calculation.
 
 </div>
 
@@ -166,11 +172,11 @@
 
 | # | Field | Reference Name | Source | Modifiable In Tool | Formula / Notes |
 |---|---|---|---|---|---|
-| 48 | Adj. Market Value (share) | *adj_market_value_share* | Calculated | N | Partner's Adj. Market Value (total) ÷ portfolio total Adj. Market Value. Negative partner totals are floored at zero before drawing the bar. |
-| 49 | NPV Equity (share) | *npv_equity_share* | Calculated | N | Partner's NPV Equity (total) ÷ portfolio total NPV Equity. Negative partner totals are floored at zero. |
+| 48 | Adj. Market Value (share) | *adj_market_value_share* | Calculated | N | Partner's Adj. Market Value (total) ÷ portfolio total Adj. Market Value. The money readout shows the actual calculated amount; a negative balance is floored at zero only when drawing the positive-share bar. |
+| 49 | NPV Equity (share) | *npv_equity_share* | Calculated | N | Partner's NPV Equity (total) ÷ portfolio total NPV Equity. The money readout shows the actual calculated amount, including a negative balance; a negative balance is floored at zero only when drawing the positive-share bar. |
 | 50 | Debt Service (share) | *debt_service_share* | Calculated | N | Partner's Ann. Debt Service (total) ÷ portfolio total Ann. Debt Service. |
-| 51 | Net Cash Flow (share) | *net_cash_flow_share* | Calculated | N | Partner's Net CF / yr (total) ÷ portfolio total Net CF / yr. Negative partner totals are floored at zero. |
-| 52 | Bid Difference (share) | *bid_difference_share* | Calculated | N | Partner's Bid Difference (total) ÷ portfolio total Bid Difference. Negative partner totals are floored at zero. |
+| 51 | Net Cash Flow (share) | *net_cash_flow_share* | Calculated | N | Partner's Net CF / yr (total) ÷ portfolio total Net CF / yr. The money readout shows the actual calculated amount; a negative balance is floored at zero only when drawing the positive-share bar. |
+| 52 | Bid Difference (share) | *bid_difference_share* | Calculated | N | Partner's Bid Difference (total) ÷ portfolio total Bid Difference. The money readout shows the actual calculated amount; a negative balance is floored at zero only when drawing the positive-share bar. |
 | 53 | Target split (tick) | *target_split* | Tool input | Y | Partner A's ownership % (Partner B = 100% − A). Where the orange edge lands relative to the tick shows the gap at a glance. |
 
 ## GAP ANALYSIS & SETTLEMENT
@@ -214,7 +220,8 @@
 
 | Version | Change |
 |---|---|
-| V1.17 | <span style="color:#FF0000">Capital Expenses, Loans, and Income &amp; Expenses now give standalone property cards the same collapsible headings as group cards. Their Expand all / Collapse all controls include both groups and standalone properties; loan expansion shows the loan table and Income &amp; Expenses expansion shows report context. Clearing either report resets its collapse state.</span> |
+| V1.18 | <span style="color:#FF0000">Income &amp; Expenses now begins with an AppFolio T12 Report date prompt and displays that date on every imported property line; Occupancy adds an Occupancy sort. Market Value selections can be changed after returning to the tab, including older restored valuation records. The Proportionality vs. Target money readout now displays calculated NPV Equity—including negative balances—rather than showing `$0`; negative balances are floored only for bar rendering.</span> |
+| V1.17 | <span style="color:#FFFFFF">Capital Expenses, Loans, and Income &amp; Expenses now give standalone property cards the same collapsible headings as group cards. Their Expand all / Collapse all controls include both groups and standalone properties; loan expansion shows the loan table and Income &amp; Expenses expansion shows report context. Clearing either report resets its collapse state.</span> |
 | V1.16 | <span style="color:#FFFFFF">Standalone Market Value properties now collapse and expand like groups, and the all-controls include them. Manual Template now asks for BOV, City Assessed Value, or Comparable Sales before downloading that source&apos;s template. Print / Save PDF removes its dialog before printing the current expanded/collapsed view. Excel export now uses one row per property with a separate value column for every valuation method plus the selected valuation and selected Market Value.</span> |
 | V1.15 | <span style="color:#FFFFFF">Market Value now follows the Groups hierarchy. Collapsed group headers show the sum of the selected property Market Values and expand to member valuation cards. Added top-action-bar Expand all and Collapse all controls plus a Market Value sort that orders group aggregates and property cards by selected value (descending first click, reverse on the next); Name sort remains available.</span> |
 | V1.14 | <span style="color:#FFFFFF">Implemented the six-row Market Value card for every property: uploaded Broker&apos;s Opinion of Value, City Assessed Value, and Comparable Sales rows first; editable Appraisal, Income Model, and Construction / Land Value Model rows last. Edit opens the appropriate inline inputs, and the Income Model calculates Market Value from NOI ÷ cap rate. Upload Market Value now identifies BOV, City Assessed Value, or Comparable Sales before importing its Excel table.</span> |

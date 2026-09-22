@@ -50,13 +50,18 @@ export function ProportionalityMeters() {
       {METERS.map(({ label, key, floorZero, liability = false, ref }) => {
         const displayLabel = key === 'depreciation' ? `${label} ${state.depreciationYear}` : label;
         const sign = liability ? -1 : 1;
-        const a = sign * (floorZero ? Math.max(0, totals.a[key]) : totals.a[key]);
-        const u = sign * (floorZero ? Math.max(0, unassigned[key]) : unassigned[key]);
-        const b = sign * (floorZero ? Math.max(0, totals.b[key]) : totals.b[key]);
+        // Display the actual calculated amounts. The zero floor is only for
+        // drawing a positive-share bar, where a negative balance has no width.
+        const rawA = sign * totals.a[key];
+        const rawU = sign * unassigned[key];
+        const rawB = sign * totals.b[key];
+        const a = floorZero ? Math.max(0, rawA) : rawA;
+        const u = floorZero ? Math.max(0, rawU) : rawU;
+        const b = floorZero ? Math.max(0, rawB) : rawB;
         const portfolioTotal = a + u + b;
         // The middle amount is the live portfolio balance still available to
         // assign. It begins as the full total and declines with each A or B assignment.
-        const unassignedTotal = floorZero ? Math.max(0, portfolioTotal - a - b) : portfolioTotal - a - b;
+        const unassignedTotal = u;
         const pct = (v: number) => (portfolioTotal > 0 ? (v / portfolioTotal) * 100 : 0);
         const shareA = pct(a);
         const shareU = pct(unassignedTotal);
@@ -68,8 +73,8 @@ export function ProportionalityMeters() {
             <div className="flex flex-wrap justify-between items-baseline gap-x-3 mb-[5px]">
               <Term term={ref} className="font-mono text-[0.77rem] uppercase tracking-[0.04em] text-text font-bold">{displayLabel}</Term>
               <span className="ml-auto font-mono text-[0.75rem] text-muted2 font-bold whitespace-nowrap">
-                <span className="text-a">{fmtMoney(a)}</span> / <span className="text-muted">{fmtMoney(unassignedTotal)}</span> /{' '}
-                <span className="text-b">{fmtMoney(b)}</span>
+                <span className="text-a">{fmtMoney(rawA)}</span> / <span className="text-muted">{fmtMoney(rawU)}</span> /{' '}
+                <span className="text-b">{fmtMoney(rawB)}</span>
               </span>
             </div>
             <div
