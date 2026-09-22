@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.11
+# RE Partition Tool — Field Reference V1.13
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -62,9 +62,21 @@
 
 </div>
 
-<div style="color:#00A651">
+<div style="color:#FFFFFF">
 
 **V1.11 AppFolio grouping and tax-return recovery:** Capital Expenses and Income &amp; Expenses now match common AppFolio address variants—reordered addresses, abbreviated property labels, and report ZIP suffixes—against the Groups workbook without grouping a different numbered address. Group-header Income, Expenses, and NOI totals align with the property-level values. A tax-return PDF with no depreciation schedules is not retained; **Clear All** remains available whenever a tax-return source, warning, or label is stored, even when zero schedules were extracted.
+
+</div>
+
+<div style="color:#FFFFFF">
+
+**V1.12 Market Value valuation workspace:** **Upload Market Value** first asks whether the report is a **Broker's Opinion of Value** or **City Assessed Value**. Re-uploading either type warns before replacing that type only; every other valuation remains until removed or replaced. Each property retains dated, sourced valuation rows and one selected value is sent to the Partition Tool. **Appraisal**, **Income Model**, and **Construction / Land Value Model** are entered on that property's valuation line. The **Use** control is positioned beside each row's Market Value. The Income Model uses the property's imported NOI and a user-entered cap rate to calculate value. **Comps** are uploaded from the property's valuation line and are retained as a separate comparable-sales source.
+
+</div>
+
+<div style="color:#FF0000">
+
+**V1.13 Market Value card editing layout — design mockup pending implementation:** Every property will use a single valuation card with Broker&apos;s Opinion of Value, Appraisal, Income Model, City Assessed Value, Construction / Land Value Model, and Comparable Sales rows. The selected valuation summary and **Use Selected Value in Partition** action are in the upper-right header. Each row&apos;s **Use** selector sits directly beside its Market Value. An **Edit** control appears at the left: Appraisal and Construction / Land Value Model reveal manual fields for provider, as-of date, reference/calculation, and Market Value; Income Model reveals a cap-rate entry in Reference / Calculation and derives its Market Value from imported NOI. This preview does not yet alter uploaded or saved data.
 
 </div>
 
@@ -178,7 +190,9 @@
 
 | Version | Change |
 |---|---|
-| V1.11 | <span style="color:#00A651">Improved AppFolio-to-Groups matching for reordered, abbreviated, and ZIP-suffixed property labels while protecting distinct street numbers from accidental grouping. Aligned Income &amp; Expenses group totals with property values. Tax returns without depreciation schedules are no longer retained, and Clear All now removes stored tax-return sources, warnings, and labels even when no schedules exist.</span> |
+| V1.13 | <span style="color:#FF0000">Design mockup pending implementation: every property receives a unified Market Value card. Its header shows the selected value and the Use Selected Value in Partition action; each row&apos;s Use selector sits by Market Value. Left-side Edit controls expose all manual fields for Appraisal and Construction / Land Value Model, while Income Model exposes an inline cap-rate calculation based on NOI.</span> |
+| V1.12 | <span style="color:#FFFFFF">Market Value now retains multiple dated valuation sources for each property. Upload Market Value prompts for Broker's Opinion of Value or City Assessed Value and warns before replacing an existing source type. Appraisal, Income Model (NOI ÷ cap rate), Construction / Land Value Model, and uploaded Comps are managed on the same property valuation line; the Use button sits beside each Market Value and selects that row for the Partition Tool.</span> |
+| V1.11 | <span style="color:#FFFFFF">Improved AppFolio-to-Groups matching for reordered, abbreviated, and ZIP-suffixed property labels while protecting distinct street numbers from accidental grouping. Aligned Income &amp; Expenses group totals with property values. Tax returns without depreciation schedules are no longer retained, and Clear All now removes stored tax-return sources, warnings, and labels even when no schedules exist.</span> |
 | V1.10 | <span style="color:#FFFFFF">Added AppFolio Income Statement – Property Comparison support. The Income &amp; Expenses importer now reads property columns beneath Account Name, extracts Total Operating Income, Total Operating Expense, and NOI – Net Operating Income, excludes the report-wide Total column, and retains the Date Range as source context.</span> |
 | V1.9 | <span style="color:#FFFFFF">Standardized the Data-workspace hierarchy: the group/property name or address now leads every card header and supporting information follows below. Removed the visible Groups Remove control and normalized spacing across the Data tabs, including Groups and Remaining Tax Basis.</span> |
 | V1.8 | <span style="color:#FFFFFF">Added the AppFolio Income &amp; Expenses Data tab: it extracts Total Income, Total Expenses, and NOI by property; retains the Groups hierarchy with aggregate collapsed headers; supports upload, Manual Template, Print / Export, Clear All, and Income / Expenses / NOI sorting; and automatically updates the Partition Tool NOI field. Data-workspace notices are now centered and Send to Partition Tool buttons were removed because synchronization is automatic.</span> |
