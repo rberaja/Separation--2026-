@@ -579,7 +579,53 @@ function MarketValueLayoutMockup() {
   </section>;
 }
 
-function MarketValueWorkspace({ records, incomeRecords, groups, onUpload, onAdd, onSelect, onRemove }: { records: MarketValueRecord[]; incomeRecords: IncomeExpenseRecord[]; groups: DealGroup[]; onUpload: (kind: MarketValueSource) => void; onAdd: (record: MarketValueRecord) => void; onSelect: (id: string) => void; onRemove: (id: string) => void }) {
+const MARKET_VALUE_ROW_ORDER: Array<Exclude<MarketValueSource, 'legacy'>> = ['bov', 'city-appraised', 'comps', 'appraisal', 'income-model', 'construction-land'];
+
+function MarketValueWorkspace({ records, incomeRecords, groups, onUpload: _onUpload, onAdd, onSelect, onRemove: _onRemove }: { records: MarketValueRecord[]; incomeRecords: IncomeExpenseRecord[]; groups: DealGroup[]; onUpload: (kind: MarketValueSource) => void; onAdd: (record: MarketValueRecord) => void; onSelect: (id: string) => void; onRemove: (id: string) => void }) {
+  const propertyNames = [...groups.flatMap((group) => group.members.map((member) => member.property)), ...incomeRecords.map((record) => record.property), ...records.map((record) => record.property)]
+    .reduce<string[]>((names, name) => names.some((existing) => propertyMatches(existing, name)) ? names : [...names, name], [])
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  const recordsFor = (property: string) => records.filter((record) => propertyMatches(record.property, property));
+  const noiFor = (property: string) => incomeRecords.find((record) => propertyMatches(record.property, property))?.noi;
+
+  return <section>
+    <div className="mb-5"><div className="caption text-[.66rem] mb-1">Step 7 · Valuation report</div><h2 className="font-serif text-[1.55rem] font-bold">Market Value</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Upload Broker&apos;s Opinion of Value, City Assessed Value, or Comparable Sales reports from the toolbar. Appraisal, Income Model, and Construction / Land Value Model are entered within each property card.</p></div>
+    <div className="note mb-5">Re-uploading a report type asks before it replaces that same type. All other valuation sources remain available until replaced or cleared.</div>
+    <div className="flex flex-col gap-5">{propertyNames.map((property) => <MarketValueProgrammedPropertyCard key={propertyKey(property)} property={property} records={recordsFor(property)} noi={noiFor(property)} onAdd={onAdd} onSelect={onSelect} />)}</div>
+    {!propertyNames.length && <div className="note">Set up deal groups or upload a Market Value report to begin.</div>}
+    <GroupingNote />
+  </section>;
+}
+
+function MarketValueProgrammedPropertyCard({ property, records, noi, onAdd, onSelect }: { property: string; records: MarketValueRecord[]; noi?: number; onAdd: (record: MarketValueRecord) => void; onSelect: (id: string) => void }) {
+  const [editing, setEditing] = useState<MarketValueSource | null>(null);
+  const [provider, setProvider] = useState('');
+  const [asOf, setAsOf] = useState('');
+  const [reference, setReference] = useState('');
+  const [amount, setAmount] = useState('');
+  const [capRate, setCapRate] = useState('6.00');
+  const [applied, setApplied] = useState(false);
+  const recordFor = (kind: MarketValueSource) => records.find((record) => (record.sourceKind ?? 'legacy') === kind) ?? (kind === 'bov' ? records.find((record) => (record.sourceKind ?? 'legacy') === 'legacy') : undefined);
+  const selected = records.find((record) => record.selected) ?? records[0];
+  const openEditor = (kind: 'appraisal' | 'income-model' | 'construction-land') => {
+    const record = recordFor(kind);
+    setApplied(false); setEditing(kind); setProvider(record?.provider ?? (kind === 'income-model' ? 'Partition Tool' : '')); setAsOf(record?.asOf ?? new Date().toISOString().slice(0, 10)); setReference(record?.source ?? ''); setAmount(record?.marketValue ? String(record.marketValue) : ''); setCapRate(record?.capRate ? String(record.capRate) : '6.00');
+  };
+  const saveEditor = (kind: 'appraisal' | 'income-model' | 'construction-land') => {
+    const rate = Number(capRate);
+    const marketValue = kind === 'income-model' ? (noi && rate > 0 ? noi / (rate / 100) : 0) : Number(amount.replace(/[^0-9.]/g, ''));
+    if (!marketValue) return;
+    onAdd({ property, marketValue, asOf: asOf || new Date().toISOString().slice(0, 10), valueType: MARKET_SOURCE_LABEL[kind], provider: kind === 'income-model' ? 'Partition Tool' : provider || 'Manual entry', source: kind === 'income-model' ? `${rate.toFixed(2)}% cap rate × ${money(noi ?? 0)} NOI` : reference || 'Manual entry', sourceKind: kind, capRate: kind === 'income-model' ? rate : undefined });
+    setEditing(null);
+  };
+  return <article className="card overflow-hidden border-l-[4px] border-l-a">
+    <header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-4 items-start"><div><div className="font-serif text-[1.15rem] font-bold">{property}</div><div className="caption text-[.58rem] mt-1">Multiple market-value opinions for one property</div></div><div className="text-right"><div className="caption text-[.56rem]">Selected for Partition</div><div className="font-mono font-bold text-a text-[1.05rem] mt-1">{money(selected?.marketValue ?? 0)}</div><div className="font-mono text-[.56rem] text-muted mt-1">{selected ? `${selected.valueType || MARKET_SOURCE_LABEL[selected.sourceKind ?? 'legacy']} · ${selected.asOf || 'No date'}` : 'No value selected'}</div><button type="button" className="tool-btn tool-btn-primary text-[.6rem] mt-2 disabled:opacity-40" disabled={!selected} onClick={() => setApplied(true)}>Use selected value in Partition</button>{applied && <div className="font-mono text-[.58rem] text-a mt-1">Selected value is ready for the Partition Tool.</div>}</div></header>
+    <div className="overflow-x-auto"><table className="w-full min-w-[1060px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="w-16 px-3 py-2.5 text-left">Edit</th><th className="px-3 py-2.5 text-left">Valuation method</th><th className="px-3 py-2.5 text-left">Prepared by</th><th className="px-3 py-2.5 text-left">As of</th><th className="px-3 py-2.5 text-left">Reference / calculation</th><th className="px-4 py-2.5 text-right">Market Value</th><th className="w-14 px-4 py-2.5 text-center">Use</th></tr></thead><tbody>{MARKET_VALUE_ROW_ORDER.map((kind) => { const record = recordFor(kind); const editable = kind === 'appraisal' || kind === 'income-model' || kind === 'construction-land'; const isEditing = editing === kind; const isManual = kind === 'appraisal' || kind === 'construction-land'; const selectedRow = Boolean(record?.selected); const value = kind === 'income-model' && isEditing && noi && Number(capRate) > 0 ? noi / (Number(capRate) / 100) : record?.marketValue; return <tr key={kind} className={`border-b last:border-b-0 border-border ${selectedRow ? 'bg-a/10' : ''}`}><td className="px-3 py-3">{editable ? isEditing ? <div className="flex gap-1"><button type="button" className="font-mono text-[.6rem] text-a hover:underline" onClick={() => saveEditor(kind)}>Save</button><button type="button" className="font-mono text-[.6rem] text-muted hover:underline" onClick={() => setEditing(null)}>Cancel</button></div> : <button type="button" className="font-mono text-[.6rem] text-a hover:underline" onClick={() => openEditor(kind)}>Edit</button> : <span className="text-muted">—</span>}</td><td className="px-3 py-3 font-semibold">{record?.valueType || MARKET_SOURCE_LABEL[kind]}</td><td className="px-3 py-3">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} prepared by`} value={provider} onChange={(event) => setProvider(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.provider || (kind === 'income-model' ? 'Partition Tool' : '—')}</td><td className="px-3 py-3 font-mono">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} as of`} type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.asOf || '—'}</td><td className="px-3 py-3 text-muted">{kind === 'income-model' && isEditing ? <label className="flex items-center gap-1.5">Cap rate <input aria-label="Income Model cap rate" value={capRate} onChange={(event) => setCapRate(event.target.value)} inputMode="decimal" className="w-16 border border-border rounded bg-surface px-1.5 py-0.5 text-right font-mono text-[.7rem]" />% × {money(noi ?? 0)} NOI</label> : isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} reference`} value={reference} onChange={(event) => setReference(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.source || (kind === 'income-model' && noi !== undefined ? `Enter a cap rate using Edit · NOI ${money(noi)}` : '—')}</td><td className="px-4 py-3 text-right font-mono font-bold text-a">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} market value`} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" className="w-28 border border-border rounded bg-surface px-2 py-1 text-right" /> : value === undefined ? '—' : money(value)}</td><td className="px-4 py-3 text-center">{record ? <input type="radio" name={`market-value-${propertyKey(property)}`} checked={selectedRow} onChange={() => { if (record.id) onSelect(record.id); setApplied(false); }} className="accent-[var(--a)] cursor-pointer" aria-label={`Use ${record.valueType || MARKET_SOURCE_LABEL[kind]}`} /> : <span className="text-muted">—</span>}</td></tr>; })}</tbody></table></div>
+    <footer className="px-4 py-3 bg-bg border-t border-border"><p className="text-[.72rem] text-muted">The selected row becomes this property&apos;s Market Value in the Partition Tool, with its provider and date retained as traceability.</p></footer>
+  </article>;
+}
+
+function LegacyMarketValueWorkspace({ records, incomeRecords, groups, onUpload, onAdd, onSelect, onRemove }: { records: MarketValueRecord[]; incomeRecords: IncomeExpenseRecord[]; groups: DealGroup[]; onUpload: (kind: MarketValueSource) => void; onAdd: (record: MarketValueRecord) => void; onSelect: (id: string) => void; onRemove: (id: string) => void }) {
   const propertyNames = [...groups.flatMap((group) => group.members.map((member) => member.property)), ...incomeRecords.map((record) => record.property), ...records.map((record) => record.property)]
     .reduce<string[]>((names, name) => names.some((existing) => propertyMatches(existing, name)) ? names : [...names, name], [])
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
