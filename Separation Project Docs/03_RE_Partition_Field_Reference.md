@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.16
+# RE Partition Tool — Field Reference V1.17
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -92,9 +92,15 @@
 
 </div>
 
-<div style="color:#FF0000">
+<div style="color:#FFFFFF">
 
 **V1.16 Market Value standalone cards and output:** Ungrouped properties now use the same collapsed summary-card layout as groups: their header shows the selected Market Value and expands to the valuation card. **Expand all** and **Collapse all** include both groups and standalone properties. **Manual Template** now opens the same source-choice dialog as upload and downloads the selected Broker&apos;s Opinion of Value, City Assessed Value, or Comparable Sales template. **Print / Save PDF** closes and excludes its output dialog before the browser snapshots the page, preserving the current expanded or collapsed view. The Excel Market Value export now contains one row for every property and separate value columns for Broker&apos;s Opinion of Value, City Assessed Value, Comparable Sales, Appraisal, Income Model, Construction / Land Value Model, and Other / Legacy Value, along with the selected valuation and selected Market Value.
+
+</div>
+
+<div style="color:#FF0000">
+
+**V1.17 consistent standalone-property collapse:** All report-based Data tabs now give ungrouped properties the same collapsible heading behavior as group cards. **Capital Expenses**, **Loans**, and **Income &amp; Expenses** property cards collapse from their own headings while retaining their aggregate values; the top **Expand all** and **Collapse all** controls now include both group cards and standalone-property cards. In Loans, expansion reveals the loan-detail table. In Income &amp; Expenses, expansion reveals the report as-of date and source. Clearing either report also resets its standalone-card collapse state. Remaining Tax Basis, Occupancy, and Market Value already used this pattern.
 
 </div>
 
@@ -208,7 +214,8 @@
 
 | Version | Change |
 |---|---|
-| V1.16 | <span style="color:#FF0000">Standalone Market Value properties now collapse and expand like groups, and the all-controls include them. Manual Template now asks for BOV, City Assessed Value, or Comparable Sales before downloading that source&apos;s template. Print / Save PDF removes its dialog before printing the current expanded/collapsed view. Excel export now uses one row per property with a separate value column for every valuation method plus the selected valuation and selected Market Value.</span> |
+| V1.17 | <span style="color:#FF0000">Capital Expenses, Loans, and Income &amp; Expenses now give standalone property cards the same collapsible headings as group cards. Their Expand all / Collapse all controls include both groups and standalone properties; loan expansion shows the loan table and Income &amp; Expenses expansion shows report context. Clearing either report resets its collapse state.</span> |
+| V1.16 | <span style="color:#FFFFFF">Standalone Market Value properties now collapse and expand like groups, and the all-controls include them. Manual Template now asks for BOV, City Assessed Value, or Comparable Sales before downloading that source&apos;s template. Print / Save PDF removes its dialog before printing the current expanded/collapsed view. Excel export now uses one row per property with a separate value column for every valuation method plus the selected valuation and selected Market Value.</span> |
 | V1.15 | <span style="color:#FFFFFF">Market Value now follows the Groups hierarchy. Collapsed group headers show the sum of the selected property Market Values and expand to member valuation cards. Added top-action-bar Expand all and Collapse all controls plus a Market Value sort that orders group aggregates and property cards by selected value (descending first click, reverse on the next); Name sort remains available.</span> |
 | V1.14 | <span style="color:#FFFFFF">Implemented the six-row Market Value card for every property: uploaded Broker&apos;s Opinion of Value, City Assessed Value, and Comparable Sales rows first; editable Appraisal, Income Model, and Construction / Land Value Model rows last. Edit opens the appropriate inline inputs, and the Income Model calculates Market Value from NOI ÷ cap rate. Upload Market Value now identifies BOV, City Assessed Value, or Comparable Sales before importing its Excel table.</span> |
 | V1.13 | <span style="color:#FFFFFF">Design mockup pending implementation: every property receives a unified Market Value card. Its header shows the selected value and the Use Selected Value in Partition action; each row&apos;s Use selector sits by Market Value. Left-side Edit controls expose all manual fields for Appraisal and Construction / Land Value Model, while Income Model exposes an inline cap-rate calculation based on NOI.</span> |
