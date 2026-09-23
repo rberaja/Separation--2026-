@@ -1,4 +1,4 @@
-# RE Partition Tool — Field Reference V1.19
+# RE Partition Tool — Field Reference V1.20
 
 *Every field the tool uses, its source, and the formula applied — aligned with White Paper v6.10 (September 2026)*
 
@@ -110,9 +110,15 @@
 
 </div>
 
-<div style="color:#FF0000">
+<div style="color:#FFFFFF">
 
 **V1.19 browser-session persistence:** Closing and reopening the same browser now restores the full Partition workspace as well as the Data workspace. The saved Partition snapshot retains every property and its editable fields, Partner A/B assignments, manually added properties, partner names, ownership split, Market Discount Rate, Cash &amp; Equivalents, depreciation year, sort order, and collapsed selection-unit cards. Data-derived property fields are rebuilt from the retained Data workspace after restoration, while Partition-only entries and edits remain intact. The current theme and pane width continue to persist separately. Browser private mode, cleared site data, or storage-quota restrictions can prevent browser storage from being retained.
+
+</div>
+
+<div style="color:#00A000">
+
+**V1.20 first-use workflow guide:** On the first opening in a browser, the tool displays a welcome dialog explaining the required workflow: begin on **Partition**, use the **Data** tabs to populate it, upload **Property Groups** first, then upload the corresponding table on each remaining Data tab. The dialog also explains that work remains available only in the same browser on the same computer. **Get started** closes the dialog for the current visit; **Don&apos;t show this again** stores a browser preference that suppresses future displays.
 
 </div>
 
@@ -226,7 +232,8 @@
 
 | Version | Change |
 |---|---|
-| V1.19 | <span style="color:#FF0000">The full Partition workspace now persists across closing and reopening the same browser: all property fields and assignments, manual properties, partner names and ownership settings, Market Discount Rate, Cash &amp; Equivalents, tax year, sort order, and collapsed selection-unit cards. Saved Data continues to rebuild Data-derived values without removing Partition-only entries or edits. Theme and pane width remain separately persistent.</span> |
+| V1.20 | <span style="color:#00A000">First opening in a browser now presents a concise workflow dialog: start in Partition, populate it through Data, upload Property Groups first, then upload the corresponding table in each remaining Data tab. It states the same-browser/same-computer retention rule. Get started closes it for the current visit, while Don&apos;t show this again persists the user&apos;s preference.</span> |
+| V1.19 | <span style="color:#FFFFFF">The full Partition workspace now persists across closing and reopening the same browser: all property fields and assignments, manual properties, partner names and ownership settings, Market Discount Rate, Cash &amp; Equivalents, tax year, sort order, and collapsed selection-unit cards. Saved Data continues to rebuild Data-derived values without removing Partition-only entries or edits. Theme and pane width remain separately persistent.</span> |
 | V1.18 | <span style="color:#FFFFFF">Income &amp; Expenses now begins with an AppFolio T12 Report date prompt and displays that date on every imported property line; Occupancy adds an Occupancy sort. Market Value selections can be changed after returning to the tab, including older restored valuation records. The Proportionality vs. Target money readout now displays calculated NPV Equity—including negative balances—rather than showing `$0`; negative balances are floored only for bar rendering.</span> |
 | V1.17 | <span style="color:#FFFFFF">Capital Expenses, Loans, and Income &amp; Expenses now give standalone property cards the same collapsible headings as group cards. Their Expand all / Collapse all controls include both groups and standalone properties; loan expansion shows the loan table and Income &amp; Expenses expansion shows report context. Clearing either report resets its collapse state.</span> |
 | V1.16 | <span style="color:#FFFFFF">Standalone Market Value properties now collapse and expand like groups, and the all-controls include them. Manual Template now asks for BOV, City Assessed Value, or Comparable Sales before downloading that source&apos;s template. Print / Save PDF removes its dialog before printing the current expanded/collapsed view. Excel export now uses one row per property with a separate value column for every valuation method plus the selected valuation and selected Market Value.</span> |

@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import type { Theme } from '../lib/types';
 import { AppProvider, useApp } from '../store/AppContext';
 import { Header } from './Header';
@@ -18,6 +18,7 @@ import { WorkspaceNav, useWorkspace } from './WorkspaceNav';
 import { WORKSPACES } from '../lib/workspaces';
 
 export const THEME_STORAGE_KEY = 'partition-tool:theme';
+const WELCOME_DISMISSED_STORAGE_KEY = 'partition-tool:welcome-dismissed';
 
 /** Root React island. Wraps the layout in the app store. */
 export default function App() {
@@ -36,6 +37,16 @@ export default function App() {
 function Pages() {
   const [active, select] = useWorkspace();
   const planned = WORKSPACES.find((w) => w.id === active && w.planned);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+
+  useEffect(() => {
+    try { setWelcomeOpen(window.localStorage.getItem(WELCOME_DISMISSED_STORAGE_KEY) !== 'true'); } catch { setWelcomeOpen(true); }
+  }, []);
+
+  const dismissWelcomePermanently = () => {
+    try { window.localStorage.setItem(WELCOME_DISMISSED_STORAGE_KEY, 'true'); } catch { /* the welcome dialog will return next visit if storage is unavailable */ }
+    setWelcomeOpen(false);
+  };
 
   return (
     <>
@@ -56,7 +67,31 @@ function Pages() {
           hierarchy can immediately restore the corresponding Partition cards. */}
       <div hidden={active !== 'depreciation'}><TaxBasisMockup /></div>
       {planned && <PlannedWorkspace workspace={planned} />}
+      <WelcomeDialog open={welcomeOpen} onContinue={() => setWelcomeOpen(false)} onTurnOff={dismissWelcomePermanently} />
     </>
+  );
+}
+
+function WelcomeDialog({ open, onContinue, onTurnOff }: { open: boolean; onContinue: () => void; onTurnOff: () => void }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/55 p-5">
+      <section className="bg-surface border-[1.5px] border-border2 rounded-md px-7 py-6 max-w-[620px] w-full shadow-[0_8px_32px_rgba(0,0,0,0.22)]" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+        <div className="caption text-[.61rem] text-a">First-time setup</div>
+        <h2 id="welcome-title" className="font-serif text-[1.45rem] font-bold mt-1">Welcome to the Proportional Partition Tool</h2>
+        <ol className="mt-4 list-decimal space-y-3 pl-5 text-[.83rem] text-text2 marker:font-mono marker:font-bold marker:text-a">
+          <li>Start on the <strong className="text-text">Partition</strong> tab.</li>
+          <li>The Partition tab is populated by the <strong className="text-text">Data</strong> tabs.</li>
+          <li>In Data, upload the <strong className="text-text">Property Groups</strong> report first. Every other report is matched to those groups. Then visit each remaining Data tab and upload its corresponding table.</li>
+          <li>Your work stays populated while you use the same browser on the same computer.</li>
+        </ol>
+        <div className="mt-6 flex flex-wrap justify-end gap-2.5">
+          <button type="button" className="modal-btn" onClick={onTurnOff}>Don&apos;t show this again</button>
+          <button type="button" className="modal-btn modal-btn-accent" onClick={onContinue}>Get started</button>
+        </div>
+      </section>
+    </div>
   );
 }
 
