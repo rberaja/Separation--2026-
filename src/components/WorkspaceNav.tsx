@@ -26,7 +26,7 @@ export function useWorkspace(): [WorkspaceId, (id: WorkspaceId) => void] {
 /** Dark tab strip above every workspace. Hidden in print. */
 export function WorkspaceNav({ active, onSelect }: { active: WorkspaceId; onSelect: (id: WorkspaceId) => void }) {
   return (
-    <nav className="flex items-stretch gap-1 bg-hdr-bg px-7 pt-2 print:hidden" aria-label="Workspaces">
+    <nav className="flex items-stretch gap-1 pt-2 print:hidden" aria-label="Workspaces">
       {WORKSPACES.filter((w) => !w.planned).map((w) => {
         const current = w.id === active;
         return (

@@ -7,7 +7,7 @@ import type { MarketValueRecord, MarketValueSource } from '../lib/market-value-e
 import type { IncomeExpenseRecord } from '../lib/income-expenses-excel';
 import { propertyKey, propertyMatches } from '../lib/property-match';
 import { deleteSourceReport, deleteSourceReports, loadWorkspaceSnapshot, saveSourceReport, saveWorkspaceSnapshot, type StoredSource } from '../lib/browser-data';
-import type { ExtractedMethod, ExtractionProgress } from '../lib/tax-return-pdf';
+import { extractTaxReturnSchedules, type ExtractedMethod, type ExtractionProgress } from '../lib/tax-return-pdf';
 import { useApp } from '../store/AppContext';
 
 type ScheduleItem = { id: string; label: string; method: ExtractedMethod; basis: number; recoveryPeriod: string; yearsLeft: number; annual: number };
@@ -246,7 +246,6 @@ export function TaxBasisMockup() {
     if (!files.length || isImporting) return;
     setIsImporting(true); setImportProgress(null); setImportError(null); setActiveTab('data'); setNotice(`Reading ${files.length} tax ${files.length === 1 ? 'return' : 'returns'} locally…`);
     try {
-      const { extractTaxReturnSchedules } = await import('../lib/tax-return-pdf');
       const result = await extractTaxReturnSchedules(files, setImportProgress);
       const importedAt = Date.now();
       const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, importedAt: schedule.sourceModifiedAt || importedAt, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
@@ -429,6 +428,8 @@ export function TaxBasisMockup() {
   const collapseAllIncomeExpenses = () => { setIncomeExpensesExpanded(new Set()); setIncomeExpensesCollapsed(new Set(incomeExpensesUngroupedKeys)); };
 
   return <div className="min-h-screen bg-bg text-text relative" onDragOver={handleDragOver} onDragEnter={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+    <div className="data-controls-sticky">
+    <DataWorkflowTabs activeTab={activeTab} onSelect={setActiveTab} />
     {dragActive && <div className="fixed inset-0 z-40 pointer-events-none bg-a/10 flex items-center justify-center p-8" aria-hidden="true"><div className="border-[3px] border-dashed border-a rounded-md bg-surface px-10 py-8 text-center shadow-xl"><div className="font-serif text-[1.4rem] font-bold">Drop tax return PDFs to import</div><div className="mt-1 font-mono text-[.66rem] uppercase tracking-[.07em] text-muted">Form 1065 packages · read locally in your browser</div></div></div>}
     <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></header>
     <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['zoning', 'Zoning'], ['cert40yr', 'Next 40-Yr Cert']] as const).map(([key, label]) => { const active = groupsSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setGroupsSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: true })}><span>{label}</span><span className="text-[.75rem]">{active && !groupsSort.asc ? '↓' : '↑'}</span></button>; })}</>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={() => setDataOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!hasTaxReturnData} onClick={clearTaxReturns}>▣ Clear All</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={expandAll}>▾ Expand</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={collapseAll}>▴ Collapse</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setDataSortAsc((current) => !current)}><span>Name</span><span className="text-[.75rem]">{dataSortAsc ? '↑' : '↓'}</span></button></>}</div>
@@ -439,6 +440,7 @@ export function TaxBasisMockup() {
       {activeTab === 'marketValue' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => setMarketUploadChoiceOpen(true)}>↑ Upload Market Value</button><button type="button" className="tool-btn" onClick={() => setMarketTemplateChoiceOpen(true)}>⇩ Manual Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!marketValues.length} onClick={() => setMarketValueOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!marketValues.length} onClick={clearMarketValues}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['marketValue', 'Market Value']] as const).map(([key, label]) => { const active = marketValueSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setMarketValueSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: key === 'name' })}>{label} {active ? (marketValueSort.asc ? '↑' : '↓') : '↕'}</button>; })}<button type="button" className="tool-btn disabled:opacity-40" disabled={!marketValueExpansionTargets.length} onClick={() => setMarketValueExpanded(new Set(marketValueExpansionTargets))}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!marketValueExpansionTargets.length} onClick={() => setMarketValueExpanded(new Set())}>▴ Collapse all</button></>}
       {activeTab === 'incomeExpenses' && <><button type="button" className="tool-btn tool-btn-primary" onClick={beginIncomeExpensesUpload}>↑ Upload AppFolio T12 Report</button><button type="button" className="tool-btn" onClick={() => void import('../lib/income-expenses-excel').then(({ downloadIncomeExpensesTemplate }) => downloadIncomeExpensesTemplate())}>⇩ Manual Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!incomeExpenses.length} onClick={() => setIncomeExpensesOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!incomeExpenses.length} onClick={clearIncomeExpenses}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['income', 'Income'], ['expenses', 'Expenses'], ['noi', 'NOI']] as const).map(([key, label]) => { const active = incomeExpensesSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setIncomeExpensesSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: false })}>{label} {active ? (incomeExpensesSort.asc ? '↑' : '↓') : '↕'}</button>; })}<button type="button" className="tool-btn disabled:opacity-40" disabled={!incomeExpenses.length} onClick={expandAllIncomeExpenses}>▾ Expand all</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!incomeExpenses.length} onClick={collapseAllIncomeExpenses}>▴ Collapse all</button></>}
     </div>}
+    </div>
     <input ref={groupsFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleGroupsFile(event)} />
     <input ref={occupancyFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleOccupancyFile(event)} />
     <input ref={loansFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleLoansFile(event)} />
@@ -468,6 +470,26 @@ export function TaxBasisMockup() {
       <GroupsOutputDialog open={incomeExpensesOutputOpen} hasData={incomeExpenses.length > 0} caption="Income & Expenses output" title="Print or export Income & Expenses" description="Export the property-level Income, Expenses, and NOI report to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setIncomeExpensesOutputOpen(false)} onExport={() => void exportIncomeExpensesWorkbook()} />
     </main>
   </div>;
+}
+
+const DATA_TABS: ReadonlyArray<{ id: Tab; number: string; label: string }> = [
+  { id: 'groups', number: '1', label: 'Groups' },
+  { id: 'data', number: '2', label: 'Remaining Tax Basis' },
+  { id: 'occupancy', number: '3', label: 'Occupancy' },
+  { id: 'loans', number: '4', label: 'Loans' },
+  { id: 'capitalExpenses', number: '5', label: 'Capital Expenses' },
+  { id: 'incomeExpenses', number: '6', label: 'Income & Expenses' },
+  { id: 'marketValue', number: '7', label: 'Market Value' },
+];
+
+function DataWorkflowTabs({ activeTab, onSelect }: { activeTab: Tab; onSelect: (tab: Tab) => void }) {
+  return (
+    <nav className="flex flex-wrap gap-4 border-b border-border bg-bg px-7" aria-label="Data workflow">
+      {DATA_TABS.map((tab) => (
+        <TabButton key={tab.id} active={activeTab === tab.id} onClick={() => onSelect(tab.id)} number={tab.number} label={tab.label} />
+      ))}
+    </nav>
+  );
 }
 
 function TabButton({ active, onClick, number, label }: { active: boolean; onClick: () => void; number: string; label: string }) { return <button type="button" onClick={onClick} className={`px-4 py-2.5 cursor-pointer border-b-[3px] -mb-px ${active ? 'border-a text-a' : 'border-transparent text-muted hover:text-text'}`}><span className="mr-2 font-mono text-[.58rem] uppercase tracking-[.08em]">{number}</span><span className="font-serif text-[.94rem] font-bold">{label}</span></button>; }

@@ -34,6 +34,8 @@ export interface Gaps {
   ads: number;
   ncf: number;
   bidDiff: number;
+  /** Cash allocation target minus cash allocated. Zero when cash is split by ownership. */
+  cash: number;
   /** Basis Shortfall in basis dollars (White Paper §11.3) — reference only; the Basis True-Up ($) comes from the Remaining Depreciation Tool. */
   remainingBasis: number;
   total: number;
@@ -44,6 +46,14 @@ export interface Settlement {
   gaps: Gaps;
   /** Cash & equivalents split by ownership percentage. */
   cash: Record<Partner, number>;
+  /** How the shared cash account funds the property true-up before any outside payment is due. */
+  cashSettlement: {
+    applied: number;
+    /** Signed like `gaps.total`: positive = B pays A; negative = A pays B. */
+    remaining: number;
+    /** Each partner's cash distribution after the true-up is funded from the shared account. */
+    distribution: Record<Partner, number>;
+  };
   /** Properties not yet assigned to either partner — outside the split until they are. */
   unassigned: PartnerTotals;
   /** True while every property is assigned; otherwise the settlement is provisional. */
@@ -124,15 +134,29 @@ export function computeSettlement(
     ads: excessBurden('ads'),
     ncf: shortfall('ncf'),
     bidDiff: shortfall('bidDiff'),
+    // Cash is allocated directly by ownership below, so this is normally zero. Keeping
+    // the explicit term makes Total True-Up agree with the settlement ledger.
+    cash: cashEquiv * pctA - cashEquiv * pctA,
     remainingBasis: shortfall('remainingBasis'),
     total: 0,
   };
-  gaps.total = gaps.npvEquity + gaps.bidDiff;
+  gaps.total = gaps.npvEquity + gaps.bidDiff + gaps.cash;
+
+  const cash = { a: cashEquiv * pctA, b: cashEquiv * (1 - pctA) };
+  const payer: Partner = gaps.total > 0 ? 'b' : 'a';
+  const applied = isBalanced(gaps.total) ? 0 : Math.min(Math.abs(gaps.total), cash[payer]);
+  const direction = Math.sign(gaps.total);
+  const remaining = gaps.total - direction * applied;
+  const distribution = {
+    a: cash.a + (payer === 'a' ? -applied : applied),
+    b: cash.b + (payer === 'b' ? -applied : applied),
+  };
 
   return {
     totals,
     gaps,
-    cash: { a: cashEquiv * pctA, b: cashEquiv * (1 - pctA) },
+    cash,
+    cashSettlement: { applied, remaining, distribution },
     unassigned,
     complete: unassigned.count === 0,
   };

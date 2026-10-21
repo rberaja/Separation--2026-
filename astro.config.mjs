@@ -19,6 +19,6 @@ export default defineConfig({
     plugins: [tailwindcss()],
     // SheetJS is only imported lazily (first Excel click). Pre-bundle it up front so the dev server
     // never has to re-optimise mid-session, which surfaced as "504 Outdated Optimize Dep" on click.
-    optimizeDeps: { include: ['xlsx'] }
+    optimizeDeps: { include: ['xlsx', 'pdfjs-dist/legacy/build/pdf.mjs'] }
   }
 });

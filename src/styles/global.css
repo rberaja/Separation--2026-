@@ -278,6 +278,22 @@
   display: none;
 }
 
+/* The shared application header supplies the title, workspace tabs, and theme switcher. */
+.data-embedded > .min-h-screen > .data-controls-sticky > header {
+  display: none;
+}
+
+.data-embedded > .min-h-screen > .data-controls-sticky {
+  position: sticky;
+  top: var(--shared-header-height, 0px);
+  z-index: 40;
+}
+
+/* The Data sub-tabs belong between the shared header and that workspace's commands. */
+.data-embedded > .min-h-screen > main > nav[aria-label="Data workflow"] {
+  display: none;
+}
+
 @media print {
   @page {
     size: letter landscape;

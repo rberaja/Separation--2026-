@@ -41,9 +41,9 @@ describe('buildReport', () => {
     for (const g of [...r.gaps.reference, ...r.gaps.settlement]) {
       if (g.a !== null && g.b !== null && !g.unsigned) expect(g.a + g.b).toBeCloseTo(0, 6);
     }
-    const total = r.gaps.settlement.find((g) => g.grand)!;
-    expect(total.a).toBeCloseTo(settlement.gaps.total, 6);
-    expect(r.finalSettlement).toBe(settlementSentence(settlement.gaps.total, names, 0.4));
+    const total = r.gaps.settlement.find((g) => g.key === 'cashDistributionTotal')!;
+    expect(total).toMatchObject({ a: settlement.cashSettlement.distribution.a, b: settlement.cashSettlement.distribution.b, unsigned: true, grand: true });
+    expect(r.finalSettlement).toBe(settlementSentence(settlement.cashSettlement.remaining, names, 0.4, settlement.cashSettlement.applied));
     const cash = r.gaps.settlement.find((g) => g.key === 'cash')!;
     expect(cash).toMatchObject({ a: 100000, b: 150000, u: null, unsigned: true });
     // The Unassigned column carries the loose property's own figures, not a gap.
@@ -76,6 +76,7 @@ describe('settlementSentence', () => {
     expect(settlementSentence(104000, names, 0.4)).toBe('Alex pays Roberto $104,000');
     expect(settlementSentence(-2500, names, 0.4)).toBe('Roberto pays Alex $2,500');
     expect(settlementSentence(0.4, names, 0.4)).toBe('Balanced at 40 / 60 — no payment due');
+    expect(settlementSentence(0, names, 0.4, 100000)).toBe('True-up funded from shared cash — no outside payment due');
   });
 });
 

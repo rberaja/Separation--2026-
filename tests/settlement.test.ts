@@ -41,7 +41,7 @@ describe('computeSettlement', () => {
     // A holds $10,000 of bid difference against a $2,000 share of the $5,000 total → A is over, so A pays.
     expect(gaps.bidDiff).toBeCloseTo(5000 * 0.4 - 10000, 6);
     expect(gaps.bidDiff).toBeLessThan(0);
-    expect(gaps.total).toBeCloseTo(gaps.npvEquity + gaps.bidDiff, 6);
+    expect(gaps.total).toBeCloseTo(gaps.npvEquity + gaps.bidDiff + gaps.cash, 6);
   });
 
   it('computes the debt-service gap as A actual − A target (burden: carrying more = owed)', () => {
@@ -63,9 +63,24 @@ describe('computeSettlement', () => {
   });
 
   it('splits cash & equivalents by ownership', () => {
-    const { cash } = computeSettlement(props, DR, 0.4, 250000);
+    const { cash, gaps } = computeSettlement(props, DR, 0.4, 250000);
     expect(cash.a).toBe(100000);
     expect(cash.b).toBe(150000);
+    expect(gaps.cash).toBe(0);
+  });
+
+  it('uses the payer’s allocated shared cash before requiring an outside payment', () => {
+    const uneven = [
+      createProperty(1, { assign: 'a', marketVal: 600000 }),
+      createProperty(2, { assign: 'b', marketVal: 400000 }),
+    ];
+    const { gaps, cashSettlement } = computeSettlement(uneven, DR, 0.4, 1000000);
+    expect(gaps.total).toBeCloseTo(-200000, 6);
+    expect(cashSettlement).toEqual({
+      applied: 200000,
+      remaining: 0,
+      distribution: { a: 200000, b: 800000 },
+    });
   });
 
   it('is balanced when shares exactly match the split', () => {

@@ -146,8 +146,12 @@ export function splitLabel(pctA: number): string {
 }
 
 /** The one-line verdict shown in the ledger and on the report. */
-export function settlementSentence(total: number, names: Record<Partner, string>, pctA: number): string {
-  if (isBalanced(total)) return `Balanced at ${splitLabel(pctA)} — no payment due`;
+export function settlementSentence(total: number, names: Record<Partner, string>, pctA: number, cashApplied = 0): string {
+  if (isBalanced(total)) {
+    return cashApplied > 0
+      ? 'True-up funded from shared cash — no outside payment due'
+      : `Balanced at ${splitLabel(pctA)} — no payment due`;
+  }
   return total > 0
     ? `${names.b} pays ${names.a} ${fmtMoney(Math.abs(total))}`
     : `${names.a} pays ${names.b} ${fmtMoney(Math.abs(total))}`;
@@ -166,7 +170,7 @@ function propertyRow(p: Property, discountRate: number): ReportPropertyRow {
 
 export function buildReport(input: ReportInput): Report {
   const { properties, settlement, partnerNames, pctA, discountRate, cashEquiv, depreciationYear } = input;
-  const { totals, gaps, cash, unassigned, complete } = settlement;
+  const { totals, gaps, cash, cashSettlement, unassigned, complete } = settlement;
   const dr = nv(discountRate) / 100;
   const split = splitLabel(pctA);
 
@@ -197,13 +201,14 @@ export function buildReport(input: ReportInput): Report {
     gap('npvEquity', GAP_LABELS.npvEquity, gaps.npvEquity, unassigned.npvEquity),
     { key: 'basisTrueUp', label: GAP_LABELS.basisTrueUp, a: null, b: null, u: null, note: `from ${TAX.tool}` },
     gap('bidDiff', GAP_LABELS.bidDiff, gaps.bidDiff, unassigned.bidDiff),
-    { key: 'cash', label: GAP_LABELS.cash, a: cash.a, b: cash.b, u: null, note: `split ${split}`, unsigned: true },
-    gap('total', GAP_LABELS.total, gaps.total, null, { grand: true }),
+    { key: 'cash', label: 'Cash Distribution', a: cash.a, b: cash.b, u: null, note: `split ${split}`, unsigned: true },
+    { key: 'cashDistributionTotal', label: 'True-Up After Cash Distribution', a: cashSettlement.distribution.a, b: cashSettlement.distribution.b, u: null, unsigned: true, grand: true },
+    gap('remainingPayment', 'Remaining Outside Payment Due', cashSettlement.remaining, null, { grand: true }),
   ];
 
   const notes = [
     `Gaps are each partner's proportional target minus actual (White Paper v${WHITE_PAPER_VERSION} §14.1): positive = under-allocated and owed cash; negative = over-allocated and pays. Every row nets to zero across the two partners.`,
-    `Total True-Up = NPV Equity gap + ${TAX.basisTrueUp} + Bid Difference gap. The ${TAX.basisTrueUp} (present value of lost depreciation, White Paper §11.4) is calculated in the separate ${TAX.tool} from the ${TAX.basisShortfall} shown above (§11.3) and must be added to the Total True-Up before settlement.`,
+    `Total True-Up = NPV Equity gap + ${TAX.basisTrueUp} + Bid Difference gap + Cash & Equivalents gap. Cash is allocated by ownership, so its gap is zero when each partner receives the shown share. The payer's cash allocation is then applied to fund the Total True-Up; only the remaining amount is an outside payment. The ${TAX.basisTrueUp} (present value of lost depreciation, White Paper §11.4) is calculated in the separate ${TAX.tool} from the ${TAX.basisShortfall} shown above (§11.3) and must be added to the Total True-Up before settlement.`,
     'Debt NPV is the present value of each loan’s remaining payments at the market discount rate; NPV Equity = Adj. Net Value − Debt NPV. Debt Service is a burden, so in that reference row carrying more than your share shows as positive.',
     'Adj. Market Value, Debt Service, Net Cash Flow and the Basis Shortfall are reference only (White Paper §9.1–9.2): debt can be re-set by refinancing after the split and cash flow is measured as NOI before loan payments.',
   ];
@@ -226,7 +231,7 @@ export function buildReport(input: ReportInput): Report {
     counts,
     totals: totalsRows,
     gaps: { reference, settlement: settlementRows },
-    finalSettlement: properties.length === 0 ? '' : settlementSentence(gaps.total, partnerNames, pctA),
+    finalSettlement: properties.length === 0 ? '' : settlementSentence(cashSettlement.remaining, partnerNames, pctA, cashSettlement.applied),
     complete,
     unassigned,
     notes,

@@ -19,7 +19,7 @@ const HEAD_TEXT = 'font-mono uppercase text-[0.7rem] tracking-[0.08em] font-bold
  */
 export function SettlementLedger() {
   const { state } = useApp();
-  const { gaps, cash, unassigned, complete } = useSettlement();
+  const { gaps, cash, cashSettlement, unassigned, complete } = useSettlement();
   const names = usePartnerNames();
   const share = useOwnership();
 
@@ -27,7 +27,7 @@ export function SettlementLedger() {
   const splitLabel = fmtSplit(share.a);
 
   const settlement = hasData
-    ? settlementSentence(gaps.total, names, share.a)
+    ? settlementSentence(cashSettlement.remaining, names, share.a, cashSettlement.applied)
     : 'Upload a file or add properties to see the settlement';
 
   return (
@@ -58,16 +58,9 @@ export function SettlementLedger() {
           <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
         </tr>
         <GapRow label={GAP_LABELS.bidDiff} term="gapBidDiff" gap={gaps.bidDiff} unassigned={unassigned.bidDiff} />
-        <tr className="border-b border-border">
-          <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
-            <Term term="gapCash">{GAP_LABELS.cash}</Term>
-            <Tag>split {splitLabel.replace(/ /g, '')}</Tag>
-          </td>
-          <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.a)}</td>
-          <UnassignedCell value={null} />
-          <td className={`${VALUE_TEXT} text-text`}>{fmtMoney(cash.b)}</td>
-        </tr>
-        <GapRow label={GAP_LABELS.total} term="totalTrueUp" gap={gaps.total} unassigned={null} grand />
+        <CashRow cash={cash} gap={gaps.cash} splitLabel={splitLabel} />
+        <CashDistributionTotal distribution={cashSettlement.distribution} />
+        <GapRow label="Remaining Outside Payment Due" term="finalSettlement" gap={cashSettlement.remaining} unassigned={null} grand />
       </GapBox>
 
       <div className="mt-3.5 rounded-[3px] bg-hdr-bg text-center px-4 py-3">
@@ -75,6 +68,11 @@ export function SettlementLedger() {
         <div className={`font-mono font-bold ${hasData ? 'text-[1.1rem] text-gold' : 'text-[0.8rem] text-hdr-muted'}`}>
           {settlement}
         </div>
+        {hasData && cashSettlement.applied > 0 && (
+          <div className="font-mono text-[0.66rem] tracking-[0.04em] text-hdr-muted mt-1.5">
+            Cash after true-up: {names.a} {fmtMoney(cashSettlement.distribution.a)} · {names.b} {fmtMoney(cashSettlement.distribution.b)}
+          </div>
+        )}
         {hasData && !complete && (
           <div className="font-mono text-[0.66rem] tracking-[0.05em] text-red mt-1.5">
             Provisional — {unassigned.count} {unassigned.count === 1 ? 'property' : 'properties'} unassigned
@@ -83,15 +81,39 @@ export function SettlementLedger() {
       </div>
 
       <p className="font-serif italic text-[0.75rem] leading-snug text-muted2 mt-2.5">
-        Total True-Up = NPV Equity gap + {TAX.basisTrueUp} + Bid Difference gap (White Paper v{WHITE_PAPER_VERSION} §14.1);
-        whichever partner&rsquo;s total is negative pays the other. Cash &amp; Equivalents is split by ownership, so
-        its gap is zero. The {TAX.basisTrueUp} (present value of lost depreciation) is calculated in the separate{' '}
+        Total True-Up = NPV Equity gap + {TAX.basisTrueUp} + Bid Difference gap + Cash &amp; Equivalents gap (White Paper v{WHITE_PAPER_VERSION} §14.1);
+        whichever partner&rsquo;s total is negative pays the other. When shared cash is available, the tool applies the payer&rsquo;s
+        allocated cash first and shows any remaining outside payment. The {TAX.basisTrueUp} (present value of lost depreciation) is calculated in the separate{' '}
         {TAX.tool} from the {TAX.basisShortfall} above (White Paper §11.3–11.4) and must be added to the figure shown. Debt Service is a burden,
         so in that reference row carrying more than your share is what shows as positive. Unassigned properties belong to
         neither partner and are left out of the portfolio the targets are taken from, so the settlement is provisional
         until every property is assigned.
       </p>
     </section>
+  );
+}
+
+function CashDistributionTotal({ distribution }: { distribution: { a: number; b: number } }) {
+  return <tr className="border-t-2 border-b border-ink">
+    <td className={`${METRIC_TEXT} pl-1.5 py-2`}>True-Up After Cash Distribution</td>
+    <td className={`${VALUE_TEXT} text-green text-[1.05rem]`}>{fmtMoney(distribution.a)}</td>
+    <UnassignedCell value={null} />
+    <td className={`${VALUE_TEXT} text-green text-[1.05rem]`}>{fmtMoney(distribution.b)}</td>
+  </tr>;
+}
+
+/** Cash is an allocation, with its zero gap shown separately from the amounts distributed. */
+function CashRow({ cash, gap, splitLabel }: { cash: { a: number; b: number }; gap: number; splitLabel: string }) {
+  return (
+    <tr className="border-b border-border">
+      <td className={`${METRIC_TEXT} pl-1.5 py-2`}>
+        <Term term="gapCash">Cash Distribution</Term>
+        <Tag>split {splitLabel.replace(/ /g, '')} · gap {fmtMoney(gap)}</Tag>
+      </td>
+      <td className={`${VALUE_TEXT} text-green`}>{fmtMoney(cash.a)}</td>
+      <UnassignedCell value={null} />
+      <td className={`${VALUE_TEXT} text-green`}>{fmtMoney(cash.b)}</td>
+    </tr>
   );
 }
 

@@ -50,23 +50,24 @@ function Pages() {
 
   return (
     <>
-      <WorkspaceNav active={active} onSelect={select} />
-      {active === 'partition' && (
-        <>
-          {/* Everything on screen lives in #app-screen so the print stylesheet can swap it for the report. */}
-          <div id="app-screen">
-            <Header />
-            <Toolbar />
-            <MarketRateBar />
-            <Workspace />
-          </div>
-          <PrintReport />
-        </>
-      )}
-      {/* Keep Data mounted while Partition is active so its browser-persisted Groups
-          hierarchy can immediately restore the corresponding Partition cards. */}
-      <div hidden={active !== 'depreciation'}><TaxBasisMockup /></div>
-      {planned && <PlannedWorkspace workspace={planned} />}
+      {/* Everything on screen lives in #app-screen so the print stylesheet can swap it for the report. */}
+      <div id="app-screen">
+        <div className="sticky top-0 z-50 shadow-card">
+          <Header workspaceNav={<WorkspaceNav active={active} onSelect={select} />} />
+          {active === 'partition' && (
+            <>
+              <Toolbar />
+              <MarketRateBar />
+            </>
+          )}
+        </div>
+        {active === 'partition' && <Workspace />}
+        {/* Keep Data mounted while Partition is active so its browser-persisted Groups
+            hierarchy can immediately restore the corresponding Partition cards. */}
+        <div className="data-embedded" hidden={active !== 'depreciation'}><TaxBasisMockup /></div>
+        {planned && <PlannedWorkspace workspace={planned} />}
+      </div>
+      {active === 'partition' && <PrintReport />}
       <WelcomeDialog open={welcomeOpen} onContinue={() => setWelcomeOpen(false)} onTurnOff={dismissWelcomePermanently} />
     </>
   );

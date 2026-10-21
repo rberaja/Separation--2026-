@@ -58,7 +58,7 @@ export const PARTNER_TOTAL_GROUPS: readonly (readonly TotalsRow[])[] = [
 ];
 
 export interface GapRowSpec {
-  key: keyof Omit<Gaps, 'total'>;
+  key: Exclude<keyof Omit<Gaps, 'total'>, 'cash'>;
   label: string;
   ref: RefKey;
 }
