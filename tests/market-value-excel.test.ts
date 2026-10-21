@@ -20,6 +20,28 @@ describe('Market Value workbooks', () => {
     expect(records).toEqual([expect.objectContaining({ property: '600 SW 9 AVE', asOf: '08/12/2026 11:23 AM' })]);
   });
 
+  it('reads broker valuation inputs from the Roll Up purchase-price row', () => {
+    const rows = Array.from({ length: 135 }, () => [] as unknown[]);
+    rows[4]![2] = 'PROPERTY'; rows[4]![12] = '600 SW 9th Ave'; rows[4]![13] = '930 SW 6th St'; rows[4]![14] = 'Total (2)';
+    rows[34]![2] = 'Rent Roll as of 5/31/2026';
+    rows[119]![2] = 'Purchase Price'; rows[119]![12] = 4_750_000; rows[119]![13] = 1_930_000; rows[119]![14] = 6_680_000;
+    rows[134]![2] = 'Assessed Value'; rows[134]![12] = 3_327_500; rows[134]![13] = 1_244_485; rows[134]![14] = 4_571_985;
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([['Cover']]), 'Cover');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), 'Roll Up');
+    const records = parseMarketValueWorkbook(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
+
+    expect(records).toEqual([
+      expect.objectContaining({ property: '600 SW 9th Ave', marketValue: 4_750_000, asOf: '5/31/2026', source: 'Roll Up!M120 (Purchase Price)' }),
+      expect.objectContaining({ property: '930 SW 6th St', marketValue: 1_930_000, asOf: '5/31/2026', source: 'Roll Up!N120 (Purchase Price)' }),
+    ]);
+
+    expect(parseMarketValueWorkbook(XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer, 'city-appraised')).toEqual([
+      expect.objectContaining({ property: '600 SW 9th Ave', marketValue: 3_327_500, asOf: '5/31/2026', source: 'Roll Up!M135 (Assessed Value)' }),
+      expect.objectContaining({ property: '930 SW 6th St', marketValue: 1_244_485, asOf: '5/31/2026', source: 'Roll Up!N135 (Assessed Value)' }),
+    ]);
+  });
+
   it('creates a distinct manual template for each uploaded valuation source', () => {
     const cityTemplate = buildMarketValueTemplateWorkbook('city-appraised');
     const rows = XLSX.utils.sheet_to_json<unknown[]>(cityTemplate.Sheets['Market Value']!, { header: 1, defval: '' });

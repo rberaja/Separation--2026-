@@ -12,6 +12,7 @@ const canonicalText = (value: string) => value
   .replace(/\bAVENUE\b/g, 'AVE')
   .replace(/\bSTREET\b/g, 'ST')
   .replace(/\bBOULEVARD\b/g, 'BLVD')
+  .replace(/\bCOURT\b/g, 'CT')
   .replace(/\bDRIVE\b/g, 'DR')
   .replace(/\bROAD\b/g, 'RD')
   .replace(/\bNORTH\b/g, 'N')
