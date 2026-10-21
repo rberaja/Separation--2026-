@@ -145,6 +145,11 @@
     @apply border-red text-red hover:bg-red hover:text-white hover:border-red;
   }
 
+  /* Keep the command row stable while switching between Data tabs. */
+  .data-controls-sticky > div.flex > button.tool-btn-primary:first-of-type {
+    @apply w-[17.75rem] justify-center;
+  }
+
   /* Sort toggle buttons */
   .sort-btn {
     @apply inline-flex items-center gap-1 bg-transparent border-[1.5px] border-border rounded-[3px]

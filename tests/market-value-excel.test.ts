@@ -1,8 +1,25 @@
 import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
-import { buildMarketValueExportWorkbook, buildMarketValueTemplateWorkbook } from '../src/lib/market-value-excel';
+import { buildMarketValueExportWorkbook, buildMarketValueTemplateWorkbook, parseMarketValueWorkbook } from '../src/lib/market-value-excel';
+
+function workbookFromRows(rows: unknown[][]) {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), 'Market Value');
+  return XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+}
 
 describe('Market Value workbooks', () => {
+  it('applies the issued report date to rows without a date column', () => {
+    const records = parseMarketValueWorkbook(workbookFromRows([
+      ['Broker Opinion of Value'],
+      ['Report Date: 08/12/2026 11:23 AM'],
+      ['Property', 'Market Value'],
+      ['600 SW 9 AVE', '4,250,000'],
+    ]));
+
+    expect(records).toEqual([expect.objectContaining({ property: '600 SW 9 AVE', asOf: '08/12/2026 11:23 AM' })]);
+  });
+
   it('creates a distinct manual template for each uploaded valuation source', () => {
     const cityTemplate = buildMarketValueTemplateWorkbook('city-appraised');
     const rows = XLSX.utils.sheet_to_json<unknown[]>(cityTemplate.Sheets['Market Value']!, { header: 1, defval: '' });

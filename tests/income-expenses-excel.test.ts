@@ -34,6 +34,7 @@ describe('AppFolio income and expenses import', () => {
   it('extracts column totals from an AppFolio Income Statement - Property Comparison report', () => {
     const records = parseIncomeExpensesWorkbook(workbookFromRows([
       ['Income Statement - Property Comparison'],
+      ['Report Date: 08/12/2026 11:23 AM'],
       ['Date Range: Jun 2025 to May 2026'],
       [],
       ['Account Name', '600 SW 9 AVE', '930 SW 6 St', 'Total'],
@@ -43,8 +44,8 @@ describe('AppFolio income and expenses import', () => {
     ]));
 
     expect(records).toEqual([
-      expect.objectContaining({ property: '600 SW 9 AVE', income: 538923.94, expenses: 217416.60, noi: 321507.34, asOf: 'Jun 2025 to May 2026' }),
-      expect.objectContaining({ property: '930 SW 6 St', income: 916368.31, expenses: 327729.42, noi: 588638.89, asOf: 'Jun 2025 to May 2026' }),
+      expect.objectContaining({ property: '600 SW 9 AVE', income: 538923.94, expenses: 217416.60, noi: 321507.34, reportDate: '08/12/2026 11:23 AM', asOf: 'Jun 2025 to May 2026' }),
+      expect.objectContaining({ property: '930 SW 6 St', income: 916368.31, expenses: 327729.42, noi: 588638.89, reportDate: '08/12/2026 11:23 AM', asOf: 'Jun 2025 to May 2026' }),
     ]);
   });
 });

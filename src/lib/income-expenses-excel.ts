@@ -5,6 +5,9 @@ export type IncomeExpenseRecord = {
   income: number;
   expenses: number;
   noi: number;
+  /** Date the AppFolio report was issued or exported. */
+  reportDate: string;
+  /** Accounting period covered by the income statement. */
   asOf: string;
   source: string;
 };
@@ -24,11 +27,13 @@ const INCOME_HEADERS = ['totalincome', 'income', 'grossincome', 'totalrevenue', 
 const EXPENSE_HEADERS = ['totalexpenses', 'expenses', 'operatingexpenses', 'totaloperatingexpenses', 'expense'];
 const NOI_HEADERS = ['noi', 'netoperatingincome', 'netoperatingincomeloss'];
 
-function reportDate(rows: unknown[][], end: number) {
+function metadataValue(rows: unknown[][], end: number, labels: RegExp) {
   const metadata = rows.slice(0, end).flat().map((value) => String(value ?? '').trim());
-  const line = metadata.find((value) => /^(as\s+of|for\s+the\s+period|report\s+date|exported\s+on|date\s+range)\s*:/i.test(value)) ?? '';
+  const line = metadata.find((value) => labels.test(value)) ?? '';
   return line.replace(/^[^:]+:\s*/, '').trim();
 }
+const reportDate = (rows: unknown[][], end: number) => metadataValue(rows, end, /^(report\s+date|exported\s+on|generated\s+on|printed\s+on)\s*:/i);
+const dateRange = (rows: unknown[][], end: number) => metadataValue(rows, end, /^(date\s+range|for\s+the\s+period)\s*:/i) || metadataValue(rows, end, /^as\s+of\s*:/i);
 
 /** Reads AppFolio's Income Statement - Property Comparison, where each property is a column. */
 function parseAppFolioPropertyComparison(rows: unknown[][], sheetName: string | undefined): IncomeExpenseRecord[] | null {
@@ -40,7 +45,8 @@ function parseAppFolioPropertyComparison(rows: unknown[][], sheetName: string | 
   if (incomeRow < 0 || expensesRow < 0 || noiRow < 0) return null;
 
   const headers = rows[headerRow] ?? [];
-  const asOf = reportDate(rows, headerRow);
+  const asOf = dateRange(rows, headerRow);
+  const issuedOn = reportDate(rows, headerRow);
   const source = `${sheetName ?? 'Report'} rows ${incomeRow + 1}, ${expensesRow + 1}, ${noiRow + 1}`;
   return headers.slice(1).map((header, index) => {
     const column = index + 1;
@@ -49,7 +55,7 @@ function parseAppFolioPropertyComparison(rows: unknown[][], sheetName: string | 
     const income = amount(rows[incomeRow]?.[column]);
     const expenses = amount(rows[expensesRow]?.[column]);
     const reportedNoi = number(rows[noiRow]?.[column]);
-    return { property, income, expenses, noi: Number.isFinite(reportedNoi) ? reportedNoi : income - expenses, asOf, source };
+    return { property, income, expenses, noi: Number.isFinite(reportedNoi) ? reportedNoi : income - expenses, asOf, reportDate: issuedOn, source };
   }).filter((record): record is IncomeExpenseRecord => record !== null);
 }
 
@@ -83,7 +89,8 @@ export function parseIncomeExpensesWorkbook(data: ArrayBuffer): IncomeExpenseRec
   }
 
   const combined = new Map<string, IncomeExpenseRecord>();
-  const asOf = reportDate(rows, headerRow);
+  const asOf = dateRange(rows, headerRow);
+  const issuedOn = reportDate(rows, headerRow);
   for (const [rowIndex, row] of rows.slice(headerRow + 1).entries()) {
     const property = text(row, propertyColumn);
     if (!property || /^total\b/i.test(property)) continue;
@@ -100,6 +107,7 @@ export function parseIncomeExpensesWorkbook(data: ArrayBuffer): IncomeExpenseRec
       expenses: nextExpenses,
       noi: incomeColumn >= 0 && expensesColumn >= 0 ? nextIncome - nextExpenses : (existing?.noi ?? 0) + reportedNoi,
       asOf: existing?.asOf || asOf,
+      reportDate: existing?.reportDate || issuedOn,
       source: existing ? `${existing.source}; ${source}` : source,
     });
   }
