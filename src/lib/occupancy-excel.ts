@@ -18,6 +18,11 @@ const key = (value: unknown) => String(value ?? '').trim().toLowerCase().replace
 const text = (row: unknown[], column: number) => String(row[column] ?? '').trim();
 const amount = (value: unknown) => Math.max(0, Number(String(value ?? '').replace(/[^0-9.-]/g, '')) || 0);
 
+function reportDate(rows: unknown[][], beforeRow: number) {
+  const value = rows.slice(0, beforeRow).flat().map((cell) => String(cell ?? '').trim()).find((cell) => /^(as\s+of|report\s+date|exported\s+on|date\s+range)\s*:/i.test(cell)) ?? '';
+  return value.replace(/^[^:]+:\s*/i, '');
+}
+
 function columnFor(headers: string[], names: string[]) {
   return headers.findIndex((header) => names.includes(header));
 }
@@ -42,6 +47,7 @@ export function parseOccupancyWorkbook(data: ArrayBuffer): OccupancyRecord[] {
   const statusColumn = columnFor(headers, ['status', 'occupancystatus']);
   const asOfColumn = columnFor(headers, ['asof', 'asofdate', 'reportdate', 'date']);
   if (propertyColumn < 0) throw new OccupancyImportError('The rent roll needs a Property or Address column.');
+  const reportAsOf = reportDate(rows, headerRow);
 
   const combined = new Map<string, OccupancyRecord>();
   for (const [rowIndex, row] of rows.slice(headerRow + 1).entries()) {
@@ -57,7 +63,9 @@ export function parseOccupancyWorkbook(data: ArrayBuffer): OccupancyRecord[] {
     existing.units += explicitUnits || (isUnitRow ? 1 : 0);
     existing.occupiedUnits += explicitOccupied || (isUnitRow ? occupiedFromStatus : 0);
     existing.scheduledRent += rentColumn >= 0 ? amount(row[rentColumn]) : 0;
-    if (!existing.asOf && asOfColumn >= 0) existing.asOf = text(row, asOfColumn);
+    const rowAsOf = asOfColumn >= 0 ? text(row, asOfColumn) : '';
+    if (rowAsOf) existing.asOf = rowAsOf;
+    else if (!existing.asOf) existing.asOf = reportAsOf;
     existing.source = existing.source === source ? source : `${existing.source}; ${source}`;
     combined.set(property.toLowerCase(), existing);
   }

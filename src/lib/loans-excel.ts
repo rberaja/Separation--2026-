@@ -75,8 +75,8 @@ export function parseLoansWorkbook(data: ArrayBuffer): LoanRecord[] {
   const nextInterestRateColumn = columnFor(headers, ['nextinterestratedate', 'nextratedate', 'interestrateresetdate', 'nextresetdate']);
   const maturityColumn = columnFor(headers, ['maturitydate', 'maturity', 'duedate']);
   if (propertyColumn < 0) throw new LoansImportError('The loan schedule needs a Property or Address column.');
-  const asOfRow = rows.slice(0, headerRow).flat().map((value) => String(value ?? '').trim()).find((value) => /^as\s+of\s*:/i.test(value)) ?? '';
-  const asOfValue = asOfRow.replace(/^as\s+of\s*:\s*/i, '');
+  const asOfRow = rows.slice(0, headerRow).flat().map((value) => String(value ?? '').trim()).find((value) => /^(as\s+of|report\s+date|exported\s+on|date\s+range)\s*:/i.test(value)) ?? '';
+  const asOfValue = asOfRow.replace(/^[^:]+:\s*/i, '');
   const reportAsOfDate = formatDate(asOfValue);
   const records = rows.slice(headerRow + 1).map((row, rowIndex) => ({
     property: text(row, propertyColumn), lender: lenderColumn >= 0 ? text(row, lenderColumn) : '', loanType: typeColumn >= 0 ? text(row, typeColumn) : '',

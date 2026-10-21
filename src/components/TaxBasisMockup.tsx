@@ -36,11 +36,6 @@ const makeId = (kind: string) => `${kind}-${nextLocalId++}`;
 const reserveIds = (ids: string[]) => { for (const id of ids) { const n = Number(id.split('-').pop()); if (Number.isFinite(n) && n >= nextLocalId) nextLocalId = n + 1; } };
 const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
 const numeric = (value: string) => Math.max(0, Number(value.replace(/[^\d.]/g, '')) || 0);
-const formatReportDate = (value: string) => {
-  const [year, month, day] = value.split('-').map(Number);
-  if (!year || !month || !day) return value;
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day)));
-};
 const totals = (properties: PropertySchedule[]) => ({ basis: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.basis, 0), 0), depreciation: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.annual, 0), 0) });
 const hasMember = (group: DealGroup, property: PropertySchedule) => group.members.some((member) => propertyMatches(member.property, property.property));
 
@@ -122,8 +117,6 @@ export function TaxBasisMockup() {
   const [incomeExpensesCollapsed, setIncomeExpensesCollapsed] = useState<Set<string>>(new Set());
   const [incomeExpensesOutputOpen, setIncomeExpensesOutputOpen] = useState(false);
   const [incomeExpensesSort, setIncomeExpensesSort] = useState<{ key: 'income' | 'expenses' | 'noi'; asc: boolean }>({ key: 'income', asc: false });
-  const [incomeExpensesReportDateOpen, setIncomeExpensesReportDateOpen] = useState(false);
-  const [incomeExpensesReportDate, setIncomeExpensesReportDate] = useState('');
   const returnFileRef = useRef<HTMLInputElement>(null);
   const groupsFileRef = useRef<HTMLInputElement>(null);
   const occupancyFileRef = useRef<HTMLInputElement>(null);
@@ -172,10 +165,7 @@ export function TaxBasisMockup() {
   const updateComponent = (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => setProperties((current) => current.map((property) => property.id === propertyId ? { ...property, schedules: property.schedules.map((component) => component.id === componentId ? { ...component, ...patch } : component) } : property));
   const updateGroup = (id: string, patch: Partial<DealGroup>) => setGroups((current) => current.map((group) => group.id === id ? { ...group, ...patch } : group));
 
-  const handleGroupsFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = '';
-    if (!file) return;
+  const importGroupsFile = async (file: File) => {
     try {
       const { parseGroupsWorkbook } = await import('../lib/groups-excel');
       const imported = parseGroupsWorkbook(await file.arrayBuffer());
@@ -186,11 +176,9 @@ export function TaxBasisMockup() {
       preserveSource('groups', file);
     } catch (error) { setNotice(`Could not read the Groups workbook: ${error instanceof Error ? error.message : String(error)}`); }
   };
+  const handleGroupsFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void importGroupsFile(file); };
 
-  const handleOccupancyFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = '';
-    if (!file) return;
+  const importOccupancyFile = async (file: File) => {
     try {
       const { parseOccupancyWorkbook } = await import('../lib/occupancy-excel');
       const imported = parseOccupancyWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
@@ -200,11 +188,9 @@ export function TaxBasisMockup() {
       preserveSource('occupancy', file);
     } catch (error) { setNotice(`Could not read the rent roll: ${error instanceof Error ? error.message : String(error)}`); }
   };
+  const handleOccupancyFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void importOccupancyFile(file); };
 
-  const handleLoansFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = '';
-    if (!file) return;
+  const importLoansFile = async (file: File) => {
     try {
       const { parseLoansWorkbook } = await import('../lib/loans-excel');
       const imported = parseLoansWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
@@ -214,40 +200,37 @@ export function TaxBasisMockup() {
       preserveSource('loans', file);
     } catch (error) { setNotice(`Could not read the loan schedule: ${error instanceof Error ? error.message : String(error)}`); }
   };
+  const handleLoansFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void importLoansFile(file); };
 
-  const handleCapitalExpensesFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (!file) return;
+  const importCapitalExpensesFile = async (file: File) => {
     try {
       const { parseCapitalExpensesWorkbook } = await import('../lib/capital-expenses-excel'); const imported = parseCapitalExpensesWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
       setCapitalExpenses(imported); preserveSource('capital-expenses', file); setNotice(`Loaded ${imported.length} Capital Expenses items from ${file.name}.`); setActiveTab('capitalExpenses');
     } catch (error) { setNotice(`Could not read the Capital Expenses report: ${error instanceof Error ? error.message : String(error)}`); }
   };
+  const handleCapitalExpensesFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void importCapitalExpensesFile(file); };
   const replaceMarketValues = (kind: MarketValueSource, incoming: MarketValueRecord[]) => {
     setMarketValues((current) => {
       if (current.some((record) => (record.sourceKind ?? 'legacy') === kind) && !window.confirm(`Replace the existing ${kind.replace(/-/g, ' ')} valuation data? Other valuation types will remain.`)) return current;
       return [...current.filter((record) => (record.sourceKind ?? 'legacy') !== kind), ...incoming.map((record) => ({ ...record, id: makeId('market-value'), sourceKind: kind, selected: !current.some((existing) => propertyMatches(existing.property, record.property) && existing.selected) }))];
     });
   };
-  const handleMarketValueFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (!file) return;
+  const importMarketValueFile = async (file: File) => {
     try {
       const { parseMarketValueWorkbook } = await import('../lib/market-value-excel'); const sourceKind = marketValueSourceRef.current; const imported = parseMarketValueWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer()).map((record) => ({ ...record, provider: sourceKind === 'city-appraised' ? 'AppFolio / City assessment' : file.name, valueType: MARKET_SOURCE_LABEL[sourceKind] }));
       replaceMarketValues(marketValueSourceRef.current, imported); preserveSource('market-value', file); setNotice(`Loaded ${imported.length} ${marketValueSourceRef.current.replace(/-/g, ' ')} values from ${file.name}.`); setActiveTab('marketValue');
     } catch (error) { setNotice(`Could not read the Market Value report: ${error instanceof Error ? error.message : String(error)}`); }
   };
-  const beginIncomeExpensesUpload = () => {
-    setIncomeExpensesReportDate('');
-    setIncomeExpensesReportDateOpen(true);
-  };
-  const handleIncomeExpensesFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (!file) return;
+  const handleMarketValueFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void importMarketValueFile(file); };
+  const beginIncomeExpensesUpload = () => incomeExpensesFileRef.current?.click();
+  const importIncomeExpensesFile = async (file: File) => {
     try {
       const { parseIncomeExpensesWorkbook } = await import('../lib/income-expenses-excel');
-      const selectedReportDate = formatReportDate(incomeExpensesReportDate);
-      const imported = parseIncomeExpensesWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer()).map((record) => ({ ...record, asOf: selectedReportDate || record.asOf }));
+      const imported = parseIncomeExpensesWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
       setIncomeExpenses(imported); preserveSource('income-expenses', file); setNotice(`Loaded Income & Expenses for ${imported.length} ${imported.length === 1 ? 'property' : 'properties'} from ${file.name}.`); setActiveTab('incomeExpenses');
     } catch (error) { setNotice(`Could not read the AppFolio Income & Expenses report: ${error instanceof Error ? error.message : String(error)}`); }
   };
+  const handleIncomeExpensesFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void importIncomeExpensesFile(file); };
 
   const importReturns = async (files: File[]) => {
     if (!files.length || isImporting) return;
@@ -293,15 +276,34 @@ export function TaxBasisMockup() {
   };
 
   const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  const isSpreadsheet = (file: File) => /\.(xlsx|xls|csv)$/i.test(file.name) || /(?:spreadsheet|excel|csv)/i.test(file.type);
   const dragHasFiles = (event: DragEvent) => Array.from(event.dataTransfer.types).includes('Files');
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => { if (!dragHasFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dragActive) setDragActive(true); };
   const handleDragLeave = (event: DragEvent<HTMLDivElement>) => { if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget as Node)) return; setDragActive(false); };
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     if (!dragHasFiles(event)) return;
     event.preventDefault(); setDragActive(false);
-    const pdfs = Array.from(event.dataTransfer.files).filter(isPdf);
-    if (!pdfs.length) { setNotice('Drop Form 1065 PDF files to import tax returns.'); return; }
-    void importReturns(pdfs);
+    const files = Array.from(event.dataTransfer.files);
+    if (activeTab === 'data') {
+      const pdfs = files.filter(isPdf);
+      if (!pdfs.length) { setNotice('Drop Form 1065 PDF files to import tax returns.'); return; }
+      void importReturns(pdfs);
+      return;
+    }
+    if (activeTab === 'groups') {
+      const workbook = files.find(isSpreadsheet);
+      if (!workbook) { setNotice('Drop a Groups Excel workbook to import property groups.'); return; }
+      void importGroupsFile(workbook);
+      return;
+    }
+    const report = files.find((file) => isPdf(file) || isSpreadsheet(file));
+    if (!report) { setNotice(`Drop an Excel, CSV, or PDF report for ${DATA_TAB_DETAILS[activeTab].title}.`); return; }
+    if (activeTab === 'occupancy') { void importOccupancyFile(report); return; }
+    if (activeTab === 'loans') { void importLoansFile(report); return; }
+    if (activeTab === 'capitalExpenses') { void importCapitalExpensesFile(report); return; }
+    if (activeTab === 'incomeExpenses') { void importIncomeExpensesFile(report); return; }
+    marketValueSourceRef.current = 'bov';
+    void importMarketValueFile(report);
   };
 
   const exportToPartition = (announce = true) => {
@@ -434,11 +436,20 @@ export function TaxBasisMockup() {
   const toggleIncomeExpensesCollapsed = (property: string) => setIncomeExpensesCollapsed((current) => { const next = new Set(current); const key = propertyKey(property); next.has(key) ? next.delete(key) : next.add(key); return next; });
   const expandAllIncomeExpenses = () => { setIncomeExpensesExpanded(new Set(groups.map((group) => group.id))); setIncomeExpensesCollapsed(new Set()); };
   const collapseAllIncomeExpenses = () => { setIncomeExpensesExpanded(new Set()); setIncomeExpensesCollapsed(new Set(incomeExpensesUngroupedKeys)); };
+  const dropPrompt = ({
+    groups: { title: 'Drop Groups Excel Workbook to Import', detail: 'Excel or CSV · read locally in your browser' },
+    data: { title: 'Drop Tax Return PDFs to Import', detail: 'Form 1065 packages · read locally in your browser' },
+    occupancy: { title: 'Drop Occupancy Report to Import', detail: 'Excel, CSV, or PDF · read locally in your browser' },
+    loans: { title: 'Drop Loan Report to Import', detail: 'Excel, CSV, or PDF · read locally in your browser' },
+    capitalExpenses: { title: 'Drop Capital Expenses Report to Import', detail: 'Excel, CSV, or PDF · read locally in your browser' },
+    incomeExpenses: { title: 'Drop Income & Expenses Report to Import', detail: 'Excel, CSV, or PDF · read locally in your browser' },
+    marketValue: { title: 'Drop Market Value Report to Import', detail: 'Excel, CSV, or PDF · read locally in your browser' },
+  } satisfies Record<Tab, { title: string; detail: string }>)[activeTab];
 
   return <div className="min-h-screen bg-bg text-text relative" onDragOver={handleDragOver} onDragEnter={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
     <div className="data-controls-sticky">
     <DataWorkflowTabs activeTab={activeTab} onSelect={setActiveTab} />
-    {dragActive && <div className="fixed inset-0 z-40 pointer-events-none bg-a/10 flex items-center justify-center p-8" aria-hidden="true"><div className="border-[3px] border-dashed border-a rounded-md bg-surface px-10 py-8 text-center shadow-xl"><div className="font-serif text-[1.4rem] font-bold">Drop tax return PDFs to import</div><div className="mt-1 font-mono text-[.66rem] uppercase tracking-[.07em] text-muted">Form 1065 packages · read locally in your browser</div></div></div>}
+    {dragActive && <div className="fixed inset-0 z-40 pointer-events-none bg-a/10 flex items-center justify-center p-8" aria-hidden="true"><div className="border-[3px] border-dashed border-a rounded-md bg-surface px-10 py-8 text-center shadow-xl"><div className="font-serif text-[1.4rem] font-bold">{dropPrompt.title}</div><div className="mt-1 font-mono text-[.66rem] uppercase tracking-[.07em] text-muted">{dropPrompt.detail}</div></div></div>}
     <header className="flex flex-wrap items-center justify-between gap-3 bg-hdr-bg border-b-[3px] border-a px-7 py-[13px]"><div><h1 className="font-serif text-[1.15rem] font-bold text-hdr-text">Real Estate Partition Tool</h1><div className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-hdr-accent mt-1">Groups · Tax Basis Schedule · Per-Property Depreciation</div></div><div className="flex overflow-hidden rounded bg-hdr-input-bg border border-hdr-input-brd" role="group" aria-label="Theme">{(['light', 'dark'] as const).map((theme) => <button key={theme} type="button" onClick={() => dispatch({ type: 'theme/set', theme })} className={`font-mono text-[0.62rem] tracking-[0.08em] uppercase px-[11px] py-[5px] cursor-pointer ${state.theme === theme ? 'bg-a text-white' : 'text-hdr-muted'}`}>{theme === 'light' ? '☼ Light' : '☾ Dark'}</button>)}</div></header>
     <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5"><input ref={returnFileRef} className="hidden" type="file" accept="application/pdf,.pdf" multiple onChange={(event) => void handleFiles(event)} />{activeTab === 'groups' && <><button type="button" className="tool-btn tool-btn-primary" onClick={() => groupsFileRef.current?.click()}>↑ Upload Groups Excel</button><button type="button" className="tool-btn" onClick={() => void import('../lib/groups-excel').then(({ downloadGroupsTemplate }) => downloadGroupsTemplate())}>⇩ Download Template</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!groups.length && !groupWorkbook?.individualProperties.length} onClick={() => setGroupsOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger" onClick={clearGroups}>▣ Clear All</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span>{([['name', 'Name'], ['zoning', 'Zoning'], ['cert40yr', 'Next 40-Yr Cert']] as const).map(([key, label]) => { const active = groupsSort.key === key; return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => setGroupsSort((current) => current.key === key ? { ...current, asc: !current.asc } : { key, asc: true })}><span>{label}</span><span className="text-[.75rem]">{active && !groupsSort.asc ? '↓' : '↑'}</span></button>; })}</>}{activeTab === 'data' && <><button type="button" className="tool-btn tool-btn-primary disabled:opacity-50" disabled={isImporting} onClick={() => returnFileRef.current?.click()}>{isImporting ? 'Reading tax returns…' : '↑ Upload tax return PDFs'}</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={() => setDataOutputOpen(true)}>▣ Print / Export</button><button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!hasTaxReturnData} onClick={clearTaxReturns}>▣ Clear All</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={expandAll}>▾ Expand</button><button type="button" className="tool-btn disabled:opacity-40" disabled={!properties.length} onClick={collapseAll}>▴ Collapse</button><span className="font-mono uppercase text-[.7rem] tracking-[.06em] text-muted">Sort</span><button type="button" className="sort-btn sort-btn-active" onClick={() => setDataSortAsc((current) => !current)}><span>Name</span><span className="text-[.75rem]">{dataSortAsc ? '↑' : '↓'}</span></button></>}</div>
     {(activeTab === 'occupancy' || activeTab === 'loans' || activeTab === 'capitalExpenses' || activeTab === 'marketValue' || activeTab === 'incomeExpenses') && <div className="flex flex-wrap items-center gap-3 bg-surface border-b border-border px-7 py-2.5">
@@ -476,7 +487,6 @@ export function TaxBasisMockup() {
       <GroupsOutputDialog open={marketValueOutputOpen} hasData={marketValues.length > 0} caption="Market Value output" title="Print or export Market Value" description="Export the property-level Market Value report to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setMarketValueOutputOpen(false)} onExport={() => void exportMarketValueWorkbook()} />
       <MarketUploadChoiceDialog open={marketUploadChoiceOpen} onClose={() => setMarketUploadChoiceOpen(false)} onChoose={(kind) => { marketValueSourceRef.current = kind; setMarketUploadChoiceOpen(false); marketValueFileRef.current?.click(); }} />
       <MarketUploadChoiceDialog open={marketTemplateChoiceOpen} mode="template" onClose={() => setMarketTemplateChoiceOpen(false)} onChoose={(kind) => { setMarketTemplateChoiceOpen(false); void import('../lib/market-value-excel').then(({ downloadMarketValueTemplate }) => downloadMarketValueTemplate(kind)); }} />
-      <IncomeExpensesReportDateDialog open={incomeExpensesReportDateOpen} value={incomeExpensesReportDate} onChange={setIncomeExpensesReportDate} onClose={() => setIncomeExpensesReportDateOpen(false)} onContinue={() => { setIncomeExpensesReportDateOpen(false); incomeExpensesFileRef.current?.click(); }} />
       <GroupsOutputDialog open={incomeExpensesOutputOpen} hasData={incomeExpenses.length > 0} caption="Income & Expenses output" title="Print or export Income & Expenses" description="Export the property-level Income, Expenses, and NOI report to Excel, or open your browser print dialog to save this page as a PDF." onClose={() => setIncomeExpensesOutputOpen(false)} onExport={() => void exportIncomeExpensesWorkbook()} />
     </main>
   </div>;
@@ -621,7 +631,8 @@ function OccupancyGroupCard({ group, records, expanded, onToggle }: { group: Dea
 
 function OccupancyPropertyCard({ record, nested = false, collapsed = false, onToggle }: { record: OccupancyRecord; nested?: boolean; collapsed?: boolean; onToggle?: () => void }) {
   const percent = record.units ? Math.round((record.occupiedUnits / record.units) * 100) : 0;
-  return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="bg-surface2 border-b border-border"><button type="button" className={`w-full px-4 py-3 flex flex-wrap justify-between gap-3 items-center text-left ${onToggle ? 'cursor-pointer hover:bg-bg' : ''}`} onClick={onToggle}><div><div className="font-serif text-[1.08rem] font-bold">{record.property}</div><div className="caption text-[.56rem] mt-1">Rent-roll property</div></div><div className="flex gap-6 text-right items-center"><Metric label="Occupancy" value={`${percent}%`} /><Metric label="Occupied / units" value={`${record.occupiedUnits} / ${record.units}`} /><Metric label="Scheduled rent" value={money(record.scheduledRent)} />{onToggle && <span className="font-mono text-[.62rem] text-muted self-center">{collapsed ? '▾ Expand' : '▴ Collapse'}</span>}</div></button></header>{!collapsed && <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 py-3 text-[.75rem]"><Detail label="Units" value={String(record.units)} /><Detail label="Occupied units" value={String(record.occupiedUnits)} /><Detail label="As of" value={record.asOf || '—'} /></div>}</article>;
+  const detail = `Rent-roll property · Report date: ${record.asOf || 'Not reported'}`;
+  return <article className={`card overflow-hidden ${nested ? 'shadow-none' : ''}`}><header className="bg-surface2 border-b border-border"><button type="button" className={`w-full px-4 py-3 flex flex-wrap justify-between gap-3 items-center text-left ${onToggle ? 'cursor-pointer hover:bg-bg' : ''}`} onClick={onToggle}><div><div className="font-serif text-[1.08rem] font-bold">{record.property}</div><div className="caption text-[.56rem] mt-1">{detail}</div></div><div className="flex gap-6 text-right items-center"><Metric label="Occupancy" value={`${percent}%`} /><Metric label="Occupied / units" value={`${record.occupiedUnits} / ${record.units}`} /><Metric label="Scheduled rent" value={money(record.scheduledRent)} />{onToggle && <span className="font-mono text-[.62rem] text-muted self-center">{collapsed ? '▾ Expand' : '▴ Collapse'}</span>}</div></button></header>{!collapsed && <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 py-3 text-[.75rem]"><Detail label="Units" value={String(record.units)} /><Detail label="Occupied units" value={String(record.occupiedUnits)} /><Detail label="Report date" value={record.asOf || 'Not reported'} /></div>}</article>;
 }
 
 type LoanProperty = { property: string; loans: LoanRecord[]; outstandingBalance: number; monthlyDebtService: number };
@@ -645,7 +656,9 @@ function LoansGroupCard({ group, properties, expanded, onToggle }: { group: Deal
 
 function LoanPropertyCard({ property, nested = false, collapsed = false, onToggle }: { property: LoanProperty; nested?: boolean; collapsed?: boolean; onToggle?: () => void }) {
   const cardClass = 'card overflow-hidden' + (nested ? ' shadow-none' : '');
-  return <article className={cardClass}><header className="bg-surface2 border-b border-border"><button type="button" onClick={onToggle} className={'w-full px-4 py-3 flex flex-wrap justify-between gap-3 items-center text-left ' + (onToggle ? 'cursor-pointer hover:bg-bg' : '')}><div><div className="font-serif text-[1.08rem] font-bold">{property.property}</div><div className="caption text-[.56rem] mt-1">{property.loans.length} {property.loans.length === 1 ? 'loan' : 'loans'}</div></div><div className="flex gap-6 text-right items-center"><Metric label="Outstanding balance" value={money(property.outstandingBalance)} /><Metric label="Monthly debt service" value={money(property.monthlyDebtService)} />{onToggle && <span className="font-mono text-[.62rem] text-muted self-center">{collapsed ? '▾ Expand' : '▴ Collapse'}</span>}</div></button></header>{!collapsed && <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Lender</th><th className="text-left px-3 py-2.5">Loan type</th><th className="text-right px-3 py-2.5">Interest rate</th><th className="text-right px-3 py-2.5">Outstanding balance</th><th className="text-right px-3 py-2.5">Monthly P&I</th><th className="text-right px-3 py-2.5">Next rate date</th><th className="text-right px-4 py-2.5">Maturity</th></tr></thead><tbody>{property.loans.map((loan, index) => <tr key={loan.lender + '-' + index} className="border-b last:border-b-0 border-border"><td className="px-4 py-2.5 font-semibold">{loan.lender || '—'}</td><td className="px-3 py-2.5">{loan.loanType || '—'}</td><td className="px-3 py-2.5 text-right font-mono">{typeof loan.interestRate === 'number' ? loan.interestRate.toFixed(2) + '%' : '—'}</td><td className="px-3 py-2.5 text-right font-mono font-bold text-a">{money(loan.outstandingBalance)}</td><td className="px-3 py-2.5 text-right font-mono">{money(loan.monthlyDebtService)}</td><td className="px-3 py-2.5 text-right">{loan.nextInterestRateDate || '—'}</td><td className="px-4 py-2.5 text-right">{loan.maturityDate || '—'}</td></tr>)}</tbody></table></div>}</article>;
+  const dates = [...new Set(property.loans.map((loan) => loan.reportAsOfDate).filter(Boolean))];
+  const detail = `${property.loans.length} ${property.loans.length === 1 ? 'loan' : 'loans'} · Report date: ${dates.join(', ') || 'Not reported'}`;
+  return <article className={cardClass}><header className="bg-surface2 border-b border-border"><button type="button" onClick={onToggle} className={'w-full px-4 py-3 flex flex-wrap justify-between gap-3 items-center text-left ' + (onToggle ? 'cursor-pointer hover:bg-bg' : '')}><div><div className="font-serif text-[1.08rem] font-bold">{property.property}</div><div className="caption text-[.56rem] mt-1">{detail}</div></div><div className="flex gap-6 text-right items-center"><Metric label="Outstanding balance" value={money(property.outstandingBalance)} /><Metric label="Monthly debt service" value={money(property.monthlyDebtService)} />{onToggle && <span className="font-mono text-[.62rem] text-muted self-center">{collapsed ? '▾ Expand' : '▴ Collapse'}</span>}</div></button></header>{!collapsed && <div className="overflow-x-auto"><table className="w-full min-w-[860px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Lender</th><th className="text-left px-3 py-2.5">Loan type</th><th className="text-right px-3 py-2.5">Interest rate</th><th className="text-right px-3 py-2.5">Outstanding balance</th><th className="text-right px-3 py-2.5">Monthly P&I</th><th className="text-right px-3 py-2.5">Next rate date</th><th className="text-right px-4 py-2.5">Maturity</th></tr></thead><tbody>{property.loans.map((loan, index) => <tr key={loan.lender + '-' + index} className="border-b last:border-b-0 border-border"><td className="px-4 py-2.5 font-semibold">{loan.lender || '—'}</td><td className="px-3 py-2.5">{loan.loanType || '—'}</td><td className="px-3 py-2.5 text-right font-mono">{typeof loan.interestRate === 'number' ? loan.interestRate.toFixed(2) + '%' : '—'}</td><td className="px-3 py-2.5 text-right font-mono font-bold text-a">{money(loan.outstandingBalance)}</td><td className="px-3 py-2.5 text-right font-mono">{money(loan.monthlyDebtService)}</td><td className="px-3 py-2.5 text-right">{loan.nextInterestRateDate || '—'}</td><td className="px-4 py-2.5 text-right">{loan.maturityDate || '—'}</td></tr>)}</tbody></table></div>}</article>;
 }
 
 type CapexProperty = { property: string; records: CapitalExpenseRecord[]; approximateCost: number };
@@ -659,10 +672,6 @@ function CapitalExpensesTabView({ records, groups, expandedGroups, collapsedProp
 }
 
 function MarketUploadChoiceDialog({ open, mode = 'upload', onClose, onChoose }: { open: boolean; mode?: 'upload' | 'template'; onClose: () => void; onChoose: (kind: 'bov' | 'city-appraised' | 'comps') => void }) { if (!open) return null; const template = mode === 'template'; return <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-5"><section className="card w-full max-w-md p-6 shadow-xl" role="dialog" aria-modal="true"><div className="flex justify-between gap-4"><div><div className="caption text-[.61rem]">Market Value {template ? 'manual template' : 'upload'}</div><h2 className="font-serif text-[1.35rem] font-bold mt-1">Select {template ? 'template' : 'report'} type</h2></div><button type="button" className="font-mono text-muted" onClick={onClose}>Close</button></div><p className="mt-3 text-[.8rem] text-muted">{template ? 'Choose the valuation section to download its Excel template.' : 'Choose the report type before selecting its Excel table. Re-uploading the same type asks before replacing its earlier values.'}</p><div className="mt-5 flex flex-wrap gap-2"><button type="button" className="tool-btn tool-btn-primary" onClick={() => onChoose('bov')}>Broker&apos;s Opinion of Value</button><button type="button" className="tool-btn" onClick={() => onChoose('city-appraised')}>City Assessed Value</button><button type="button" className="tool-btn" onClick={() => onChoose('comps')}>Comparable Sales</button></div></section></div>; }
-function IncomeExpensesReportDateDialog({ open, value, onChange, onClose, onContinue }: { open: boolean; value: string; onChange: (value: string) => void; onClose: () => void; onContinue: () => void }) {
-  if (!open) return null;
-  return <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-5"><section className="card w-full max-w-md p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="income-report-date-title"><div className="flex justify-between gap-4"><div><div className="caption text-[.61rem]">AppFolio T12 report</div><h2 id="income-report-date-title" className="font-serif text-[1.35rem] font-bold mt-1">Enter Report Date</h2></div><button type="button" className="font-mono text-muted hover:text-text cursor-pointer" onClick={onClose}>Close</button></div><p className="mt-3 text-[.8rem] text-muted">This date will be shown on every property line and retained with the uploaded Income &amp; Expenses report.</p><label className="block mt-5"><span className="caption text-[.61rem]">Report Date</span><input type="date" value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 block w-full rounded border border-border bg-bg px-3 py-2 font-mono text-[.8rem] text-text" autoFocus /></label><div className="mt-5 flex justify-end gap-2"><button type="button" className="tool-btn" onClick={onClose}>Cancel</button><button type="button" className="tool-btn tool-btn-primary disabled:opacity-40" disabled={!value} onClick={onContinue}>Continue to Upload</button></div></section></div>;
-}
 
 function CapitalExpensesGroupCard({ group, properties, expanded, onToggle }: { group: DealGroup; properties: CapexProperty[]; expanded: boolean; onToggle: () => void }) {
   const total = properties.reduce((sum, property) => sum + property.approximateCost, 0);
@@ -671,7 +680,8 @@ function CapitalExpensesGroupCard({ group, properties, expanded, onToggle }: { g
 }
 function CapitalExpensesPropertyCard({ property, displayName = property.property, nested = false, collapsed = false, onToggle }: { property: CapexProperty; displayName?: string; nested?: boolean; collapsed?: boolean; onToggle?: () => void }) {
   const cardClass = 'card overflow-hidden' + (nested ? ' shadow-none' : '');
-  const detail = property.records.length + ' Capital Expenses item' + (property.records.length === 1 ? '' : 's') + (displayName !== property.property ? ' · AppFolio: ' + property.property : '');
+  const dates = [...new Set(property.records.map((record) => record.asOf).filter(Boolean))];
+  const detail = property.records.length + ' Capital Expenses item' + (property.records.length === 1 ? '' : 's') + ' · Report date: ' + (dates.join(', ') || 'Not reported') + (displayName !== property.property ? ' · AppFolio: ' + property.property : '');
   return <article className={cardClass}><header className="bg-surface2 border-b border-border"><button type="button" onClick={onToggle} className={'w-full px-4 py-3 flex flex-wrap justify-between gap-3 items-center text-left ' + (onToggle ? 'cursor-pointer hover:bg-bg' : '')}><div><div className="font-serif text-[1.08rem] font-bold">{displayName}</div><div className="caption text-[.56rem] mt-1">{detail}</div></div><div className="flex gap-6 text-right items-center"><Metric label="Approximate cost" value={money(property.approximateCost)} />{onToggle && <span className="font-mono text-[.62rem] text-muted self-center">{collapsed ? '▾ Expand' : '▴ Collapse'}</span>}</div></button></header>{!collapsed && <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Need / Description</th><th className="text-left px-3 py-2.5">Category</th><th className="text-left px-3 py-2.5">Status</th><th className="text-right px-3 py-2.5">Approx. cost</th><th className="text-right px-4 py-2.5">As of / source</th></tr></thead><tbody>{property.records.map((record, index) => <tr key={record.need + '-' + index} className="border-b last:border-b-0 border-border"><td className="px-4 py-2.5 font-semibold">{record.need || '—'}</td><td className="px-3 py-2.5">{record.category || '—'}</td><td className="px-3 py-2.5">{record.status || '—'}</td><td className="px-3 py-2.5 text-right font-mono font-bold text-a">{money(record.approximateCost)}</td><td className="px-4 py-2.5 text-right text-muted">{[record.asOf, record.source].filter(Boolean).join(' · ') || '—'}</td></tr>)}</tbody></table></div>}</article>;
 }
 function MissingCapitalExpensesPropertyCard({ member }: { member: GroupMember }) { return <article className="card border border-dashed border-border bg-surface px-4 py-3"><div className="font-serif text-[1.08rem] font-bold">{member.property}</div><WorkbookPropertyDetails member={member} /><div className="mt-2 font-mono text-[.61rem] text-muted">No Capital Expenses item was found for this grouped property in the uploaded report.</div></article>; }
@@ -731,7 +741,7 @@ function MarketValueWorkspace({ records, incomeRecords, groups, individualProper
   const ungroupedProperties = propertyNames.filter((property) => !groups.some((group) => group.members.some((member) => propertyMatches(member.property, property)))).sort(compareProperties);
 
   return <section>
-    <div className="mb-5"><div className="caption text-[.66rem] mb-1">Step 7 · Valuation report</div><h2 className="font-serif text-[1.55rem] font-bold">Market Value</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Upload Broker&apos;s Opinion of Value, City Assessed Value, or Comparable Sales reports from the toolbar. Appraisal, Income Model, and Construction / Land Value Model are entered within each property card.</p></div>
+    <div className="mb-5"><div className="caption text-[.66rem] mb-1">Step 7 · Valuation report</div><h2 className="font-serif text-[1.55rem] font-bold">Market Value</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Upload Broker&apos;s Opinion of Value or City Assessed Value reports from the toolbar. Comparable Sales, Appraisal, Income Model, and Construction / Land Value Model can be entered or edited within each property card.</p></div>
     <div className="note mb-5">Re-uploading a report type asks before it replaces that same type. All other valuation sources remain available until replaced or cleared.</div>
     <div className="flex flex-col gap-5">{sortedGroups.map((group) => <MarketValueSelectionGroupCard key={group.id} group={group} expanded={expandedGroups.has(group.id)} total={groupTotal(group)} onToggle={() => onToggleGroup(group.id)}>{[...group.members].sort((left, right) => compareProperties(left.property, right.property)).map((member) => <MarketValueProgrammedPropertyCard key={propertyKey(member.property)} property={member.property} records={recordsFor(member.property)} noi={noiFor(member.property)} onAdd={onAdd} onSelect={onSelect} />)}</MarketValueSelectionGroupCard>)}{ungroupedProperties.map((property) => <MarketValueSelectionPropertyCard key={propertyKey(property)} property={property} total={selectedValueFor(property)} expanded={expandedGroups.has(marketValuePropertyExpansionId(property))} onToggle={() => onToggleGroup(marketValuePropertyExpansionId(property))}><MarketValueProgrammedPropertyCard property={property} records={recordsFor(property)} noi={noiFor(property)} onAdd={onAdd} onSelect={onSelect} /></MarketValueSelectionPropertyCard>)}</div>
     {!propertyNames.length && <div className="note">Set up deal groups or upload a Market Value report to begin.</div>}
@@ -749,11 +759,11 @@ function MarketValueProgrammedPropertyCard({ property, records, noi, onAdd, onSe
   const [applied, setApplied] = useState(false);
   const recordFor = (kind: MarketValueSource) => records.find((record) => (record.sourceKind ?? 'legacy') === kind) ?? (kind === 'bov' ? records.find((record) => (record.sourceKind ?? 'legacy') === 'legacy') : undefined);
   const selected = records.find((record) => record.selected) ?? records[0];
-  const openEditor = (kind: 'appraisal' | 'income-model' | 'construction-land') => {
+  const openEditor = (kind: 'comps' | 'appraisal' | 'income-model' | 'construction-land') => {
     const record = recordFor(kind);
     setApplied(false); setEditing(kind); setProvider(record?.provider ?? (kind === 'income-model' ? 'Partition Tool' : '')); setAsOf(record?.asOf ?? new Date().toISOString().slice(0, 10)); setReference(record?.source ?? ''); setAmount(record?.marketValue ? String(record.marketValue) : ''); setCapRate(record?.capRate ? String(record.capRate) : '6.00');
   };
-  const saveEditor = (kind: 'appraisal' | 'income-model' | 'construction-land') => {
+  const saveEditor = (kind: 'comps' | 'appraisal' | 'income-model' | 'construction-land') => {
     const rate = Number(capRate);
     const marketValue = kind === 'income-model' ? (noi && rate > 0 ? noi / (rate / 100) : 0) : Number(amount.replace(/[^0-9.]/g, ''));
     if (!marketValue) return;
@@ -762,7 +772,7 @@ function MarketValueProgrammedPropertyCard({ property, records, noi, onAdd, onSe
   };
   return <article className="card overflow-hidden border-l-[4px] border-l-a">
     <header className="px-4 py-3 bg-surface2 border-b border-border flex flex-wrap justify-between gap-4 items-start"><div><div className="font-serif text-[1.15rem] font-bold">{property}</div><div className="caption text-[.58rem] mt-1">Multiple market-value opinions for one property</div></div><div className="text-right"><div className="caption text-[.56rem]">Selected for Partition</div><div className="font-mono font-bold text-a text-[1.05rem] mt-1">{money(selected?.marketValue ?? 0)}</div><div className="font-mono text-[.56rem] text-muted mt-1">{selected ? `${selected.valueType || MARKET_SOURCE_LABEL[selected.sourceKind ?? 'legacy']} · ${selected.asOf || 'No date'}` : 'No value selected'}</div><button type="button" className="tool-btn tool-btn-primary text-[.6rem] mt-2 disabled:opacity-40" disabled={!selected} onClick={() => setApplied(true)}>Use selected value in Partition</button>{applied && <div className="font-mono text-[.58rem] text-a mt-1">Selected value is ready for the Partition Tool.</div>}</div></header>
-    <div className="overflow-x-auto"><table className="w-full min-w-[1060px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="w-16 px-3 py-2.5 text-left">Edit</th><th className="px-3 py-2.5 text-left">Valuation method</th><th className="px-3 py-2.5 text-left">Prepared by</th><th className="px-3 py-2.5 text-left">As of</th><th className="px-3 py-2.5 text-left">Reference / calculation</th><th className="px-4 py-2.5 text-right">Market Value</th><th className="w-14 px-4 py-2.5 text-center">Use</th></tr></thead><tbody>{MARKET_VALUE_ROW_ORDER.map((kind) => { const record = recordFor(kind); const editable = kind === 'appraisal' || kind === 'income-model' || kind === 'construction-land'; const isEditing = editing === kind; const isManual = kind === 'appraisal' || kind === 'construction-land'; const selectedRow = Boolean(record?.selected); const value = kind === 'income-model' && isEditing && noi && Number(capRate) > 0 ? noi / (Number(capRate) / 100) : record?.marketValue; return <tr key={kind} className={`border-b last:border-b-0 border-border ${selectedRow ? 'bg-a/10' : ''}`}><td className="px-3 py-3">{editable ? isEditing ? <div className="flex gap-1"><button type="button" className="font-mono text-[.6rem] text-a hover:underline" onClick={() => saveEditor(kind)}>Save</button><button type="button" className="font-mono text-[.6rem] text-muted hover:underline" onClick={() => setEditing(null)}>Cancel</button></div> : <button type="button" className="font-mono text-[.6rem] text-a hover:underline" onClick={() => openEditor(kind)}>Edit</button> : <span className="text-muted">—</span>}</td><td className="px-3 py-3 font-semibold">{record?.valueType || MARKET_SOURCE_LABEL[kind]}</td><td className="px-3 py-3">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} prepared by`} value={provider} onChange={(event) => setProvider(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.provider || (kind === 'income-model' ? 'Partition Tool' : '—')}</td><td className="px-3 py-3 font-mono">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} as of`} type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.asOf || '—'}</td><td className="px-3 py-3 text-muted">{kind === 'income-model' && isEditing ? <label className="flex items-center gap-1.5">Cap rate <input aria-label="Income Model cap rate" value={capRate} onChange={(event) => setCapRate(event.target.value)} inputMode="decimal" className="w-16 border border-border rounded bg-surface px-1.5 py-0.5 text-right font-mono text-[.7rem]" />% × {money(noi ?? 0)} NOI</label> : isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} reference`} value={reference} onChange={(event) => setReference(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.source || (kind === 'income-model' && noi !== undefined ? `Enter a cap rate using Edit · NOI ${money(noi)}` : '—')}</td><td className="px-4 py-3 text-right font-mono font-bold text-a">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} market value`} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" className="w-28 border border-border rounded bg-surface px-2 py-1 text-right" /> : value === undefined ? '—' : money(value)}</td><td className="px-4 py-3 text-center">{record ? <input type="radio" name={`market-value-${propertyKey(property)}`} checked={selectedRow} onChange={() => { onSelect(record); setApplied(false); }} className="accent-[var(--a)] cursor-pointer" aria-label={`Use ${record.valueType || MARKET_SOURCE_LABEL[kind]}`} /> : <span className="text-muted">—</span>}</td></tr>; })}</tbody></table></div>
+    <div className="overflow-x-auto"><table className="w-full min-w-[1060px] text-[.73rem]"><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="w-16 px-3 py-2.5 text-left">Edit</th><th className="px-3 py-2.5 text-left">Valuation method</th><th className="px-3 py-2.5 text-left">Prepared by</th><th className="px-3 py-2.5 text-left">As of</th><th className="px-3 py-2.5 text-left">Reference / calculation</th><th className="px-4 py-2.5 text-right">Market Value</th><th className="w-14 px-4 py-2.5 text-center">Use</th></tr></thead><tbody>{MARKET_VALUE_ROW_ORDER.map((kind) => { const record = recordFor(kind); const editable = kind === 'comps' || kind === 'appraisal' || kind === 'income-model' || kind === 'construction-land'; const isEditing = editing === kind; const isManual = kind === 'comps' || kind === 'appraisal' || kind === 'construction-land'; const selectedRow = Boolean(record?.selected); const value = kind === 'income-model' && isEditing && noi && Number(capRate) > 0 ? noi / (Number(capRate) / 100) : record?.marketValue; return <tr key={kind} className={`border-b last:border-b-0 border-border ${selectedRow ? 'bg-a/10' : ''}`}><td className="px-3 py-3">{editable ? isEditing ? <div className="flex gap-1"><button type="button" className="font-mono text-[.6rem] text-a hover:underline" onClick={() => saveEditor(kind)}>Save</button><button type="button" className="font-mono text-[.6rem] text-muted hover:underline" onClick={() => setEditing(null)}>Cancel</button></div> : <button type="button" className="font-mono text-[.6rem] text-a hover:underline" onClick={() => openEditor(kind)}>Edit</button> : <span className="text-muted">—</span>}</td><td className="px-3 py-3 font-semibold">{record?.valueType || MARKET_SOURCE_LABEL[kind]}</td><td className="px-3 py-3">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} prepared by`} value={provider} onChange={(event) => setProvider(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.provider || (kind === 'income-model' ? 'Partition Tool' : '—')}</td><td className="px-3 py-3 font-mono">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} as of`} type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.asOf || '—'}</td><td className="px-3 py-3 text-muted">{kind === 'income-model' && isEditing ? <label className="flex items-center gap-1.5">Cap rate <input aria-label="Income Model cap rate" value={capRate} onChange={(event) => setCapRate(event.target.value)} inputMode="decimal" className="w-16 border border-border rounded bg-surface px-1.5 py-0.5 text-right font-mono text-[.7rem]" />% × {money(noi ?? 0)} NOI</label> : isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} reference`} value={reference} onChange={(event) => setReference(event.target.value)} className="w-full border border-border rounded bg-surface px-2 py-1" /> : record?.source || (kind === 'income-model' && noi !== undefined ? `Enter a cap rate using Edit · NOI ${money(noi)}` : '—')}</td><td className="px-4 py-3 text-right font-mono font-bold text-a">{isManual && isEditing ? <input aria-label={`${MARKET_SOURCE_LABEL[kind]} market value`} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" className="w-28 border border-border rounded bg-surface px-2 py-1 text-right" /> : value === undefined ? '—' : money(value)}</td><td className="px-4 py-3 text-center">{record ? <input type="radio" name={`market-value-${propertyKey(property)}`} checked={selectedRow} onChange={() => { onSelect(record); setApplied(false); }} className="accent-[var(--a)] cursor-pointer" aria-label={`Use ${record.valueType || MARKET_SOURCE_LABEL[kind]}`} /> : <span className="text-muted">—</span>}</td></tr>; })}</tbody></table></div>
     <footer className="px-4 py-3 bg-bg border-t border-border"><p className="text-[.72rem] text-muted">The selected row becomes this property&apos;s Market Value in the Partition Tool, with its provider and date retained as traceability.</p></footer>
   </article>;
 }
@@ -873,7 +883,7 @@ function IncomeExpensesGroupCard({ group, records, expanded, onToggle }: { group
 
 function IncomeExpensesPropertyCard({ record, displayName = record.property, nested = false, collapsed = false, onToggle }: { record: IncomeExpenseRecord; displayName?: string; nested?: boolean; collapsed?: boolean; onToggle?: () => void }) {
   const cardClass = 'card overflow-hidden' + (nested ? ' shadow-none' : '');
-  const detail = record.asOf ? 'Report date: ' + record.asOf + (record.source ? ' · ' + record.source : '') : (record.source || 'AppFolio T12 report');
+  const detail = 'Report date: ' + (record.asOf || 'Not reported') + (record.source ? ' · ' + record.source : '');
   const propertyDetail = displayName !== record.property ? ' · AppFolio: ' + record.property : '';
   return <article className={cardClass}><header className="bg-surface2 border-b border-border"><button type="button" onClick={onToggle} className={'w-full px-4 py-3 flex flex-wrap justify-between gap-3 items-center text-left ' + (onToggle ? 'cursor-pointer hover:bg-bg' : '')}><div><div className="font-serif text-[1.08rem] font-bold">{displayName}</div><div className="caption text-[.56rem] mt-1">{detail + propertyDetail}</div></div><div className="flex gap-6 text-right items-center"><IncomeExpenseMetrics total={record} />{onToggle && <span className="font-mono text-[.62rem] text-muted self-center">{collapsed ? '▾ Expand' : '▴ Collapse'}</span>}</div></button></header>{!collapsed && onToggle && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 py-3 text-[.75rem]"><Detail label="Report date" value={record.asOf || '—'} /><Detail label="Source" value={record.source || 'AppFolio T12 report'} /></div>}</article>;
 }
