@@ -294,6 +294,11 @@
   display: none;
 }
 
+/* Depreciation is reported for the year detected in the uploaded tax return. */
+.data-embedded section:has(> div > div > h2) > div > label {
+  display: none;
+}
+
 @media print {
   @page {
     size: letter landscape;

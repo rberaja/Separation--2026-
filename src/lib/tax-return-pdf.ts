@@ -1,7 +1,7 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
 
-GlobalWorkerOptions.workerSrc = workerUrl;
+if (typeof window !== 'undefined') GlobalWorkerOptions.workerSrc = workerUrl;
 
 /** The tax return shows the recovery method; it does not by itself prove a formal cost-segregation study. */
 export type ExtractedMethod = 'MACRS / accelerated' | 'Straight-line';
@@ -35,6 +35,7 @@ export interface ExtractionProgress {
 export interface TaxReturnExtraction {
   schedules: ExtractedPropertySchedule[];
   sourceFiles: string[];
+  taxYears: number[];
   warnings: string[];
 }
 
@@ -71,6 +72,11 @@ const rowsFrom = (items: PositionedText[]) => {
 };
 
 const cleanName = (text: string) => text.replace(/\s+/g, ' ').replace(/\s+PAGE\s+\d+.*$/i, '').trim();
+const taxYearFrom = (text: string) => {
+  const match = text.match(/(?:calendar|tax)\s+year\D{0,12}(20\d{2})|\b(20\d{2})\s+Form\s+1065\b/i);
+  const year = Number(match?.[1] ?? match?.[2]);
+  return year >= 2000 && year <= 2100 ? year : undefined;
+};
 
 function parseDepreciationPage(items: PositionedText[]): { property?: string; entity?: string; assets: ParsedAsset[] } {
   const rows = rowsFrom(items);
@@ -123,6 +129,54 @@ function parseDepreciationPage(items: PositionedText[]): { property?: string; en
   return { property, entity, assets };
 }
 
+/**
+ * Drake Accounting's Federal Asset Report uses different headings and columns
+ * from the older accountant's "Depreciation Detail Listing." Each report page
+ * names one property, then lists its assets with original cost, prior
+ * depreciation, current-year depreciation, recovery period, and method.
+ */
+function parseFederalAssetReportPage(items: PositionedText[]): { property?: string; entity?: string; assets: ParsedAsset[] } {
+  const rows = rowsFrom(items);
+  const reportIndex = rows.findIndex(({ row }) => textAt(row, 180, 380).includes('Federal Asset Report'));
+  if (reportIndex < 0) return { assets: [] };
+
+  const reportRow = rows[reportIndex];
+  const propertyRow = rows
+    .filter(({ y }) => y < reportRow.y && y >= reportRow.y - 35)
+    .sort((left, right) => right.y - left.y)[0];
+  const property = propertyRow ? cleanName(textAt(propertyRow.row, 180, 610)) : '';
+  const entity = cleanName(textAt(reportRow.row, 0, 195));
+  const assets: ParsedAsset[] = [];
+
+  for (const { row } of rows) {
+    const description = textAt(row, 30, 195);
+    const inService = textAt(row, 195, 245);
+    const cost = numberFrom(textAt(row, 245, 340));
+    const recoveryLife = textAt(row, 408, 426);
+    const methodText = textAt(row, 426, 480);
+    const priorDepreciation = numberFrom(textAt(row, 480, 528));
+    const currentDepreciation = numberFrom(textAt(row, 528, 590));
+
+    if (!/^\d+$/.test(textAt(row, 10, 35)) || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(inService) || !cost || /\bLAND\b/i.test(`${description} ${methodText}`)) continue;
+
+    const method: ExtractedMethod = /S\/?L/i.test(methodText) ? 'Straight-line' : 'MACRS / accelerated';
+    const remainingBasis = Math.max(0, cost - priorDepreciation);
+    if (!remainingBasis && !currentDepreciation) continue;
+
+    assets.push({
+      key: `${recoveryLife || 'other'}:${method}`,
+      label: recoveryLife ? `${recoveryLife}-year ${method === 'Straight-line' ? 'straight-line' : 'accelerated'} property` : 'Other depreciable property',
+      method,
+      basis: remainingBasis,
+      recoveryPeriod: recoveryLife ? `${recoveryLife} yrs` : 'See return',
+      yearsLeft: estimateYearsLeft(remainingBasis, currentDepreciation, recoveryLife ? `${recoveryLife} yrs` : 'See return'),
+      annual: currentDepreciation,
+    });
+  }
+
+  return { property, entity, assets };
+}
+
 function combineAssets(assets: ParsedAsset[]): ExtractedComponent[] {
   const combined = new Map<string, ExtractedComponent>();
   for (const asset of assets) {
@@ -146,9 +200,12 @@ export async function extractTaxReturnSchedules(files: File[], onProgress?: (pro
     .map((file, index) => ({ file, index }))
     .sort((left, right) => (left.file.lastModified - right.file.lastModified) || (left.index - right.index));
   const schedules = new Map<string, { property: string; entity: string; source: string; sourceModifiedAt: number; assets: ParsedAsset[] }>();
+  const taxYears = new Set<number>();
   const warnings: string[] = [];
 
   for (const [fileIndex, { file }] of orderedFiles.entries()) {
+    const fileTaxYear = taxYearFrom(file.name);
+    if (fileTaxYear) taxYears.add(fileTaxYear);
     const schedulesInFile = new Map<string, { property: string; entity: string; source: string; sourceModifiedAt: number; assets: ParsedAsset[] }>();
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await getDocument({ data }).promise;
@@ -165,11 +222,15 @@ export async function extractTaxReturnSchedules(files: File[], onProgress?: (pro
         .filter((item): item is typeof item & { str: string; transform: number[] } => 'str' in item && 'transform' in item)
         .map((item) => ({ x: item.transform[4], y: item.transform[5], text: item.str }));
       const pageText = items.map((item) => item.text).join(' ');
+      const pageTaxYear = taxYearFrom(pageText);
+      if (pageTaxYear) taxYears.add(pageTaxYear);
       if (/Form\s*4562/i.test(pageText)) form4562Pages += 1;
-      if (!/Depreciation Detail Listing/i.test(pageText) || !/FORM\s*8825/i.test(pageText)) continue;
+      const isLegacyDetail = /Depreciation Detail Listing/i.test(pageText) && /FORM\s*8825/i.test(pageText);
+      const isFederalAssetReport = /Federal Asset Report/i.test(pageText);
+      if (!isLegacyDetail && !isFederalAssetReport) continue;
 
       detailPages += 1;
-      const parsed = parseDepreciationPage(items);
+      const parsed = isFederalAssetReport ? parseFederalAssetReportPage(items) : parseDepreciationPage(items);
       if (!parsed.property || !parsed.assets.length) continue;
       // Property is the authoritative key for the Partition Tool. An entity can
       // change between filings, but the newer filing must still replace the old one.
@@ -191,13 +252,14 @@ export async function extractTaxReturnSchedules(files: File[], onProgress?: (pro
 
     // A filing copy carries Form 4562 summaries only; remaining basis per property needs the preparer's asset-level listing.
     if (!detailPages) warnings.push(form4562Pages
-      ? `${file.name}: this copy has Form 4562 summaries but no "Depreciation Detail Listing" pages, so remaining basis per property cannot be read. Ask the preparer for the client copy that includes the depreciation detail listings (asset-by-asset cost, prior depreciation, and current-year deduction).`
-      : `${file.name}: no Form 8825 "Depreciation Detail Listing" pages were found. If the PDF is a scanned image, request a text-based copy from the preparer.`);
+      ? `${file.name}: this copy has Form 4562 summaries but no property-level depreciation schedule. Ask the preparer for the client copy that includes an asset report or depreciation detail listing with cost, prior depreciation, and current-year deduction for each property.`
+      : `${file.name}: no property-level depreciation schedule was found. If the PDF is a scanned image, request a text-based copy from the preparer.`);
   }
 
   return {
     sourceFiles: files.map((file) => file.name),
     schedules: [...schedules.values()].map((schedule) => ({ ...schedule, schedules: combineAssets(schedule.assets) })),
+    taxYears: [...taxYears].sort((a, b) => a - b),
     warnings,
   };
 }

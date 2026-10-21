@@ -66,6 +66,10 @@ function recordGroupAssignments<T extends { property: string }>(groups: DealGrou
 }
 const uniquePropertyNames = (names: string[]) => names.reduce<string[]>((unique, name) => unique.some((existing) => propertyMatches(existing, name)) ? unique : [...unique, name], []);
 const marketValuePropertyExpansionId = (property: string) => `market-property:${propertyKey(property)}`;
+const taxYearFromSourceNames = (names: string[]) => {
+  const years = names.flatMap((name) => [...name.matchAll(/\b(20\d{2})\b/g)].map((match) => Number(match[1]))).filter((year) => year >= 2000 && year <= 2100);
+  return years.length ? Math.max(...years) : undefined;
+};
 
 /** Two-stage workflow: define deal groups first, then import and inspect property-level tax schedules. */
 export function TaxBasisMockup() {
@@ -134,7 +138,7 @@ export function TaxBasisMockup() {
     const saved = loadPersisted();
     if (saved) {
       reserveIds([...saved.groups.map((group) => group.id), ...saved.properties.flatMap((property) => [property.id, ...property.schedules.map((item) => item.id)])]);
-      setTaxYear(saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents); setWarnings(saved.warnings); setOccupancy(saved.occupancy); setLoans(saved.loans); setCapitalExpenses(saved.capitalExpenses); setMarketValues(saved.marketValues); setIncomeExpenses(saved.incomeExpenses); setSourceReports(saved.sourceReports);
+      setTaxYear(taxYearFromSourceNames(saved.sourceReports.filter((report) => report.kind === 'tax-returns').map((report) => report.name)) ?? saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents); setWarnings(saved.warnings); setOccupancy(saved.occupancy); setLoans(saved.loans); setCapitalExpenses(saved.capitalExpenses); setMarketValues(saved.marketValues); setIncomeExpenses(saved.incomeExpenses); setSourceReports(saved.sourceReports);
       const restoredParts = [saved.groups.length ? `${saved.groups.length} groups${saved.groupWorkbook ? ` from ${saved.groupWorkbook.name}` : ''}` : '', saved.properties.length ? `${saved.properties.length} property ${saved.properties.length === 1 ? 'schedule' : 'schedules'}` : ''].filter(Boolean);
       if (restoredParts.length) setNotice(`Restored ${restoredParts.join(' and ')}. Use Clear All to start over.`);
     }
@@ -150,7 +154,8 @@ export function TaxBasisMockup() {
   useEffect(() => {
     void loadWorkspaceSnapshot<PersistedState>().then((saved) => {
       if (!saved || !Array.isArray(saved.groups) || !Array.isArray(saved.properties)) return;
-      setTaxYear(saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents ?? []); setWarnings(saved.warnings ?? []); setOccupancy(saved.occupancy ?? []); setLoans(saved.loans ?? []); setCapitalExpenses(saved.capitalExpenses ?? []); setMarketValues(saved.marketValues ?? []); setIncomeExpenses(saved.incomeExpenses ?? []); setSourceReports(saved.sourceReports ?? []);
+      const reports = saved.sourceReports ?? [];
+      setTaxYear(taxYearFromSourceNames(reports.filter((report) => report.kind === 'tax-returns').map((report) => report.name)) ?? saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents ?? []); setWarnings(saved.warnings ?? []); setOccupancy(saved.occupancy ?? []); setLoans(saved.loans ?? []); setCapitalExpenses(saved.capitalExpenses ?? []); setMarketValues(saved.marketValues ?? []); setIncomeExpenses(saved.incomeExpenses ?? []); setSourceReports(reports);
     }).catch(() => { /* IndexedDB may be disabled; localStorage was already tried */ });
   }, []);
 
@@ -247,6 +252,7 @@ export function TaxBasisMockup() {
     setIsImporting(true); setImportProgress(null); setImportError(null); setActiveTab('data'); setNotice(`Reading ${files.length} tax ${files.length === 1 ? 'return' : 'returns'} locally…`);
     try {
       const result = await extractTaxReturnSchedules(files, setImportProgress);
+      if (result.taxYears.length) setTaxYear(result.taxYears.at(-1)!);
       const importedAt = Date.now();
       const extracted = result.schedules.map((schedule) => ({ id: makeId('property'), property: schedule.property, entity: schedule.entity, source: schedule.source, importedAt: schedule.sourceModifiedAt || importedAt, schedules: schedule.schedules.map((component) => ({ ...component, id: makeId('component') })) }));
       if (!extracted.length) {
