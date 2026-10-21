@@ -70,6 +70,8 @@ const taxYearFromSourceNames = (names: string[]) => {
   const years = names.flatMap((name) => [...name.matchAll(/\b(20\d{2})\b/g)].map((match) => Number(match[1]))).filter((year) => year >= 2000 && year <= 2100);
   return years.length ? Math.max(...years) : undefined;
 };
+const normalizeImportedPropertyName = (name: string) => name.replace(/\bDUOUGLAS\b/gi, 'DOUGLAS');
+const normalizeImportedProperties = (items: PropertySchedule[]) => items.map((item) => ({ ...item, property: normalizeImportedPropertyName(item.property) }));
 
 /** Two-stage workflow: define deal groups first, then import and inspect property-level tax schedules. */
 export function TaxBasisMockup() {
@@ -138,7 +140,7 @@ export function TaxBasisMockup() {
     const saved = loadPersisted();
     if (saved) {
       reserveIds([...saved.groups.map((group) => group.id), ...saved.properties.flatMap((property) => [property.id, ...property.schedules.map((item) => item.id)])]);
-      setTaxYear(taxYearFromSourceNames(saved.sourceReports.filter((report) => report.kind === 'tax-returns').map((report) => report.name)) ?? saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents); setWarnings(saved.warnings); setOccupancy(saved.occupancy); setLoans(saved.loans); setCapitalExpenses(saved.capitalExpenses); setMarketValues(saved.marketValues); setIncomeExpenses(saved.incomeExpenses); setSourceReports(saved.sourceReports);
+      setTaxYear(taxYearFromSourceNames(saved.sourceReports.filter((report) => report.kind === 'tax-returns').map((report) => report.name)) ?? saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(normalizeImportedProperties(saved.properties)); setDocuments(saved.documents); setWarnings(saved.warnings); setOccupancy(saved.occupancy); setLoans(saved.loans); setCapitalExpenses(saved.capitalExpenses); setMarketValues(saved.marketValues); setIncomeExpenses(saved.incomeExpenses); setSourceReports(saved.sourceReports);
       const restoredParts = [saved.groups.length ? `${saved.groups.length} groups${saved.groupWorkbook ? ` from ${saved.groupWorkbook.name}` : ''}` : '', saved.properties.length ? `${saved.properties.length} property ${saved.properties.length === 1 ? 'schedule' : 'schedules'}` : ''].filter(Boolean);
       if (restoredParts.length) setNotice(`Restored ${restoredParts.join(' and ')}. Use Clear All to start over.`);
     }
@@ -155,7 +157,7 @@ export function TaxBasisMockup() {
     void loadWorkspaceSnapshot<PersistedState>().then((saved) => {
       if (!saved || !Array.isArray(saved.groups) || !Array.isArray(saved.properties)) return;
       const reports = saved.sourceReports ?? [];
-      setTaxYear(taxYearFromSourceNames(reports.filter((report) => report.kind === 'tax-returns').map((report) => report.name)) ?? saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(saved.properties); setDocuments(saved.documents ?? []); setWarnings(saved.warnings ?? []); setOccupancy(saved.occupancy ?? []); setLoans(saved.loans ?? []); setCapitalExpenses(saved.capitalExpenses ?? []); setMarketValues(saved.marketValues ?? []); setIncomeExpenses(saved.incomeExpenses ?? []); setSourceReports(reports);
+      setTaxYear(taxYearFromSourceNames(reports.filter((report) => report.kind === 'tax-returns').map((report) => report.name)) ?? saved.taxYear); setGroups(saved.groups); setGroupWorkbook(saved.groupWorkbook); setProperties(normalizeImportedProperties(saved.properties)); setDocuments(saved.documents ?? []); setWarnings(saved.warnings ?? []); setOccupancy(saved.occupancy ?? []); setLoans(saved.loans ?? []); setCapitalExpenses(saved.capitalExpenses ?? []); setMarketValues(saved.marketValues ?? []); setIncomeExpenses(saved.incomeExpenses ?? []); setSourceReports(reports);
     }).catch(() => { /* IndexedDB may be disabled; localStorage was already tried */ });
   }, []);
 
@@ -455,10 +457,12 @@ export function TaxBasisMockup() {
     <input ref={incomeExpensesFileRef} className="hidden" type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={(event) => void handleIncomeExpensesFile(event)} />
     <main className="max-w-none mx-0 px-6 py-5">
       <nav className="flex flex-wrap gap-4 border-b border-border mb-5" aria-label="Data workflow"><TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} number="1" label="Groups" /><TabButton active={activeTab === 'data'} onClick={() => setActiveTab('data')} number="2" label="Remaining Tax Basis" /><TabButton active={activeTab === 'occupancy'} onClick={() => setActiveTab('occupancy')} number="3" label="Occupancy" /><TabButton active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} number="4" label="Loans" /><TabButton active={activeTab === 'capitalExpenses'} onClick={() => setActiveTab('capitalExpenses')} number="5" label="Capital Expenses" /><TabButton active={activeTab === 'incomeExpenses'} onClick={() => setActiveTab('incomeExpenses')} number="6" label="Income & Expenses" /><TabButton active={activeTab === 'marketValue'} onClick={() => setActiveTab('marketValue')} number="7" label="Market Value" /></nav>
-      <div className="mb-4 border border-border bg-surface2 px-4 py-2.5 text-center font-mono text-[.68rem] text-muted" role="status">{notice}</div>
+      <DataTabOverview activeTab={activeTab} />
       <SourceReports reports={sourceReports} activeTab={activeTab} />
+      <div className="mb-4 border border-border bg-surface2 px-4 py-2.5 text-center font-mono text-[.68rem] text-muted" role="status">{notice}</div>
+      <DataTabGuidance activeTab={activeTab} />
       {activeTab === 'groups' && <GroupsTabView groups={groups} groupWorkbook={groupWorkbook} sort={groupsSort} onUpdate={updateGroup} />}
-      {activeTab === 'data' && <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} sortAsc={dataSortAsc} importing={isImporting} progress={importProgress} importError={importError} onUpload={() => returnFileRef.current?.click()} expandedGroups={expandedGroups} collapsedProperties={collapsedProperties} warnings={warnings} documents={documents} onToggleExpanded={toggleExpanded} onTogglePropertyCollapsed={togglePropertyCollapsed} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
+      {activeTab === 'data' && <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} sortAsc={dataSortAsc} importing={isImporting} progress={importProgress} importError={importError} onUpload={() => returnFileRef.current?.click()} expandedGroups={expandedGroups} collapsedProperties={collapsedProperties} warnings={warnings} onToggleExpanded={toggleExpanded} onTogglePropertyCollapsed={togglePropertyCollapsed} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
       {activeTab === 'occupancy' && <OccupancyTabView records={occupancy} groups={groups} expandedGroups={occupancyExpanded} collapsedProperties={occupancyCollapsed} sort={occupancySort} onToggleGroup={toggleOccupancyExpanded} onToggleProperty={toggleOccupancyCollapsed} onUpload={() => occupancyFileRef.current?.click()} />}
       {activeTab === 'loans' && <LoansTabView records={loans} groups={groups} expandedGroups={loansExpanded} collapsedProperties={loansCollapsed} sortAsc={loansSortAsc} onToggleGroup={toggleLoansExpanded} onToggleProperty={toggleLoansCollapsed} onUpload={() => loansFileRef.current?.click()} />}
       {activeTab === 'capitalExpenses' && <CapitalExpensesTabView records={capitalExpenses} groups={groups} expandedGroups={capitalExpensesExpanded} collapsedProperties={capitalExpensesCollapsed} sortAsc={capitalExpensesSortAsc} onToggleGroup={toggleCapitalExpensesExpanded} onToggleProperty={toggleCapitalExpensesCollapsed} onUpload={() => capitalExpensesFileRef.current?.click()} />}
@@ -488,6 +492,51 @@ const DATA_TABS: ReadonlyArray<{ id: Tab; number: string; label: string }> = [
   { id: 'marketValue', number: '7', label: 'Market Value' },
 ];
 
+const DATA_TAB_DETAILS: Record<Tab, { title: string; step: string; source: string; guidance: string }> = {
+  groups: {
+    title: 'Groups, Zoning, and Next 40-Yr Certification',
+    step: 'Step 1: Property Group Set Up',
+    source: 'Property Groups workbook',
+    guidance: 'Upload the Property Groups workbook first. It establishes the selection-unit hierarchy used by every other Data tab and by the Partition Tool.',
+  },
+  data: {
+    title: 'Remaining Tax Basis and Depreciation',
+    step: 'Step 2: Tax-Return Data Extraction',
+    source: 'Form 1065 tax returns and property-level depreciation schedules',
+    guidance: 'The return determines the remaining basis, recovery method, and current-year depreciation. Grouped properties roll up to one selection-unit total; expand a group to inspect its underlying schedules.',
+  },
+  occupancy: {
+    title: 'Occupancy',
+    step: 'Step 3: Rent-Roll Import',
+    source: 'Property-management rent roll',
+    guidance: 'Upload the rent roll for the reporting period. The Groups workbook keeps the imported property records in the same selection-unit hierarchy.',
+  },
+  loans: {
+    title: 'Loans',
+    step: 'Step 4: Debt-Schedule Import',
+    source: 'Loan report or debt schedule',
+    guidance: 'Upload the lender or property-management loan report. Review each property’s balance, rate, and debt-service information before assigning properties in Partition.',
+  },
+  capitalExpenses: {
+    title: 'Capital Expenses',
+    step: 'Step 5: Capital-Expense Import',
+    source: 'Property-management CapEx, work-order, budget, or financial report',
+    guidance: 'Upload the source report for capital expenses. The Groups workbook controls the property roll-ups, including properties without a reported CapEx item.',
+  },
+  incomeExpenses: {
+    title: 'Income & Expenses',
+    step: 'Step 6: Operating-Statement Import',
+    source: 'AppFolio T12 income statement or profit-and-loss report',
+    guidance: 'Upload the operating statement for the selected reporting date. The tool uses total income, total expenses, and NOI for the property and group roll-ups.',
+  },
+  marketValue: {
+    title: 'Market Value',
+    step: 'Step 7: Valuation Import And Selection',
+    source: 'Appraisal, broker opinion of value, assessed value, comparable-sales, or income-model report',
+    guidance: 'Upload or enter the valuation support for each property, then select the value to use. The selected values flow to the Partition Tool.',
+  },
+};
+
 function DataWorkflowTabs({ activeTab, onSelect }: { activeTab: Tab; onSelect: (tab: Tab) => void }) {
   return (
     <nav className="flex flex-wrap gap-4 border-b border-border bg-bg px-7" aria-label="Data workflow">
@@ -498,13 +547,22 @@ function DataWorkflowTabs({ activeTab, onSelect }: { activeTab: Tab; onSelect: (
   );
 }
 
+function DataTabOverview({ activeTab }: { activeTab: Tab }) {
+  const detail = DATA_TAB_DETAILS[activeTab];
+  return <section className="data-tab-overview border-b border-border pb-3 mb-4"><h2 className="font-serif text-[1.55rem] font-bold">{detail.title}</h2><div className="mt-1 font-serif text-[1.25rem] font-bold text-text">{detail.step}</div><p className="mt-3 font-mono text-[.68rem] text-muted"><span className="font-bold uppercase tracking-[.07em] text-text">Source</span> · {detail.source}</p></section>;
+}
+
+function DataTabGuidance({ activeTab }: { activeTab: Tab }) {
+  return <p className="mb-5 max-w-5xl text-[.78rem] text-text2">{DATA_TAB_DETAILS[activeTab].guidance}</p>;
+}
+
 function TabButton({ active, onClick, number, label }: { active: boolean; onClick: () => void; number: string; label: string }) { return <button type="button" onClick={onClick} className={`px-4 py-2.5 cursor-pointer border-b-[3px] -mb-px ${active ? 'border-a text-a' : 'border-transparent text-muted hover:text-text'}`}><span className="mr-2 font-mono text-[.58rem] uppercase tracking-[.08em]">{number}</span><span className="font-serif text-[.94rem] font-bold">{label}</span></button>; }
 
 function SourceReports({ reports, activeTab }: { reports: StoredSource[]; activeTab: Tab }) {
   const kind = ({ groups: 'groups', data: 'tax-returns', occupancy: 'occupancy', loans: 'loans', capitalExpenses: 'capital-expenses', marketValue: 'market-value', incomeExpenses: 'income-expenses' } as const)[activeTab];
   const relevant = reports.filter((report) => report.kind === kind);
   if (!relevant.length) return null;
-  return <div className="mb-4 note max-w-5xl"><span className="font-bold">Source report retained in this browser:</span>{relevant.map((report) => <span key={report.id} className="ml-2 inline-block font-mono text-[.64rem] border border-border rounded px-1.5 py-0.5 bg-surface">{report.name}</span>)}<span className="ml-2 text-muted">It remains available on this device and browser until Clear All.</span></div>;
+  return <div className="mb-4 note max-w-5xl"><span className="font-bold">Uploaded:</span>{relevant.map((report) => <span key={report.id} className="ml-2 inline-block font-mono text-[.64rem] border border-border rounded px-1.5 py-0.5 bg-surface">{report.name}</span>)}<span className="ml-2 text-muted">Retained locally in this browser until Clear All.</span></div>;
 }
 
 function GroupsTabView({ groups, groupWorkbook, sort, onUpdate }: { groups: DealGroup[]; groupWorkbook: { name: string; individualProperties: GroupMember[] } | null; sort: { key: GroupsSortKey; asc: boolean }; onUpdate: (id: string, patch: Partial<DealGroup>) => void }) {
@@ -837,14 +895,13 @@ function GroupsTab({ groups, properties, onAdd, onUpdate, onRemove, onToggleMemb
 
 function GroupCard({ group, properties, onUpdate, onRemove, onToggleMember }: { group: DealGroup; properties: PropertySchedule[]; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) { return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border flex justify-between gap-3"><div><div className="caption text-[.58rem]">Combined lot / economic package</div><input aria-label="Group name" value={group.name} onChange={(event) => onUpdate(group.id, { name: event.target.value })} className="mt-1 bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /></div><button type="button" onClick={() => onRemove(group.id)} className="font-mono text-[.6rem] uppercase text-muted hover:text-red cursor-pointer">Remove</button></header><div className="p-4"><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted mb-2">Member properties</div>{properties.length === 0 ? <p className="text-[.75rem] text-muted">Property choices will appear after tax-return import.</p> : <div className="flex flex-col gap-2">{properties.map((property) => <label key={property.id} className="flex gap-2.5 items-start cursor-pointer"><input type="checkbox" checked={hasMember(group, property)} onChange={() => onToggleMember(group.id, property)} className="mt-0.5 accent-[var(--a)]" /><span><span className="font-semibold text-[.78rem]">{property.property}</span><span className="block font-mono text-[.61rem] text-muted mt-0.5">{property.entity || 'Entity not detected'}</span></span></label>)}</div>}</div></article>; }
 
-function DataTabView({ taxYear, setTaxYear, properties, groups, assignments, sortAsc, importing, progress, importError, onUpload, expandedGroups, collapsedProperties, warnings, documents, onToggleExpanded, onTogglePropertyCollapsed, onUpdateProperty, onUpdateComponent, onGoGroups }: { taxYear: number; setTaxYear: (year: number) => void; properties: PropertySchedule[]; groups: DealGroup[]; assignments: Map<string, string>; sortAsc: boolean; importing: boolean; progress: ExtractionProgress | null; importError: string | null; onUpload: () => void; expandedGroups: Set<string>; collapsedProperties: Set<string>; warnings: string[]; documents: string[]; onToggleExpanded: (id: string) => void; onTogglePropertyCollapsed: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; onGoGroups: () => void }) {
+function DataTabView({ taxYear, setTaxYear, properties, groups, assignments, sortAsc, importing, progress, importError, onUpload, expandedGroups, collapsedProperties, warnings, onToggleExpanded, onTogglePropertyCollapsed, onUpdateProperty, onUpdateComponent, onGoGroups }: { taxYear: number; setTaxYear: (year: number) => void; properties: PropertySchedule[]; groups: DealGroup[]; assignments: Map<string, string>; sortAsc: boolean; importing: boolean; progress: ExtractionProgress | null; importError: string | null; onUpload: () => void; expandedGroups: Set<string>; collapsedProperties: Set<string>; warnings: string[]; onToggleExpanded: (id: string) => void; onTogglePropertyCollapsed: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; onGoGroups: () => void }) {
   const groupedIds = new Set(assignments.keys());
   const byName = (a: string, b: string) => (sortAsc ? 1 : -1) * a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
   const sortedGroups = [...groups].sort((a, b) => byName(a.name, b.name));
   const sortedUngrouped = properties.filter((property) => !groupedIds.has(property.id)).sort((a, b) => byName(a.property, b.property));
   return <section>
     <div className="flex flex-wrap justify-between items-end gap-4 mb-5"><div><div className="caption text-[.66rem] mb-1">Step 2 · Tax-return data extraction</div><h2 className="font-serif text-[1.55rem] font-bold">Remaining Tax Basis and Depreciation</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Grouped properties collapse to one selection-unit total. Expand a group to review the underlying property schedules, remaining basis, and current-year depreciation.</p></div><label className="flex items-center gap-1.5 border-[1.5px] border-border rounded-[3px] bg-surface px-2.5 py-1.5"><span className="font-mono text-[.59rem] uppercase tracking-[.07em] text-muted">Tax year</span><input value={taxYear} onChange={(event) => setTaxYear(Number(event.target.value) || taxYear)} className="w-11 bg-transparent text-right outline-none font-mono text-[.74rem] font-bold" inputMode="numeric" /></label></div>
-    {documents.length > 0 && <div className="mb-4 flex flex-wrap gap-2 items-center"><span className="caption text-[.61rem]">Imported returns</span>{documents.map((document) => <span key={document} className="font-mono text-[.65rem] border border-border rounded px-2 py-1 bg-surface">{document}</span>)}</div>}
     {warnings.length > 0 && <div className="mb-4 note border-l-red">{warnings.map((warning) => <div key={warning}>{warning}</div>)}</div>}
     {importing && <ImportProgress progress={progress} />}{importError && !importing && <div className="mb-4 note border-l-red" role="alert"><div className="font-bold">Import failed</div><div className="mt-1">{importError}</div><div className="mt-1 text-muted">Refresh the page and try again. If it keeps failing, the PDF may be scanned images rather than text.</div></div>}
     {properties.length === 0 ? (!importing && <div className="card text-center py-16 px-6 border-2 border-dashed border-border"><div className="font-serif text-[1.25rem] font-bold">No tax returns imported</div><p className="text-muted max-w-md mx-auto mt-2 text-[.78rem]">Drag and drop the Form 1065 PDF packages anywhere on this page, or use the upload button. The importer creates the property schedules automatically.</p><button type="button" className="tool-btn tool-btn-primary mt-5" onClick={onUpload}>↑ Upload tax return PDFs</button></div>) : <div className="flex flex-col gap-5">{sortedGroups.map((group) => { const members = properties.filter((property) => assignments.get(property.id) === group.id); return <GroupedSchedule key={group.id} group={group} properties={members} workbookMembers={group.members} taxYear={taxYear} expanded={expandedGroups.has(group.id)} collapsedProperties={collapsedProperties} onToggle={() => onToggleExpanded(group.id)} onTogglePropertyCollapsed={onTogglePropertyCollapsed} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />; })}{sortedUngrouped.map((property) => <PropertyScheduleCard key={property.id} property={property} taxYear={taxYear} collapsed={collapsedProperties.has(property.id)} onToggleCollapsed={() => onTogglePropertyCollapsed(property.id)} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />)}</div>}

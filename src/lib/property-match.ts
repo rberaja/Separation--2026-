@@ -5,6 +5,9 @@
  */
 const canonicalText = (value: string) => value
   .toLocaleUpperCase()
+  // The 2025 Federal Asset Report misspells Douglas as "Duouglas." Keep
+  // imported historic schedules associated with the Groups workbook.
+  .replace(/\bDUOUGLAS\b/g, 'DOUGLAS')
   .replace(/\b(\d+)(?:ST|ND|RD|TH)\b/g, '$1')
   .replace(/\bAVENUE\b/g, 'AVE')
   .replace(/\bSTREET\b/g, 'ST')

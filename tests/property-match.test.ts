@@ -6,6 +6,7 @@ describe('propertyMatches', () => {
     expect(propertyMatches('119-127 Antiquera Ave', 'Antiquera Ave 119-127')).toBe(true);
     expect(propertyMatches('119-123-127-130 Santillane Ave', 'Santillane - Santillane Ave Coral Gables, FL 33134')).toBe(true);
     expect(propertyMatches('Menores Ave 40 units', 'Menores 112533 - Menores Ave Coral Gables, FL 33134')).toBe(true);
+    expect(propertyMatches('2550 S Douglas Road', '2550 S Duouglas Road')).toBe(true);
   });
 
   it('does not group a different numbered address solely because the street name matches', () => {

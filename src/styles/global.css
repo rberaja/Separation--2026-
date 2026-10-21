@@ -289,13 +289,20 @@
   z-index: 40;
 }
 
+/* Occupancy through Market Value have their own command row. Hide the empty
+   Groups/Tax-Basis command row instead of leaving vertical space above it. */
+.data-embedded > .min-h-screen > .data-controls-sticky > div:has(> input):not(:has(button)) {
+  display: none;
+}
+
 /* The Data sub-tabs belong between the shared header and that workspace's commands. */
 .data-embedded > .min-h-screen > main > nav[aria-label="Data workflow"] {
   display: none;
 }
 
-/* Depreciation is reported for the year detected in the uploaded tax return. */
-.data-embedded section:has(> div > div > h2) > div > label {
+/* Each tab uses the shared overview above; its existing body begins with property data. */
+.data-embedded > .min-h-screen > main > section > h2:first-child,
+.data-embedded > .min-h-screen > main > section > div:first-child:has(h2) {
   display: none;
 }
 

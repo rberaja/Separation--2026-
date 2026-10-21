@@ -71,7 +71,7 @@ const rowsFrom = (items: PositionedText[]) => {
   return [...rows.entries()].map(([y, row]) => ({ y, row: row.sort((a, b) => a.x - b.x) }));
 };
 
-const cleanName = (text: string) => text.replace(/\s+/g, ' ').replace(/\s+PAGE\s+\d+.*$/i, '').trim();
+const cleanName = (text: string) => text.replace(/\s+/g, ' ').replace(/\s+PAGE\s+\d+.*$/i, '').replace(/\bDUOUGLAS\b/gi, 'DOUGLAS').trim();
 const taxYearFrom = (text: string) => {
   const match = text.match(/(?:calendar|tax)\s+year\D{0,12}(20\d{2})|\b(20\d{2})\s+Form\s+1065\b/i);
   const year = Number(match?.[1] ?? match?.[2]);
