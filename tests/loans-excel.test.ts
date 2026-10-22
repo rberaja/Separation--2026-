@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
-import { parseLoansWorkbook } from '../src/lib/loans-excel';
+import { normalizeLoanRecordTerms, parseLoansWorkbook } from '../src/lib/loans-excel';
 
 function workbookFromRows(rows: unknown[][]) {
   const workbook = XLSX.utils.book_new();
@@ -62,5 +62,16 @@ describe('AppFolio loan report import', () => {
     ]));
 
     expect(record).toMatchObject({ loanType: 'Principal & Interest', interestOnlyUntil: '', nextInterestRateDate: '05/31/2028' });
+  });
+
+  it('recalculates retained loan terms from its report, IO, rate-change, and maturity dates', () => {
+    const record = normalizeLoanRecordTerms({
+      property: '600 SW 9 AVE', lender: '', loanType: 'Principal & Interest', outstandingBalance: 1618302.7, interestRate: 3.25, amortizationPeriod: 30,
+      interestOnlyUntil: '', interestOnlyYears: 0, nextInterestRateDate: '05/31/2028', monthlyDebtService: 7796.85, maturityDate: '05/31/2028', reportAsOfDate: '08/12/2026', residualTermYears: 0,
+    });
+
+    expect(record).toMatchObject({ loanType: 'Principal & Interest', interestOnlyYears: 0 });
+    expect(record.residualTermYears).toBeGreaterThan(1);
+    expect(record.residualTermYears).toBeLessThan(2);
   });
 });

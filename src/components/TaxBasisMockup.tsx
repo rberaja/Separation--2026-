@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
 import type { GroupMember } from '../lib/groups-excel';
 import type { OccupancyRecord } from '../lib/occupancy-excel';
-import type { LoanRecord } from '../lib/loans-excel';
+import { normalizeLoanRecordTerms, parseLoansWorkbook, type LoanRecord } from '../lib/loans-excel';
 import type { CapitalExpenseRecord } from '../lib/capital-expenses-excel';
 import type { MarketValueRecord, MarketValueSource } from '../lib/market-value-excel';
 import type { IncomeExpenseRecord } from '../lib/income-expenses-excel';
@@ -197,7 +197,6 @@ export function TaxBasisMockup() {
 
   const importLoansFile = async (file: File) => {
     try {
-      const { parseLoansWorkbook } = await import('../lib/loans-excel');
       const imported = parseLoansWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer());
       setLoans(imported);
       setNotice(`Loaded ${imported.length} ${imported.length === 1 ? 'loan' : 'loans'} from ${file.name}.`);
@@ -335,7 +334,7 @@ export function TaxBasisMockup() {
     for (const name of names) {
       const latestTax = latestTaxSchedule(properties, name); const taxTotal = latestTax ? totals([latestTax]) : { basis: 0, depreciation: 0 };
       const member = groups.flatMap((group) => group.members).find((item) => propertyMatches(item.property, name)) ?? groupWorkbook?.individualProperties.find((item) => propertyMatches(item.property, name));
-      const occupancyRecord = occupancy.find((item) => propertyMatches(item.property, name)); const loanItems = loans.filter((item) => propertyMatches(item.property, name));
+      const occupancyRecord = occupancy.find((item) => propertyMatches(item.property, name)); const loanItems = loans.filter((item) => propertyMatches(item.property, name)).map(normalizeLoanRecordTerms);
       const loanBalance = loanItems.reduce((sum, item) => sum + item.outstandingBalance, 0);
       const loansWithRates = loanItems.filter((item) => typeof item.interestRate === 'number');
       const weightedLoanRateBalance = loansWithRates.reduce((sum, item) => sum + item.outstandingBalance, 0);

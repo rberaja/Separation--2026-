@@ -71,6 +71,19 @@ function interestOnlyYears(asOf: unknown, interestOnlyUntil: unknown) {
   return Math.max(0, Math.round(((endDate.getTime() - asOfDate.getTime()) / 86_400_000 / 365.2425) * 100) / 100);
 }
 
+/** Recalculate date-driven terms when restoring or sending a retained loan record. */
+export function normalizeLoanRecordTerms(record: LoanRecord): LoanRecord {
+  const hasIoDates = Boolean(dateValue(record.reportAsOfDate) && dateValue(record.interestOnlyUntil));
+  const hasResidualDates = Boolean(dateValue(record.reportAsOfDate) && (dateValue(record.nextInterestRateDate) || dateValue(record.maturityDate)));
+  const derivedIoYears = interestOnlyYears(record.reportAsOfDate, record.interestOnlyUntil);
+  return {
+    ...record,
+    loanType: derivedIoYears > 0 ? 'Interest Only' : 'Principal & Interest',
+    interestOnlyYears: hasIoDates ? derivedIoYears : record.interestOnlyYears ?? 0,
+    residualTermYears: hasResidualDates ? residualTermYears(record.reportAsOfDate, record.nextInterestRateDate, record.maturityDate) : record.residualTermYears ?? null,
+  };
+}
+
 /** Reads a loan schedule. One property may have more than one loan; their balances are totaled in the group view. */
 export function parseLoansWorkbook(data: ArrayBuffer): LoanRecord[] {
   const workbook = XLSX.read(new Uint8Array(data), { type: 'array' });
@@ -94,7 +107,7 @@ export function parseLoansWorkbook(data: ArrayBuffer): LoanRecord[] {
   const reportAsOfDate = formatDate(asOfValue);
   const records = rows.slice(headerRow + 1).map((row, rowIndex) => {
     const ioYears = interestOnlyYears(asOfValue, interestOnlyUntilColumn >= 0 ? row[interestOnlyUntilColumn] : '');
-    return {
+    return normalizeLoanRecordTerms({
     property: text(row, propertyColumn), lender: lenderColumn >= 0 ? text(row, lenderColumn) : '', loanType: ioYears > 0 ? 'Interest Only' : 'Principal & Interest',
     outstandingBalance: balanceColumn >= 0 ? amount(row[balanceColumn]) : 0,
     interestRate: interestRateColumn >= 0 ? numberOrNull(row[interestRateColumn]) : null,
@@ -107,7 +120,7 @@ export function parseLoansWorkbook(data: ArrayBuffer): LoanRecord[] {
     reportAsOfDate,
     residualTermYears: residualTermYears(asOfValue, nextInterestRateColumn >= 0 ? row[nextInterestRateColumn] : '', maturityColumn >= 0 ? row[maturityColumn] : ''),
     source: `${workbook.SheetNames[0] ?? 'Report'} row ${headerRow + rowIndex + 2}`,
-  }; }).filter((record) => record.property);
+  }); }).filter((record) => record.property);
   if (!records.length) throw new LoansImportError('No property rows were found in the loan schedule.');
   return records;
 }
