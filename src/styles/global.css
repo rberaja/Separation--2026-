@@ -154,10 +154,14 @@
   .sort-btn {
     @apply inline-flex items-center gap-1 bg-transparent border-[1.5px] border-border rounded-[3px]
            font-mono text-[0.75rem] font-bold tracking-[0.05em] px-[9px] py-1 cursor-pointer text-muted2
-           whitespace-nowrap transition-all duration-150 hover:border-border2 hover:text-text2;
+           min-w-[4.75rem] justify-center whitespace-nowrap transition-all duration-150 hover:border-border2 hover:text-text2;
   }
   .sort-btn-active {
     @apply border-ink text-text bg-surface2 font-bold;
+  }
+
+  .sort-btn-name {
+    @apply min-w-[4.75rem] justify-center;
   }
 
   /* Property card numeric inputs */

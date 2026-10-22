@@ -106,7 +106,7 @@ export function PropertyCard({
           </Field>
         </Column>
 
-        <Column label="Principal & Interest" last>
+        <Column label={p.ioYears && p.ioYears > 0 ? 'Interest Only' : 'Principal & Interest'} last>
           <Field label="IO Period" term="ioYears" suffix="yrs" hint="0 = no interest-only period">
             <NumberInput className="field-input field-input-short" placeholder="0" value={p.ioYears} onChange={setField('ioYears')} />
           </Field>

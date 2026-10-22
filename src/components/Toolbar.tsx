@@ -71,7 +71,7 @@ export function Toolbar() {
       <span className="font-mono uppercase text-[0.77rem] tracking-[0.05em] text-muted2 dark:text-text font-bold whitespace-nowrap">Sort</span>
       {SORT_OPTIONS.map(({ key, label }) => {
         const active = state.sort.key === key;
-        return <button key={key} type="button" className={`sort-btn ${active ? 'sort-btn-active' : ''}`} onClick={() => dispatch({ type: 'sort/set', key })}>
+        return <button key={key} type="button" className={`sort-btn ${label === 'Name' ? 'sort-btn-name ' : ''}${active ? 'sort-btn-active' : ''}`} onClick={() => dispatch({ type: 'sort/set', key })}>
           <span>{label}</span>
           <span className="text-[0.75rem]">{active && !state.sort.asc ? '↓' : '↑'}</span>
         </button>;
