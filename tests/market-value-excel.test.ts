@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
-import { buildMarketValueExportWorkbook, buildMarketValueTemplateWorkbook, parseMarketValueWorkbook } from '../src/lib/market-value-excel';
+import { buildMarketValueExportWorkbook, buildMarketValueTemplateWorkbook, matchMarketValueRecordsToGroups, parseMarketValueWorkbook } from '../src/lib/market-value-excel';
 
 function workbookFromRows(rows: unknown[][]) {
   const workbook = XLSX.utils.book_new();
@@ -48,6 +48,37 @@ describe('Market Value workbooks', () => {
 
     expect(rows[0]?.[0]).toBe('City Assessed Value Manual Import');
     expect(rows[1]).toEqual(['Property', 'Market Value', 'As Of', 'Value Type']);
+  });
+
+  it('imports only valuation rows represented in the Groups workbook and keeps its property label', () => {
+    const result = matchMarketValueRecordsToGroups([
+      { property: '600 SW 9th Avenue, Miami FL', marketValue: 4_250_000, asOf: '', valueType: '', source: 'Market Value row 2' },
+      { property: 'Unrelated Building', marketValue: 1_200_000, asOf: '', valueType: '', source: 'Market Value row 3' },
+    ], ['600 SW 9 AVE', '930 SW 6th Street']);
+
+    expect(result.imported).toEqual([expect.objectContaining({ property: '600 SW 9 AVE', marketValue: 4_250_000 })]);
+    expect(result.omitted).toEqual([expect.objectContaining({ property: 'Unrelated Building', source: 'Market Value row 3' })]);
+    expect(result.missingGroupProperties).toEqual(['930 SW 6th Street']);
+  });
+
+  it.each(['bov', 'city-appraised', 'comps'] as const)('uses the same Groups reconciliation for %s uploads', (sourceKind) => {
+    const result = matchMarketValueRecordsToGroups([
+      { property: '600 SW 9th Avenue', marketValue: 4_250_000, asOf: '', valueType: '', source: 'Market Value row 2', sourceKind },
+    ], ['600 SW 9 AVE']);
+
+    expect(result.imported).toEqual([expect.objectContaining({ property: '600 SW 9 AVE', sourceKind })]);
+    expect(result.omitted).toEqual([]);
+    expect(result.missingGroupProperties).toEqual([]);
+  });
+
+  it('uses Groups rather than BOV labels to consolidate The Menores properties and flag genuine gaps', () => {
+    const result = matchMarketValueRecordsToGroups([
+      { property: '1410 SW 37th Ave', marketValue: 10_890_000, asOf: '', valueType: '', source: 'BOV row 2' },
+      { property: '11, 25, 31 Menores Ave', marketValue: 5_695_000, asOf: '', valueType: '', source: 'BOV row 3' },
+    ], ['2550 S Douglas Rd', '1410 SW 37 Ave', 'Menores Ave 40 units', '35-41 Menores Ave']);
+
+    expect(result.imported.map((record) => record.property)).toEqual(['1410 SW 37 Ave', 'Menores Ave 40 units']);
+    expect(result.missingGroupProperties).toEqual(['2550 S Douglas Rd', '35-41 Menores Ave']);
   });
 
   it('exports one row per property with one value column for every valuation method', () => {

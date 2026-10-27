@@ -23,7 +23,11 @@ const canonicalText = (value: string) => value
 /** AppFolio's legacy label for the Menores Ave 40-unit property. */
 const canonicalAlias = (value: string) => {
   const compact = value.replace(/[^A-Z0-9]/g, '');
-  return compact.includes('MENORES112533') ? 'MENORESAVE40UNITS' : compact;
+  // The broker's roll-up calls this same 40-unit Menores property
+  // "11, 25, 31 Menores Ave." The Groups workbook's canonical label must win
+  // so it remains inside The Menores selection unit rather than becoming an
+  // extra BOV-defined property.
+  return compact.includes('MENORES112533') || compact.includes('MENORESAVE40UNITS') || compact.includes('112531MENORESAVE') ? 'MENORESAVE40UNITS' : compact;
 };
 
 export const propertyKey = (value: string) => canonicalAlias(canonicalText(value));
