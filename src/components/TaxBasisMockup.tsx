@@ -3,7 +3,7 @@ import type { GroupMember } from '../lib/groups-excel';
 import type { OccupancyRecord } from '../lib/occupancy-excel';
 import { normalizeLoanRecordTerms, parseLoansWorkbook, type LoanRecord } from '../lib/loans-excel';
 import type { CapitalExpenseRecord } from '../lib/capital-expenses-excel';
-import type { MarketValueRecord, MarketValueSource } from '../lib/market-value-excel';
+import { matchMarketValueRecordsToGroups, parseMarketValueWorkbook, type MarketValueRecord, type MarketValueSource } from '../lib/market-value-excel';
 import type { IncomeExpenseRecord } from '../lib/income-expenses-excel';
 import { propertyKey, propertyMatches } from '../lib/property-match';
 import { deleteSourceReport, deleteSourceReports, loadWorkspaceSnapshot, saveSourceReport, saveWorkspaceSnapshot, type StoredSource } from '../lib/browser-data';
@@ -16,8 +16,14 @@ type DealGroup = { id: string; name: string; members: GroupMember[] };
 type Tab = 'groups' | 'data' | 'occupancy' | 'loans' | 'capitalExpenses' | 'marketValue' | 'incomeExpenses';
 type GroupsSortKey = 'name' | 'zoning' | 'cert40yr';
 type GroupWorkbook = { name: string; individualProperties: GroupMember[] };
-type MarketValueImportReport = { fileName: string; omitted: MarketValueRecord[]; missingGroupProperties: string[] };
+type MarketValueImportReport = { fileName: string; sourceKind?: MarketValueSource; omitted: MarketValueRecord[]; missingGroupProperties: string[] };
 type PersistedState = { taxYear: number; groups: DealGroup[]; groupWorkbook: GroupWorkbook | null; properties: PropertySchedule[]; documents: string[]; warnings: string[]; occupancy: OccupancyRecord[]; loans: LoanRecord[]; capitalExpenses: CapitalExpenseRecord[]; marketValues: MarketValueRecord[]; incomeExpenses: IncomeExpenseRecord[]; sourceReports: StoredSource[] };
+
+/** The Groups workbook is the authoritative property universe for valuation data. */
+function marketValueGroupProperties(groups: readonly DealGroup[], groupWorkbook: GroupWorkbook | null): string[] {
+  return [...groups.flatMap((group) => group.members.map((member) => member.property)), ...(groupWorkbook?.individualProperties.map((member) => member.property) ?? [])]
+    .reduce<string[]>((unique, property) => unique.some((existing) => propertyMatches(existing, property)) ? unique : [...unique, property], []);
+}
 
 /** Imported Groups and tax-return data survive tab switches and reloads until the user clears them. */
 const STORAGE_KEY = 'separation.taxBasis.v1';
@@ -161,14 +167,19 @@ export function TaxBasisMockup() {
     }).catch(() => { /* IndexedDB may be disabled; localStorage was already tried */ });
   }, []);
 
-  // A report created during an import is intentionally session-only, but
-  // restored Market Value data should still reconcile against Groups after a
-  // refresh or a hot reload. Rows previously excluded cannot be recovered,
-  // so this fallback reports the Groups properties still lacking a value.
+  // A report created during an import is intentionally session-only. On a
+  // restore or hot reload, remove legacy valuation rows outside the Groups
+  // workbook before they can be displayed or sent to Partition.
   useEffect(() => {
-    if (marketValueImportReport || !groupWorkbook || !marketValues.length) return;
-    const groupProperties = [...groups.flatMap((group) => group.members.map((member) => member.property)), ...groupWorkbook.individualProperties.map((member) => member.property)];
-    const missingGroupProperties = groupProperties.reduce<string[]>((unique, property) => unique.some((existing) => propertyMatches(existing, property)) ? unique : [...unique, property], []).filter((property) => !marketValues.some((record) => propertyMatches(property, record.property)));
+    if (!groupWorkbook) return;
+    const groupProperties = marketValueGroupProperties(groups, groupWorkbook);
+    if (!groupProperties.length) return;
+    setMarketValues((current) => {
+      const reconciled = matchMarketValueRecordsToGroups(current, groupProperties).imported;
+      return reconciled.length === current.length ? current : reconciled;
+    });
+    if (marketValueImportReport || !marketValues.length) return;
+    const missingGroupProperties = groupProperties.filter((property) => !marketValues.some((record) => propertyMatches(property, record.property)));
     setMarketValueImportReport({ fileName: 'Currently loaded Market Value data', omitted: [], missingGroupProperties });
   }, [groupWorkbook, groups, marketValueImportReport, marketValues]);
 
@@ -235,15 +246,18 @@ export function TaxBasisMockup() {
   const importMarketValueFile = async (file: File) => {
     try {
       if (!groupWorkbook) throw new Error('Upload the Groups workbook before importing Market Value data. It defines the property list this report must match.');
-      const { matchMarketValueRecordsToGroups, parseMarketValueWorkbook } = await import('../lib/market-value-excel'); const sourceKind = marketValueSourceRef.current;
+      const sourceKind = marketValueSourceRef.current;
       const parsed = parseMarketValueWorkbook(isPdf(file) ? await (await import('../lib/property-report-pdf')).reportPdfToWorkbook(file) : await file.arrayBuffer(), sourceKind).map((record) => ({ ...record, provider: sourceKind === 'city-appraised' ? 'AppFolio / City assessment' : file.name, valueType: MARKET_SOURCE_LABEL[sourceKind] }));
       const groupProperties = [...groups.flatMap((group) => group.members.map((member) => member.property)), ...groupWorkbook.individualProperties.map((member) => member.property)];
       const { imported, omitted, missingGroupProperties } = matchMarketValueRecordsToGroups(parsed, groupProperties);
-      setMarketValueImportReport({ fileName: file.name, omitted, missingGroupProperties });
+      setMarketValueImportReport({ fileName: file.name, sourceKind, omitted, missingGroupProperties });
       setActiveTab('marketValue');
       if (!imported.length) { setNotice(`No Market Value records were loaded from ${file.name}. All ${omitted.length} upload row${omitted.length === 1 ? '' : 's'} did not match the Groups workbook; see the reconciliation report.`); return; }
       replaceMarketValues(sourceKind, imported); preserveSource('market-value', file);
-      setNotice(`Loaded ${imported.length} ${sourceKind.replace(/-/g, ' ')} value${imported.length === 1 ? '' : 's'} from ${file.name}.${omitted.length || missingGroupProperties.length ? ` See the reconciliation report for ${omitted.length} unmatched upload row${omitted.length === 1 ? '' : 's'} and ${missingGroupProperties.length} Groups propert${missingGroupProperties.length === 1 ? 'y' : 'ies'} with no uploaded value.` : ''}`);
+      const reconciliationSummary = sourceKind === 'city-appraised'
+        ? `${missingGroupProperties.length} Groups propert${missingGroupProperties.length === 1 ? 'y' : 'ies'} with no uploaded value.`
+        : `${omitted.length} unmatched upload row${omitted.length === 1 ? '' : 's'} and ${missingGroupProperties.length} Groups propert${missingGroupProperties.length === 1 ? 'y' : 'ies'} with no uploaded value.`;
+      setNotice(`Loaded ${imported.length} ${sourceKind.replace(/-/g, ' ')} value${imported.length === 1 ? '' : 's'} from ${file.name}.${omitted.length || missingGroupProperties.length ? ` See the reconciliation report for ${reconciliationSummary}` : ''}`);
     } catch (error) { setNotice(`Could not read the Market Value report: ${error instanceof Error ? error.message : String(error)}`); }
   };
   const handleMarketValueFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void importMarketValueFile(file); };
@@ -333,17 +347,18 @@ export function TaxBasisMockup() {
 
   const exportToPartition = (announce = true) => {
     const groupFor = (name: string) => groups.find((group) => group.members.some((member) => propertyMatches(member.property, name)));
+    const groupProperties = marketValueGroupProperties(groups, groupWorkbook);
+    const hasGroupUniverse = groupProperties.length > 0;
+    const permittedMarketValues = hasGroupUniverse ? matchMarketValueRecordsToGroups(marketValues, groupProperties).imported : marketValues;
     // The Groups workbook supplies the canonical property label. Every later
     // source is matched by address, so labels such as "AVE" and
     // "AVENUE MIAMI PAGE" cannot create an additional Partition card.
-    const importedNames = [
-      ...groups.flatMap((group) => group.members.map((member) => member.property)),
-      ...(groupWorkbook?.individualProperties.map((item) => item.property) ?? []),
+    const importedNames = hasGroupUniverse ? groupProperties : [
       ...properties.map((item) => item.property),
       ...occupancy.map((item) => item.property),
       ...loans.map((item) => item.property),
       ...capitalExpenses.map((item) => item.property),
-      ...marketValues.map((item) => item.property),
+      ...permittedMarketValues.map((item) => item.property),
       ...incomeExpenses.map((item) => item.property),
     ];
     const names = importedNames.filter(Boolean).reduce<string[]>((unique, name) => {
@@ -352,6 +367,7 @@ export function TaxBasisMockup() {
     }, []);
     if (!names.length) { if (announce) setNotice('Upload at least one Data report before sending values to the Partition Tool.'); return; }
     dispatch({ type: 'settings/depreciationYear', value: taxYear });
+    if (hasGroupUniverse) state.properties.filter((property) => property.dataManaged === 'data' && !groupProperties.some((name) => propertyMatches(name, property.name))).forEach((property) => dispatch({ type: 'property/delete', id: property.id }));
     for (const name of names) {
       const latestTax = latestTaxSchedule(properties, name); const taxTotal = latestTax ? totals([latestTax]) : { basis: 0, depreciation: 0 };
       const member = groups.flatMap((group) => group.members).find((item) => propertyMatches(item.property, name)) ?? groupWorkbook?.individualProperties.find((item) => propertyMatches(item.property, name));
@@ -363,7 +379,7 @@ export function TaxBasisMockup() {
       const residualTerms = loanItems.map((item) => item.residualTermYears).filter((term): term is number => typeof term === 'number');
       const interestOnlyPeriods = loanItems.map((item) => item.interestOnlyYears ?? 0);
       const amortizationPeriods = loanItems.map((item) => item.amortizationPeriod).filter((period): period is number => typeof period === 'number' && period > 0);
-      const capex = capitalExpenses.filter((item) => propertyMatches(item.property, name)).reduce((sum, item) => sum + item.approximateCost, 0); const market = marketValues.find((item) => item.selected && propertyMatches(item.property, name)) ?? marketValues.find((item) => !item.sourceKind && propertyMatches(item.property, name)); const incomeExpense = incomeExpenses.find((item) => propertyMatches(item.property, name)); const group = groupFor(name);
+      const capex = capitalExpenses.filter((item) => propertyMatches(item.property, name)).reduce((sum, item) => sum + item.approximateCost, 0); const market = permittedMarketValues.find((item) => item.selected && propertyMatches(item.property, name)) ?? permittedMarketValues.find((item) => !item.sourceKind && propertyMatches(item.property, name)); const incomeExpense = incomeExpenses.find((item) => propertyMatches(item.property, name)); const group = groupFor(name);
       const patch = { dataManaged: 'data' as const, groupName: group?.name ?? '', remainingBasis: latestTax ? taxTotal.basis : null, depreciation: latestTax ? taxTotal.depreciation : null, zoning: member?.zoning ?? '', cert40yr: member?.cert40yr ?? '', occupancyPct: occupancyRecord?.units ? (occupancyRecord.occupiedUnits / occupancyRecord.units) * 100 : null, loanBal: loanItems.length ? loanBalance : 0, loanRate: weightedLoanRate, amortPeriod: amortizationPeriods.length ? Math.max(...amortizationPeriods) : 30, ioYears: loanItems.length ? Math.max(...interestOnlyPeriods) : 0, loanTerm: residualTerms.length ? Math.min(...residualTerms) : null, monthlyPmt: loanItems.length ? loanItems.reduce((sum, item) => sum + item.monthlyDebtService, 0) : 0, capex: capex || null, marketVal: market?.marketValue ?? null, noi: incomeExpense?.noi ?? null };
       const matches = state.properties.filter((property) => propertyMatches(property.name, name));
       const match = matches.find((property) => propertyKey(property.name) === propertyKey(name)) ?? matches[0];
@@ -433,7 +449,7 @@ export function TaxBasisMockup() {
   const clearCapitalExpenses = () => { if (capitalExpenses.length && !window.confirm('Clear all imported Capital Expenses data? This cannot be undone.')) return; setCapitalExpenses([]); setCapitalExpensesExpanded(new Set()); setCapitalExpensesCollapsed(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'capital-expenses')); void deleteSourceReports('capital-expenses'); setNotice('Capital Expenses data cleared.'); };
   const clearMarketValues = () => { if (marketValues.length && !window.confirm('Clear all imported Market Value data? This cannot be undone.')) return; setMarketValues([]); setMarketValueImportReport(null); setMarketValueExpanded(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'market-value')); void deleteSourceReports('market-value'); setNotice('Market Value data cleared.'); };
   const clearIncomeExpenses = () => { if (incomeExpenses.length && !window.confirm('Clear all imported Income & Expenses data? This cannot be undone.')) return; setIncomeExpenses([]); setIncomeExpensesExpanded(new Set()); setIncomeExpensesCollapsed(new Set()); setSourceReports((current) => current.filter((item) => item.kind !== 'income-expenses')); void deleteSourceReports('income-expenses'); setNotice('Income & Expenses data cleared.'); };
-  const marketValuePropertyNames = uniquePropertyNames([...groups.flatMap((group) => group.members.map((member) => member.property)), ...incomeExpenses.map((record) => record.property), ...marketValues.map((record) => record.property)]);
+  const marketValuePropertyNames = marketValueGroupProperties(groups, groupWorkbook);
   const marketValueExpansionTargets = [...groups.map((group) => group.id), ...marketValuePropertyNames.filter((property) => !groups.some((group) => group.members.some((member) => propertyMatches(member.property, property)))).map(marketValuePropertyExpansionId)];
   const capitalExpensesUngroupedKeys = capexProperties(capitalExpenses).filter((property) => !groups.some((group) => group.members.some((member) => propertyMatches(member.property, property.property)))).map((property) => propertyKey(property.property));
   const loansUngroupedKeys = loanProperties(loans).filter((property) => !groups.some((group) => group.members.some((member) => propertyMatches(member.property, property.property)))).map((property) => propertyKey(property.property));
@@ -771,7 +787,7 @@ function MarketValueLayoutMockup() {
 const MARKET_VALUE_ROW_ORDER: Array<Exclude<MarketValueSource, 'legacy'>> = ['bov', 'city-appraised', 'comps', 'appraisal', 'income-model', 'construction-land'];
 
 function MarketValueWorkspace({ records, incomeRecords, groups, individualProperties, importReport, expandedGroups, sort, onToggleGroup, onUpload: _onUpload, onAdd, onSelect, onRemove: _onRemove }: { records: MarketValueRecord[]; incomeRecords: IncomeExpenseRecord[]; groups: DealGroup[]; individualProperties: GroupMember[]; importReport: MarketValueImportReport | null; expandedGroups: Set<string>; sort: { key: 'name' | 'marketValue'; asc: boolean }; onToggleGroup: (id: string) => void; onUpload: (kind: MarketValueSource) => void; onAdd: (record: MarketValueRecord) => void; onSelect: (record: MarketValueRecord) => void; onRemove: (id: string) => void }) {
-  const propertyNames = [...groups.flatMap((group) => group.members.map((member) => member.property)), ...individualProperties.map((member) => member.property), ...incomeRecords.map((record) => record.property), ...records.map((record) => record.property)]
+  const propertyNames = [...groups.flatMap((group) => group.members.map((member) => member.property)), ...individualProperties.map((member) => member.property)]
     .reduce<string[]>((names, name) => names.some((existing) => propertyMatches(existing, name)) ? names : [...names, name], [])
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   const recordsFor = (property: string) => records.filter((record) => propertyMatches(record.property, property));
@@ -800,9 +816,13 @@ function MarketValueWorkspace({ records, incomeRecords, groups, individualProper
 
 function MarketValueImportErrorReport({ report }: { report: MarketValueImportReport }) {
   const [open, setOpen] = useState(() => report.omitted.length > 0 || report.missingGroupProperties.length > 0);
+  const hideUploadOmissions = report.sourceKind === 'city-appraised';
   const hasUploadOmissions = report.omitted.length > 0;
   const hasMissingGroups = report.missingGroupProperties.length > 0;
-  return <section className="mb-5 border border-red bg-red/5 px-4 py-3" role="alert"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="font-mono text-[.64rem] font-bold uppercase tracking-[.07em] text-red">Market Value reconciliation report</div><p className="mt-1 text-[.76rem]"><strong>{report.fileName}</strong> — {report.omitted.length} upload row{report.omitted.length === 1 ? '' : 's'} excluded; {report.missingGroupProperties.length} Groups propert{report.missingGroupProperties.length === 1 ? 'y' : 'ies'} had no matching upload row.</p></div><button type="button" className="tool-btn text-[.61rem]" onClick={() => setOpen((current) => !current)} aria-expanded={open}>{open ? 'Hide report' : 'Open report'}</button></div>{open && <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4 text-[.72rem]"><div><div className="font-semibold">In upload, not in Groups {hasUploadOmissions ? `(${report.omitted.length})` : '(0)'}</div><p className="mt-1 text-muted">These rows were not imported.</p>{hasUploadOmissions ? <ul className="mt-2 list-disc pl-5">{report.omitted.map((record, index) => <li key={`${record.source}-${record.property}-${index}`}><strong>{record.property}</strong>{record.source ? ` — ${record.source}` : ''}</li>)}</ul> : <p className="mt-2 text-muted">Every uploaded property matched the Groups workbook.</p>}</div><div><div className="font-semibold">In Groups, not in upload {hasMissingGroups ? `(${report.missingGroupProperties.length})` : '(0)'}</div><p className="mt-1 text-muted">No valuation row was found for these Groups properties.</p>{hasMissingGroups ? <ul className="mt-2 list-disc pl-5">{report.missingGroupProperties.map((property) => <li key={property}><strong>{property}</strong></li>)}</ul> : <p className="mt-2 text-muted">Every Groups property had an uploaded valuation row.</p>}</div></div>}</section>;
+  const summary = hideUploadOmissions
+    ? `${report.missingGroupProperties.length} Groups propert${report.missingGroupProperties.length === 1 ? 'y' : 'ies'} had no matching upload row.`
+    : `${report.omitted.length} upload row${report.omitted.length === 1 ? '' : 's'} excluded; ${report.missingGroupProperties.length} Groups propert${report.missingGroupProperties.length === 1 ? 'y' : 'ies'} had no matching upload row.`;
+  return <section className="mb-5 border border-red bg-red/5 px-4 py-3" role="alert"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="font-mono text-[.64rem] font-bold uppercase tracking-[.07em] text-red">Market Value reconciliation report</div><p className="mt-1 text-[.76rem]"><strong>{report.fileName}</strong> — {summary}</p></div><button type="button" className="tool-btn text-[.61rem]" onClick={() => setOpen((current) => !current)} aria-expanded={open}>{open ? 'Hide report' : 'Open report'}</button></div>{open && <div className={`mt-3 grid grid-cols-1 ${hideUploadOmissions ? '' : 'lg:grid-cols-2'} gap-4 text-[.72rem]`}>{!hideUploadOmissions && <div><div className="font-semibold">In upload, not in Groups {hasUploadOmissions ? `(${report.omitted.length})` : '(0)'}</div><p className="mt-1 text-muted">These rows were not imported.</p>{hasUploadOmissions ? <ul className="mt-2 list-disc pl-5">{report.omitted.map((record, index) => <li key={`${record.source}-${record.property}-${index}`}><strong>{record.property}</strong>{record.source ? ` — ${record.source}` : ''}</li>)}</ul> : <p className="mt-2 text-muted">Every uploaded property matched the Groups workbook.</p>}</div>}<div><div className="font-semibold">In Groups, not in upload {hasMissingGroups ? `(${report.missingGroupProperties.length})` : '(0)'}</div><p className="mt-1 text-muted">No valuation row was found for these Groups properties.</p>{hasMissingGroups ? <ul className="mt-2 list-disc pl-5">{report.missingGroupProperties.map((property) => <li key={property}><strong>{property}</strong></li>)}</ul> : <p className="mt-2 text-muted">Every Groups property had an uploaded valuation row.</p>}</div></div>}</section>;
 }
 
 function MarketValueProgrammedPropertyCard({ property, units, records, noi, onAdd, onSelect }: { property: string; units: string; records: MarketValueRecord[]; noi?: number; onAdd: (record: MarketValueRecord) => void; onSelect: (record: MarketValueRecord) => void }) {
