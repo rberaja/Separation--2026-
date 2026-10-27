@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { DASH, fmtMoney } from '../lib/format';
+import { fmtMoney } from '../lib/format';
 import { GAP_LABELS, GAP_REFERENCE_ROWS, TAX, WHITE_PAPER_VERSION } from '../lib/labels';
 import { settlementSentence, splitLabel as fmtSplit } from '../lib/report';
 import { isBalanced } from '../lib/settlement';
@@ -53,9 +53,9 @@ export function SettlementLedger() {
             <Term term="basisTrueUp">{GAP_LABELS.basisTrueUp}</Term>
             <Tag>{TAX.tool}</Tag>
           </td>
-          <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
+          <td className={`${VALUE_TEXT} text-muted2`}>{fmtMoney(0)}</td>
           <UnassignedCell value={null} />
-          <td className={`${VALUE_TEXT} text-muted2`}>{DASH}</td>
+          <td className={`${VALUE_TEXT} text-muted2`}>{fmtMoney(0)}</td>
         </tr>
         <GapRow label={GAP_LABELS.bidDiff} term="gapBidDiff" gap={gaps.bidDiff} unassigned={unassigned.bidDiff} />
         <CashRow cash={cash} gap={gaps.cash} splitLabel={splitLabel} />
@@ -96,9 +96,9 @@ export function SettlementLedger() {
 function CashDistributionTotal({ distribution }: { distribution: { a: number; b: number } }) {
   return <tr className="border-t-2 border-b border-ink">
     <td className={`${METRIC_TEXT} pl-1.5 py-2`}>True-Up After Cash Distribution</td>
-    <td className={`${VALUE_TEXT} text-green text-[1.05rem]`}>{fmtMoney(distribution.a)}</td>
+    <td className={`${VALUE_TEXT} text-green`}>{fmtMoney(distribution.a)}</td>
     <UnassignedCell value={null} />
-    <td className={`${VALUE_TEXT} text-green text-[1.05rem]`}>{fmtMoney(distribution.b)}</td>
+    <td className={`${VALUE_TEXT} text-green`}>{fmtMoney(distribution.b)}</td>
   </tr>;
 }
 
@@ -158,9 +158,9 @@ function GapRow({
   );
 }
 
-/** Plain grey amount still on unassigned properties; a dash where the row has no such figure. */
+/** Plain grey amount still on unassigned properties; $0 where there is no applicable figure. */
 function UnassignedCell({ value }: { value: number | null }) {
-  return <td className={`${VALUE_TEXT} text-muted2 font-normal`}>{value === null ? DASH : fmtMoney(value)}</td>;
+  return <td className={`${VALUE_TEXT} text-muted2 font-normal`}>{fmtMoney(value ?? 0)}</td>;
 }
 
 /** +$X in green, −$X in red, plain $0 when balanced. */
