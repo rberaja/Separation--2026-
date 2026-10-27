@@ -45,8 +45,12 @@ function dateValue(value: unknown): Date | null {
     const parts = XLSX.SSF.parse_date_code(serial);
     return parts ? new Date(Date.UTC(parts.y, parts.m - 1, parts.d)) : null;
   }
-  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (match) return new Date(Date.UTC(Number(match[3]), Number(match[1]) - 1, Number(match[2])));
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (match) {
+    const enteredYear = Number(match[3]);
+    const year = enteredYear < 100 ? 2000 + enteredYear : enteredYear;
+    return new Date(Date.UTC(year, Number(match[1]) - 1, Number(match[2])));
+  }
   const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   return iso ? new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))) : null;
 }
@@ -59,8 +63,10 @@ function formatDate(value: unknown) {
 
 function residualTermYears(asOf: unknown, nextRate: unknown, maturity: unknown) {
   const asOfDate = dateValue(asOf);
-  const deadline = [dateValue(nextRate), dateValue(maturity)].filter((date): date is Date => date !== null).sort((left, right) => left.getTime() - right.getTime())[0];
-  if (!asOfDate || !deadline) return null;
+  const deadlines = [dateValue(nextRate), dateValue(maturity)].filter((date): date is Date => date !== null).sort((left, right) => left.getTime() - right.getTime());
+  if (!asOfDate || !deadlines.length) return null;
+  // A stale reset date must not hide a future balloon/maturity date.
+  const deadline = deadlines.find((date) => date.getTime() >= asOfDate.getTime()) ?? deadlines[0]!;
   return Math.max(0, Math.round(((deadline.getTime() - asOfDate.getTime()) / 86_400_000 / 365.2425) * 100) / 100);
 }
 
@@ -71,15 +77,33 @@ function interestOnlyYears(asOf: unknown, interestOnlyUntil: unknown) {
   return Math.max(0, Math.round(((endDate.getTime() - asOfDate.getTime()) / 86_400_000 / 365.2425) * 100) / 100);
 }
 
+/** Supports report headers such as "As Of: 08/12/2026" and two-cell headers such as "As Of" | "08/12/2026". */
+function reportAsOfValue(rows: unknown[][], headerRow: number): string {
+  const label = /^(?:as\s*of(?:\s+date)?|report\s+as\s+of(?:\s+date)?|report\s+date|exported\s+on)\s*:?$/i;
+  const inline = /^(?:as\s*of(?:\s+date)?|report\s+as\s+of(?:\s+date)?|report\s+date|exported\s+on)\s*:\s*(.+)$/i;
+  for (const row of rows.slice(0, headerRow)) {
+    for (let index = 0; index < row.length; index += 1) {
+      const value = String(row[index] ?? '').trim();
+      const inlineMatch = value.match(inline);
+      if (inlineMatch && dateValue(inlineMatch[1])) return inlineMatch[1].trim();
+      if (!label.test(value)) continue;
+      const adjacentDate = row.slice(index + 1).map((item) => String(item ?? '').trim()).find((item) => dateValue(item));
+      if (adjacentDate) return adjacentDate;
+    }
+  }
+  return '';
+}
+
 /** Recalculate date-driven terms when restoring or sending a retained loan record. */
 export function normalizeLoanRecordTerms(record: LoanRecord): LoanRecord {
   const hasIoDates = Boolean(dateValue(record.reportAsOfDate) && dateValue(record.interestOnlyUntil));
   const hasResidualDates = Boolean(dateValue(record.reportAsOfDate) && (dateValue(record.nextInterestRateDate) || dateValue(record.maturityDate)));
   const derivedIoYears = interestOnlyYears(record.reportAsOfDate, record.interestOnlyUntil);
+  const ioYears = hasIoDates ? derivedIoYears : record.interestOnlyYears ?? 0;
   return {
     ...record,
-    loanType: derivedIoYears > 0 ? 'Interest Only' : 'Principal & Interest',
-    interestOnlyYears: hasIoDates ? derivedIoYears : record.interestOnlyYears ?? 0,
+    loanType: ioYears > 0 ? 'Interest Only' : 'Principal & Interest',
+    interestOnlyYears: ioYears,
     residualTermYears: hasResidualDates ? residualTermYears(record.reportAsOfDate, record.nextInterestRateDate, record.maturityDate) : record.residualTermYears ?? null,
   };
 }
@@ -99,14 +123,20 @@ export function parseLoansWorkbook(data: ArrayBuffer): LoanRecord[] {
   const interestRateColumn = columnFor(headers, ['interestrate', 'rate']);
   const amortizationPeriodColumn = columnFor(headers, ['amortization', 'amortizationperiod', 'amortizationperiods', 'amortizationterm', 'amortperiod', 'amortyears', 'amortizationyears']);
   const interestOnlyUntilColumn = columnFor(headers, ['interestonlyuntil', 'interestonlyuntildate', 'interestonlyenddate', 'interestonlyend', 'iodatechange', 'ioenddate', 'iountil', 'iountildate']);
-  const nextInterestRateColumn = columnFor(headers, ['piratechangedate', 'principalinterestchangedate', 'principalinterestratechangedate', 'nextinterestratedate', 'nextratedate', 'interestrateresetdate', 'nextresetdate']);
-  const maturityColumn = columnFor(headers, ['maturitydate', 'maturity', 'duedate']);
+  const interestOnlyYearsColumn = columnFor(headers, ['interestonlyyears', 'interestonlyperiod', 'interestonlyperiodyears', 'interestonlyperiodyrs', 'ioperiod', 'ioperiodyears', 'ioperiodyrs', 'remainingio', 'remainingioyears', 'remainingioyrs']);
+  const nextInterestRateColumn = columnFor(headers, ['piratechangedate', 'principalinterestchangedate', 'principalinterestratechangedate', 'nextinterestratedate', 'nextratedate', 'interestrateresetdate', 'nextresetdate', 'resetdate', 'fixedrateenddate', 'fixedrateexpirationdate', 'fixedratematuritydate']);
+  const maturityColumn = columnFor(headers, ['maturitydate', 'maturity', 'duedate', 'balloondate', 'balloonpaymentdate', 'balloonmaturitydate']);
+  const residualTermColumn = columnFor(headers, ['residualterm', 'residualtermyears', 'residualtermyrs', 'residualloanterm', 'residualloantermyears', 'residualloantermyrs', 'remainingloanterm', 'remainingloantermyears', 'remainingloantermyrs', 'remainingterm', 'remainingtermyears', 'remainingtermyrs', 'loanterm', 'loantermyears', 'loantermyrs']);
+  const reportAsOfColumn = columnFor(headers, ['asof', 'asofdate', 'reportasof', 'reportasofdate', 'reportdate', 'loanreportdate']);
   if (propertyColumn < 0) throw new LoansImportError('The loan schedule needs a Property or Address column.');
-  const asOfRow = rows.slice(0, headerRow).flat().map((value) => String(value ?? '').trim()).find((value) => /^(as\s+of|report\s+date|exported\s+on|date\s+range)\s*:/i.test(value)) ?? '';
-  const asOfValue = asOfRow.replace(/^[^:]+:\s*/i, '');
+  const asOfValue = reportAsOfValue(rows, headerRow);
   const reportAsOfDate = formatDate(asOfValue);
   const records = rows.slice(headerRow + 1).map((row, rowIndex) => {
-    const ioYears = interestOnlyYears(asOfValue, interestOnlyUntilColumn >= 0 ? row[interestOnlyUntilColumn] : '');
+    const rowAsOfValue = reportAsOfColumn >= 0 ? row[reportAsOfColumn] : asOfValue;
+    const derivedIoYears = interestOnlyYears(rowAsOfValue, interestOnlyUntilColumn >= 0 ? row[interestOnlyUntilColumn] : '');
+    const directIoYears = interestOnlyYearsColumn >= 0 ? numberOrNull(row[interestOnlyYearsColumn]) : null;
+    const ioYears = dateValue(rowAsOfValue) && interestOnlyUntilColumn >= 0 && dateValue(row[interestOnlyUntilColumn]) ? derivedIoYears : directIoYears ?? 0;
+    const directResidualTerm = residualTermColumn >= 0 ? numberOrNull(row[residualTermColumn]) : null;
     return normalizeLoanRecordTerms({
     property: text(row, propertyColumn), lender: lenderColumn >= 0 ? text(row, lenderColumn) : '', loanType: ioYears > 0 ? 'Interest Only' : 'Principal & Interest',
     outstandingBalance: balanceColumn >= 0 ? amount(row[balanceColumn]) : 0,
@@ -117,8 +147,8 @@ export function parseLoansWorkbook(data: ArrayBuffer): LoanRecord[] {
     nextInterestRateDate: nextInterestRateColumn >= 0 ? formatDate(row[nextInterestRateColumn]) : '',
     monthlyDebtService: debtServiceColumn >= 0 ? amount(row[debtServiceColumn]) : 0,
     maturityDate: maturityColumn >= 0 ? formatDate(row[maturityColumn]) : '',
-    reportAsOfDate,
-    residualTermYears: residualTermYears(asOfValue, nextInterestRateColumn >= 0 ? row[nextInterestRateColumn] : '', maturityColumn >= 0 ? row[maturityColumn] : ''),
+    reportAsOfDate: formatDate(rowAsOfValue) || reportAsOfDate,
+    residualTermYears: residualTermYears(rowAsOfValue, nextInterestRateColumn >= 0 ? row[nextInterestRateColumn] : '', maturityColumn >= 0 ? row[maturityColumn] : '') ?? directResidualTerm,
     source: `${workbook.SheetNames[0] ?? 'Report'} row ${headerRow + rowIndex + 2}`,
   }); }).filter((record) => record.property);
   if (!records.length) throw new LoansImportError('No property rows were found in the loan schedule.');
@@ -129,16 +159,17 @@ export function buildLoansTemplateWorkbook(): XLSX.WorkBook {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet([
     ['Loan Schedule Import'],
-    ['Property', 'Lender', 'Loan Type', 'Outstanding Balance', 'Interest Rate', 'Amortization Period', 'Interest-Only Until', 'P&I Rate Change Date', 'Monthly Principal & Interest', 'Maturity'],
-    ...Array.from({ length: 20 }, () => ['', '', '', '', '', '', '', '', '', '']),
+    ['Property', 'Lender', 'Loan Type', 'Outstanding Balance', 'Interest Rate', 'Amortization Period', 'Interest-Only Until', 'IO Period (yrs)', 'P&I Rate Change Date', 'Monthly Principal & Interest', 'Maturity', 'Residual Loan Term (yrs)'],
+    ...Array.from({ length: 20 }, () => ['', '', '', '', '', '', '', '', '', '', '', '']),
   ]);
-  sheet['!cols'] = [34, 28, 20, 20, 16, 22, 22, 23, 28, 18].map((wch) => ({ wch }));
+  sheet['!cols'] = [34, 28, 20, 20, 16, 22, 22, 18, 23, 28, 18, 26].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Loans');
   const instructions = XLSX.utils.aoa_to_sheet([
     ['Loan schedule instructions'],
     ['Enter one loan per row. Multiple loans on one property are retained and totaled in the property and group summaries.'],
     ['Property is required and is matched to the Groups workbook using the property name or address.'],
-    ['Interest-Only Until is optional. When blank, the loan is treated as Principal & Interest; when supplied, the remaining IO period is calculated from the report date. P&I Rate Change Date is used for the residual loan term.'],
+    ['Enter an Interest-Only Until or IO Period (yrs). When dates are supplied, the remaining IO period is calculated from the report date; otherwise the entered IO period is used.'],
+    ['Enter a P&I Rate Change Date or Residual Loan Term (yrs). When dates are supplied, the residual term is calculated from the report date; otherwise the entered residual term is used.'],
   ]);
   instructions['!cols'] = [{ wch: 110 }];
   XLSX.utils.book_append_sheet(workbook, instructions, 'Instructions');

@@ -64,6 +64,51 @@ describe('AppFolio loan report import', () => {
     expect(record).toMatchObject({ loanType: 'Principal & Interest', interestOnlyUntil: '', nextInterestRateDate: '05/31/2028' });
   });
 
+  it('maps all Partition Tool loan fields when the schedule supplies terms directly', () => {
+    const [record] = parseLoansWorkbook(workbookFromRows([
+      ['Property', 'Outstanding Balance', 'Interest Rate', 'Amortization Period', 'IO Period (yrs)', 'Residual Loan Term (yrs)', 'Monthly Principal & Interest'],
+      ['600 SW 9 Ave', '1,618,302.70', '3.25%', '30', '1.5', '1.8', '7,796.85'],
+    ]));
+
+    expect(record).toMatchObject({
+      property: '600 SW 9 Ave',
+      outstandingBalance: 1_618_302.7,
+      interestRate: 3.25,
+      amortizationPeriod: 30,
+      loanType: 'Interest Only',
+      interestOnlyYears: 1.5,
+      residualTermYears: 1.8,
+      monthlyDebtService: 7_796.85,
+    });
+  });
+
+  it('calculates the residual term from a two-cell report date and the earlier reset or balloon date', () => {
+    const [record] = parseLoansWorkbook(workbookFromRows([
+      ['Report As Of', '08/12/2026'],
+      ['Property', 'Fixed Rate End Date', 'Balloon Payment Date'],
+      ['600 SW 9 Ave', '05/31/2028', '05/31/2052'],
+    ]));
+
+    expect(record).toMatchObject({
+      reportAsOfDate: '08/12/2026',
+      nextInterestRateDate: '05/31/2028',
+      maturityDate: '05/31/2052',
+    });
+    expect(record?.residualTermYears).toBeGreaterThan(1);
+    expect(record?.residualTermYears).toBeLessThan(2);
+  });
+
+  it('uses a future balloon date when the reported reset date has already passed', () => {
+    const [record] = parseLoansWorkbook(workbookFromRows([
+      ['As Of: 08/12/2026'],
+      ['Property', 'Next Reset Date', 'Balloon Payment Date'],
+      ['600 SW 9 Ave', '05/31/2026', '05/31/2028'],
+    ]));
+
+    expect(record?.residualTermYears).toBeGreaterThan(1);
+    expect(record?.residualTermYears).toBeLessThan(2);
+  });
+
   it('recalculates retained loan terms from its report, IO, rate-change, and maturity dates', () => {
     const record = normalizeLoanRecordTerms({
       property: '600 SW 9 AVE', lender: '', loanType: 'Principal & Interest', outstandingBalance: 1618302.7, interestRate: 3.25, amortizationPeriod: 30,
