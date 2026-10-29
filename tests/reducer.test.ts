@@ -18,6 +18,18 @@ describe('Data-managed Partition properties', () => {
     expect(reducer(state, { type: 'property/assign', id: assigned.id, partner: 'none' }).properties[0]?.assign).toBe('none');
   });
 
+  it('unselects every Partner assignment without removing property data', () => {
+    const assignedA = createProperty(1, { name: 'Partner A property', assign: 'a', marketVal: 100 });
+    const assignedB = createProperty(2, { name: 'Partner B property', assign: 'b', marketVal: 200 });
+    const unassigned = createProperty(3, { name: 'Unassigned property', marketVal: 300 });
+    const state = { ...initialState, properties: [assignedA, assignedB, unassigned], nextId: 4 };
+
+    const result = reducer(state, { type: 'properties/unassignAll' });
+
+    expect(result.properties.map((property) => property.assign)).toEqual(['none', 'none', 'none']);
+    expect(result.properties.map((property) => property.marketVal)).toEqual([100, 200, 300]);
+  });
+
   it('assigns every property in a consolidated selection unit together', () => {
     const first = createProperty(1, { name: '600 SW 9 AVE', groupName: 'The 600-930' });
     const second = createProperty(2, { name: '930 SW 6th Street', groupName: 'The 600-930' });

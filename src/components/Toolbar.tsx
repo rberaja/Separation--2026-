@@ -5,7 +5,7 @@ import { SORT_OPTIONS } from '../lib/sort';
 import { useApp } from '../store/AppContext';
 import { ColumnGuideModal } from './ColumnGuideModal';
 import { ExportModal } from './ExportModal';
-import { DownloadIcon, InfoIcon, PrintIcon, TrashIcon, UploadIcon } from './ui/Icons';
+import { DownloadIcon, InfoIcon, PrintIcon, UploadIcon } from './ui/Icons';
 
 export function Toolbar() {
   const { state, dispatch } = useApp();
@@ -15,6 +15,7 @@ export function Toolbar() {
   const [exportOpen, setExportOpen] = useState(false);
   const closeExport = useCallback(() => setExportOpen(false), []);
   const hasData = state.properties.length > 0;
+  const hasSelectedProperties = state.properties.some((property) => property.assign !== 'none');
 
   const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
@@ -34,10 +35,7 @@ export function Toolbar() {
     }
   };
 
-  const clearAll = () => {
-    if (state.properties.length > 0 && !window.confirm('Clear all properties? This cannot be undone.')) return;
-    dispatch({ type: 'properties/clear' });
-  };
+  const unselectAll = () => dispatch({ type: 'properties/unassignAll' });
 
   return (
     <div className="flex flex-wrap items-center gap-2.5 bg-surface border-b border-border px-7 py-2">
@@ -61,8 +59,8 @@ export function Toolbar() {
       >
         <PrintIcon /> Print / Export
       </button>
-      <button type="button" className="tool-btn tool-btn-danger" onClick={clearAll}>
-        <TrashIcon /> Clear All
+      <button type="button" className="tool-btn tool-btn-danger disabled:opacity-40" disabled={!hasSelectedProperties} onClick={unselectAll}>
+        Unselect All
       </button>
       <button type="button" className="tool-btn disabled:opacity-40" disabled={!hasData} onClick={() => dispatch({ type: 'selectionUnits/setCollapsed', keys: [] })}>▾ Expand All</button>
       <button type="button" className="tool-btn disabled:opacity-40" disabled={!hasData} onClick={() => dispatch({ type: 'selectionUnits/setCollapsed', keys: state.properties.map(selectionUnitKey) })}>▴ Collapse All</button>

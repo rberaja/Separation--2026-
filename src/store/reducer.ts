@@ -56,6 +56,7 @@ export type Action =
   | { type: 'property/update'; id: number; patch: PropertyInput }
   | { type: 'property/assign'; id: number; partner: Assignment }
   | { type: 'properties/assign'; ids: number[]; partner: Assignment }
+  | { type: 'properties/unassignAll' }
   | { type: 'selectionUnits/setCollapsed'; keys: string[] }
   | { type: 'selectionUnits/toggleCollapsed'; key: string }
   | { type: 'property/delete'; id: number }
@@ -99,6 +100,9 @@ export function reducer(state: AppState, action: Action): AppState {
       const ids = new Set(action.ids);
       return { ...state, properties: state.properties.map((property) => ids.has(property.id) ? { ...property, assign: action.partner } : property) };
     }
+
+    case 'properties/unassignAll':
+      return { ...state, properties: state.properties.map((property) => property.assign === 'none' ? property : { ...property, assign: 'none' }) };
 
     case 'selectionUnits/setCollapsed':
       return { ...state, collapsedSelectionUnits: [...new Set(action.keys)] };

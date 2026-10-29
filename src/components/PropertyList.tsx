@@ -16,23 +16,13 @@ export function PropertyList() {
 
   return (
     <section>
-      <SectionHeading
-        action={<button
-            type="button"
-            className="tool-btn text-[0.6rem] tracking-[0.1em] px-2.5 py-1 hover:bg-surface2"
-            onClick={() => dispatch({ type: 'property/add' })}
-          >
-            + Add Property
-          </button>}
-      >
-        A. Properties
-      </SectionHeading>
+      <SectionHeading>A. Properties</SectionHeading>
 
       {properties.length === 0 ? (
         <div className="text-center px-5 py-11 text-muted2 font-mono text-[0.73rem] tracking-[0.04em] leading-loose">
           No properties yet.
           <br />
-          Upload an Excel file above, or click <strong>+ Add Property</strong>.
+          Upload property data from the Data workspace to display it here.
         </div>
       ) : (
         <GroupedPropertyList properties={properties} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
