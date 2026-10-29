@@ -27,7 +27,7 @@ const canonicalAlias = (value: string) => {
   // "11, 25, 31 Menores Ave." The Groups workbook's canonical label must win
   // so it remains inside The Menores selection unit rather than becoming an
   // extra BOV-defined property.
-  return compact.includes('MENORES112533') || compact.includes('MENORESAVE40UNITS') || compact.includes('112531MENORESAVE') ? 'MENORESAVE40UNITS' : compact;
+  return compact.includes('MENORES112533') || compact.includes('112533MENORES') || compact.includes('MENORESAVE40UNITS') || compact.includes('112531MENORES') ? 'MENORESAVE40UNITS' : compact;
 };
 
 export const propertyKey = (value: string) => canonicalAlias(canonicalText(value));

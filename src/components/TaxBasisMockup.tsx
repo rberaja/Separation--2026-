@@ -17,6 +17,13 @@ type Tab = 'groups' | 'data' | 'occupancy' | 'loans' | 'capitalExpenses' | 'mark
 type GroupsSortKey = 'name' | 'zoning' | 'cert40yr';
 type GroupWorkbook = { name: string; individualProperties: GroupMember[] };
 type MarketValueImportReport = { fileName: string; sourceKind?: MarketValueSource; omitted: MarketValueRecord[]; missingGroupProperties: string[] };
+type TaxReturnImportReport = {
+  sourceFiles: string[];
+  importedTotals: { basis: number; depreciation: number };
+  partitionTotals: { basis: number; depreciation: number };
+  excludedSchedules: PropertySchedule[];
+  missingGroupProperties: string[];
+};
 type PersistedState = { taxYear: number; groups: DealGroup[]; groupWorkbook: GroupWorkbook | null; properties: PropertySchedule[]; documents: string[]; warnings: string[]; occupancy: OccupancyRecord[]; loans: LoanRecord[]; capitalExpenses: CapitalExpenseRecord[]; marketValues: MarketValueRecord[]; incomeExpenses: IncomeExpenseRecord[]; sourceReports: StoredSource[] };
 
 /** The Groups workbook is the authoritative property universe for valuation data. */
@@ -45,6 +52,23 @@ const money = (value: number) => new Intl.NumberFormat('en-US', { style: 'curren
 const numeric = (value: string) => Math.max(0, Number(value.replace(/[^\d.]/g, '')) || 0);
 const totals = (properties: PropertySchedule[]) => ({ basis: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.basis, 0), 0), depreciation: properties.reduce((sum, property) => sum + property.schedules.reduce((total, item) => total + item.annual, 0), 0) });
 const hasMember = (group: DealGroup, property: PropertySchedule) => group.members.some((member) => propertyMatches(member.property, property.property));
+
+/** Recreate the tax-return values that exportToPartition sends to Partition. */
+function reconcileTaxReturnSchedules(properties: PropertySchedule[], groups: DealGroup[], groupWorkbook: GroupWorkbook | null, sourceFiles: string[]): TaxReturnImportReport {
+  const groupProperties = marketValueGroupProperties(groups, groupWorkbook);
+  if (!groupProperties.length) return { sourceFiles, importedTotals: totals(properties), partitionTotals: totals(properties), excludedSchedules: [], missingGroupProperties: [] };
+  const partitionSchedules = groupProperties.flatMap((property) => {
+    const schedule = latestTaxSchedule(properties, property);
+    return schedule ? [schedule] : [];
+  }).reduce<PropertySchedule[]>((unique, schedule) => unique.some((item) => item.id === schedule.id) ? unique : [...unique, schedule], []);
+  return {
+    sourceFiles,
+    importedTotals: totals(properties),
+    partitionTotals: totals(partitionSchedules),
+    excludedSchedules: properties.filter((property) => !groupProperties.some((groupProperty) => propertyMatches(groupProperty, property.property))),
+    missingGroupProperties: groupProperties.filter((property) => !properties.some((schedule) => propertyMatches(property, schedule.property))),
+  };
+}
 
 /** One property can appear in multiple historical returns; only its newest schedule may feed Partition. */
 const latestTaxSchedule = (properties: PropertySchedule[], propertyName: string) => properties
@@ -107,6 +131,7 @@ export function TaxBasisMockup() {
   const [capitalExpenses, setCapitalExpenses] = useState<CapitalExpenseRecord[]>([]);
   const [marketValues, setMarketValues] = useState<MarketValueRecord[]>([]);
   const [marketValueImportReport, setMarketValueImportReport] = useState<MarketValueImportReport | null>(null);
+  const [taxReturnImportReport, setTaxReturnImportReport] = useState<TaxReturnImportReport | null>(null);
   const [incomeExpenses, setIncomeExpenses] = useState<IncomeExpenseRecord[]>([]);
   const [sourceReports, setSourceReports] = useState<StoredSource[]>([]);
   const [occupancyExpanded, setOccupancyExpanded] = useState<Set<string>>(new Set());
@@ -182,6 +207,15 @@ export function TaxBasisMockup() {
     const missingGroupProperties = groupProperties.filter((property) => !marketValues.some((record) => propertyMatches(property, record.property)));
     setMarketValueImportReport({ fileName: 'Currently loaded Market Value data', omitted: [], missingGroupProperties });
   }, [groupWorkbook, groups, marketValueImportReport, marketValues]);
+
+  // Compare the latest imported tax-return schedules with the exact schedule
+  // totals exportToPartition will send to the Partition workspace.
+  useEffect(() => {
+    if (!properties.length) { setTaxReturnImportReport(null); return; }
+    const report = reconcileTaxReturnSchedules(properties, groups, groupWorkbook, documents);
+    const totalsDiffer = report.importedTotals.basis !== report.partitionTotals.basis || report.importedTotals.depreciation !== report.partitionTotals.depreciation;
+    setTaxReturnImportReport(totalsDiffer || report.excludedSchedules.length ? report : null);
+  }, [properties, groups, groupWorkbook, documents]);
 
   const sourceId = (kind: string, file: File) => `${kind}-${file.name}-${file.lastModified}-${file.size}`;
   const preserveSource = (kind: string, file: File) => {
@@ -516,7 +550,7 @@ export function TaxBasisMockup() {
       <div className="mb-4 border border-border bg-surface2 px-4 py-2.5 text-center font-mono text-[.68rem] text-muted" role="status">{notice}</div>
       <DataTabGuidance activeTab={activeTab} />
       {activeTab === 'groups' && <GroupsTabView groups={groups} groupWorkbook={groupWorkbook} sort={groupsSort} collapsed={groupsCollapsed} onUpdate={updateGroup} />}
-      {activeTab === 'data' && <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} sortAsc={dataSortAsc} importing={isImporting} progress={importProgress} importError={importError} onUpload={() => returnFileRef.current?.click()} expandedGroups={expandedGroups} collapsedProperties={collapsedProperties} warnings={warnings} onToggleExpanded={toggleExpanded} onTogglePropertyCollapsed={togglePropertyCollapsed} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
+      {activeTab === 'data' && <DataTabView taxYear={taxYear} setTaxYear={setTaxYear} properties={properties} groups={groups} assignments={assignments} sortAsc={dataSortAsc} importing={isImporting} progress={importProgress} importError={importError} importReport={taxReturnImportReport} onUpload={() => returnFileRef.current?.click()} expandedGroups={expandedGroups} collapsedProperties={collapsedProperties} warnings={warnings} onToggleExpanded={toggleExpanded} onTogglePropertyCollapsed={onTogglePropertyCollapsed} onUpdateProperty={updateProperty} onUpdateComponent={updateComponent} onGoGroups={() => setActiveTab('groups')} />}
       {activeTab === 'occupancy' && <OccupancyTabView records={occupancy} groups={groups} expandedGroups={occupancyExpanded} collapsedProperties={occupancyCollapsed} sort={occupancySort} onToggleGroup={toggleOccupancyExpanded} onToggleProperty={toggleOccupancyCollapsed} onUpload={() => occupancyFileRef.current?.click()} />}
       {activeTab === 'loans' && <LoansTabView records={loans} groups={groups} individualProperties={groupWorkbook?.individualProperties ?? []} expandedGroups={loansExpanded} collapsedProperties={loansCollapsed} sortAsc={loansSortAsc} onToggleGroup={toggleLoansExpanded} onToggleProperty={toggleLoansCollapsed} onUpload={() => loansFileRef.current?.click()} />}
       {activeTab === 'capitalExpenses' && <CapitalExpensesTabView records={capitalExpenses} groups={groups} expandedGroups={capitalExpensesExpanded} collapsedProperties={capitalExpensesCollapsed} sortAsc={capitalExpensesSortAsc} onToggleGroup={toggleCapitalExpensesExpanded} onToggleProperty={toggleCapitalExpensesCollapsed} onUpload={() => capitalExpensesFileRef.current?.click()} />}
@@ -825,6 +859,14 @@ function MarketValueImportErrorReport({ report }: { report: MarketValueImportRep
   return <section className="mb-5 border border-red bg-red/5 px-4 py-3" role="alert"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="font-mono text-[.64rem] font-bold uppercase tracking-[.07em] text-red">Market Value reconciliation report</div><p className="mt-1 text-[.76rem]"><strong>{report.fileName}</strong> — {summary}</p></div><button type="button" className="tool-btn text-[.61rem]" onClick={() => setOpen((current) => !current)} aria-expanded={open}>{open ? 'Hide report' : 'Open report'}</button></div>{open && <div className={`mt-3 grid grid-cols-1 ${hideUploadOmissions ? '' : 'lg:grid-cols-2'} gap-4 text-[.72rem]`}>{!hideUploadOmissions && <div><div className="font-semibold">In upload, not in Groups {hasUploadOmissions ? `(${report.omitted.length})` : '(0)'}</div><p className="mt-1 text-muted">These rows were not imported.</p>{hasUploadOmissions ? <ul className="mt-2 list-disc pl-5">{report.omitted.map((record, index) => <li key={`${record.source}-${record.property}-${index}`}><strong>{record.property}</strong>{record.source ? ` — ${record.source}` : ''}</li>)}</ul> : <p className="mt-2 text-muted">Every uploaded property matched the Groups workbook.</p>}</div>}<div><div className="font-semibold">In Groups, not in upload {hasMissingGroups ? `(${report.missingGroupProperties.length})` : '(0)'}</div><p className="mt-1 text-muted">No valuation row was found for these Groups properties.</p>{hasMissingGroups ? <ul className="mt-2 list-disc pl-5">{report.missingGroupProperties.map((property) => <li key={property}><strong>{property}</strong></li>)}</ul> : <p className="mt-2 text-muted">Every Groups property had an uploaded valuation row.</p>}</div></div>}</section>;
 }
 
+function TaxReturnImportErrorReport({ report }: { report: TaxReturnImportReport }) {
+  const [open, setOpen] = useState(true);
+  const basisDifference = report.importedTotals.basis - report.partitionTotals.basis;
+  const depreciationDifference = report.importedTotals.depreciation - report.partitionTotals.depreciation;
+  const fileLabel = report.sourceFiles.length ? report.sourceFiles.join(', ') : 'Current tax-return schedules';
+  return <section className="mb-5 border border-red bg-red/5 px-4 py-3" role="alert"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="font-mono text-[.64rem] font-bold uppercase tracking-[.07em] text-red">Tax-return reconciliation report</div><p className="mt-1 text-[.76rem]"><strong>{fileLabel}</strong> â€” the imported totals do not match the values sent to Partition.</p></div><button type="button" className="tool-btn text-[.61rem]" onClick={() => setOpen((current) => !current)} aria-expanded={open}>{open ? 'Hide report' : 'Open report'}</button></div>{open && <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4 text-[.72rem]"><div><div className="font-semibold">Totals</div><div className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 font-mono text-[.67rem]"><span className="text-muted">&nbsp;</span><span className="text-right text-muted">Imported</span><span className="text-right text-muted">Sent to Partition</span><span>Remaining basis</span><span className="text-right">{money(report.importedTotals.basis)}</span><span className="text-right">{money(report.partitionTotals.basis)}</span><span>Depreciation</span><span className="text-right">{money(report.importedTotals.depreciation)}</span><span className="text-right">{money(report.partitionTotals.depreciation)}</span></div><p className="mt-2 text-muted">Difference: {money(basisDifference)} remaining basis and {money(depreciationDifference)} depreciation.</p></div><div><div className="font-semibold">Imported schedules not sent to Partition ({report.excludedSchedules.length})</div><p className="mt-1 text-muted">These schedules did not match a property in the Groups workbook, so their values were excluded.</p>{report.excludedSchedules.length > 0 && <ul className="mt-2 list-disc pl-5">{report.excludedSchedules.map((property) => { const value = totals([property]); return <li key={property.id}><strong>{property.property}</strong> â€” {money(value.basis)} basis; {money(value.depreciation)} depreciation</li>; })}</ul>}{report.missingGroupProperties.length > 0 && <><div className="mt-3 font-semibold">Groups properties without a tax-return schedule ({report.missingGroupProperties.length})</div><ul className="mt-2 list-disc pl-5">{report.missingGroupProperties.map((property) => <li key={property}><strong>{property}</strong></li>)}</ul></>}</div></div>}</section>;
+}
+
 function MarketValueProgrammedPropertyCard({ property, units, records, noi, onAdd, onSelect }: { property: string; units: string; records: MarketValueRecord[]; noi?: number; onAdd: (record: MarketValueRecord) => void; onSelect: (record: MarketValueRecord) => void }) {
   const [editing, setEditing] = useState<MarketValueSource | null>(null);
   const [provider, setProvider] = useState('');
@@ -1003,13 +1045,14 @@ function GroupsTab({ groups, properties, onAdd, onUpdate, onRemove, onToggleMemb
 
 function GroupCard({ group, properties, onUpdate, onRemove, onToggleMember }: { group: DealGroup; properties: PropertySchedule[]; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) { return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border flex justify-between gap-3"><div><div className="caption text-[.58rem]">Combined lot / economic package</div><input aria-label="Group name" value={group.name} onChange={(event) => onUpdate(group.id, { name: event.target.value })} className="mt-1 bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /></div><button type="button" onClick={() => onRemove(group.id)} className="font-mono text-[.6rem] uppercase text-muted hover:text-red cursor-pointer">Remove</button></header><div className="p-4"><div className="font-mono text-[.61rem] uppercase tracking-[.07em] text-muted mb-2">Member properties</div>{properties.length === 0 ? <p className="text-[.75rem] text-muted">Property choices will appear after tax-return import.</p> : <div className="flex flex-col gap-2">{properties.map((property) => <label key={property.id} className="flex gap-2.5 items-start cursor-pointer"><input type="checkbox" checked={hasMember(group, property)} onChange={() => onToggleMember(group.id, property)} className="mt-0.5 accent-[var(--a)]" /><span><span className="font-semibold text-[.78rem]">{property.property}</span><span className="block font-mono text-[.61rem] text-muted mt-0.5">{property.entity || 'Entity not detected'}</span></span></label>)}</div>}</div></article>; }
 
-function DataTabView({ taxYear, setTaxYear, properties, groups, assignments, sortAsc, importing, progress, importError, onUpload, expandedGroups, collapsedProperties, warnings, onToggleExpanded, onTogglePropertyCollapsed, onUpdateProperty, onUpdateComponent, onGoGroups }: { taxYear: number; setTaxYear: (year: number) => void; properties: PropertySchedule[]; groups: DealGroup[]; assignments: Map<string, string>; sortAsc: boolean; importing: boolean; progress: ExtractionProgress | null; importError: string | null; onUpload: () => void; expandedGroups: Set<string>; collapsedProperties: Set<string>; warnings: string[]; onToggleExpanded: (id: string) => void; onTogglePropertyCollapsed: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; onGoGroups: () => void }) {
+function DataTabView({ taxYear, setTaxYear, properties, groups, assignments, sortAsc, importing, progress, importError, importReport, onUpload, expandedGroups, collapsedProperties, warnings, onToggleExpanded, onTogglePropertyCollapsed, onUpdateProperty, onUpdateComponent, onGoGroups }: { taxYear: number; setTaxYear: (year: number) => void; properties: PropertySchedule[]; groups: DealGroup[]; assignments: Map<string, string>; sortAsc: boolean; importing: boolean; progress: ExtractionProgress | null; importError: string | null; importReport: TaxReturnImportReport | null; onUpload: () => void; expandedGroups: Set<string>; collapsedProperties: Set<string>; warnings: string[]; onToggleExpanded: (id: string) => void; onTogglePropertyCollapsed: (id: string) => void; onUpdateProperty: (id: string, patch: Partial<Omit<PropertySchedule, 'id' | 'schedules'>>) => void; onUpdateComponent: (propertyId: string, componentId: string, patch: Partial<ScheduleItem>) => void; onGoGroups: () => void }) {
   const groupedIds = new Set(assignments.keys());
   const byName = (a: string, b: string) => (sortAsc ? 1 : -1) * a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
   const sortedGroups = [...groups].sort((a, b) => byName(a.name, b.name));
   const sortedUngrouped = properties.filter((property) => !groupedIds.has(property.id)).sort((a, b) => byName(a.property, b.property));
   return <section>
     <div className="flex flex-wrap justify-between items-end gap-4 mb-5"><div><div className="caption text-[.66rem] mb-1">Step 2 · Tax-return data extraction</div><h2 className="font-serif text-[1.55rem] font-bold">Remaining Tax Basis and Depreciation</h2><p className="mt-1 text-[.78rem] text-muted max-w-3xl">Grouped properties collapse to one selection-unit total. Expand a group to review the underlying property schedules, remaining basis, and current-year depreciation.</p></div><label className="flex items-center gap-1.5 border-[1.5px] border-border rounded-[3px] bg-surface px-2.5 py-1.5"><span className="font-mono text-[.59rem] uppercase tracking-[.07em] text-muted">Tax year</span><input value={taxYear} onChange={(event) => setTaxYear(Number(event.target.value) || taxYear)} className="w-11 bg-transparent text-right outline-none font-mono text-[.74rem] font-bold" inputMode="numeric" /></label></div>
+    {importReport && <TaxReturnImportErrorReport key={`${importReport.importedTotals.basis}:${importReport.importedTotals.depreciation}:${importReport.partitionTotals.basis}:${importReport.partitionTotals.depreciation}`} report={importReport} />}
     {warnings.length > 0 && <div className="mb-4 note border-l-red">{warnings.map((warning) => <div key={warning}>{warning}</div>)}</div>}
     {importing && <ImportProgress progress={progress} />}{importError && !importing && <div className="mb-4 note border-l-red" role="alert"><div className="font-bold">Import failed</div><div className="mt-1">{importError}</div><div className="mt-1 text-muted">Refresh the page and try again. If it keeps failing, the PDF may be scanned images rather than text.</div></div>}
     {properties.length === 0 ? (!importing && <div className="card text-center py-16 px-6 border-2 border-dashed border-border"><div className="font-serif text-[1.25rem] font-bold">No tax returns imported</div><p className="text-muted max-w-md mx-auto mt-2 text-[.78rem]">Drag and drop the Form 1065 PDF packages anywhere on this page, or use the upload button. The importer creates the property schedules automatically.</p><button type="button" className="tool-btn tool-btn-primary mt-5" onClick={onUpload}>↑ Upload tax return PDFs</button></div>) : <div className="flex flex-col gap-5">{sortedGroups.map((group) => { const members = properties.filter((property) => assignments.get(property.id) === group.id); return <GroupedSchedule key={group.id} group={group} properties={members} workbookMembers={group.members} taxYear={taxYear} expanded={expandedGroups.has(group.id)} collapsedProperties={collapsedProperties} onToggle={() => onToggleExpanded(group.id)} onTogglePropertyCollapsed={onTogglePropertyCollapsed} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />; })}{sortedUngrouped.map((property) => <PropertyScheduleCard key={property.id} property={property} taxYear={taxYear} collapsed={collapsedProperties.has(property.id)} onToggleCollapsed={() => onTogglePropertyCollapsed(property.id)} onUpdateProperty={onUpdateProperty} onUpdateComponent={onUpdateComponent} />)}</div>}
