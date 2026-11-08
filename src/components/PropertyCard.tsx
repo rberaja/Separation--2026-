@@ -34,14 +34,16 @@ export function PropertyCard({
   const { state, dispatch } = useApp();
   const names = usePartnerNames();
   const m = computeMetrics(p, useDiscountRate());
+  const isStandaloneSelectionUnit = showAssignment && Boolean(onToggleCollapsed);
 
   const setField = (field: NumericField) => (value: number | null) =>
     dispatch({ type: 'property/update', id: p.id, patch: { [field]: value } });
 
   return (
     <article className={`card rounded-[5px] overflow-hidden border-l-4 ${ASSIGN_BORDER[p.assign]}`}>
-      {/* Header */}
-      <div className="flex items-center gap-[9px] px-3 py-2 border-b border-border bg-surface2">
+      {/* A standalone property is a one-property selection unit, so its collapsed
+          header carries the same decision information as a grouped unit. */}
+      {isStandaloneSelectionUnit ? <header className="px-3 py-2.5 border-b border-border bg-surface2 flex flex-wrap items-start justify-between gap-3"><div><div className="font-mono uppercase text-[.72rem] tracking-[.07em] text-muted">Individual selection unit · 1 property</div><input type="text" placeholder="Property name" aria-label="Property name" className="mt-1 bg-transparent border-0 outline-none text-text font-serif text-[1.08rem] font-bold placeholder:text-muted2" value={p.name} onChange={(e) => dispatch({ type: 'property/update', id: p.id, patch: { name: e.target.value } })} /><div className="mt-1 font-mono text-[.71rem] text-muted"><span>Zoning: {fmtText(p.zoning)}</span><span className="ml-3">Next 40-Yr Certification: {fmtText(p.cert40yr)}</span></div></div><div className="flex flex-wrap gap-x-5 gap-y-1 text-right font-mono text-[.77rem]"><SelectionUnitMetric label="Net Present Value Equity" value={fmtMoney(m.npvEquity)} /><SelectionUnitMetric label="Adjusted Value" value={fmtMoney(m.amv)} /><SelectionUnitMetric label="Net Present Value Debt" value={fmtMoney(m.debtNpv)} /><SelectionUnitMetric label="Cash Flow" value={fmtMoney(m.ncf)} /><SelectionUnitMetric label="Remaining Tax Basis" value={fmtMoney(p.remainingBasis ?? 0)} /></div><div className="flex items-center gap-2"><div className="flex gap-[3px]" role="group" aria-label="Assign to partner">{PARTNERS.map((partner) => <button key={partner} type="button" aria-pressed={p.assign === partner} onClick={() => dispatch({ type: 'property/assign', id: p.id, partner: p.assign === partner ? 'none' : partner })} className={`px-2 py-[3px] rounded-[3px] border-[1.5px] font-mono text-[0.7rem] tracking-[0.05em] font-semibold cursor-pointer transition-all duration-100 ${p.assign === partner ? ASSIGN_BTN[partner] : 'border-border bg-transparent text-muted'}`}>{names[partner].split(' ')[0]}</button>)}</div><button type="button" className="font-mono text-[.71rem] text-muted hover:text-text cursor-pointer" aria-expanded={!collapsed} onClick={onToggleCollapsed}>{collapsed ? '▾ Expand' : '▴ Collapse'}</button></div></header> : <div className="flex items-center gap-[9px] px-3 py-2 border-b border-border bg-surface2">
         <input
           type="text"
           placeholder="Property name"
@@ -68,7 +70,7 @@ export function PropertyCard({
         {onToggleCollapsed && <button type="button" className="font-mono text-[.61rem] text-muted hover:text-text cursor-pointer" aria-expanded={!collapsed} onClick={onToggleCollapsed}>
           {collapsed ? '▾ Expand' : '▴ Collapse'}
         </button>}
-      </div>
+      </div>}
 
       {/* Inputs — three columns */}
       {!collapsed && <>
@@ -190,4 +192,8 @@ function Cell({ label, term, tone, children }: { label: string; term?: RefKey; t
       <div className={`font-mono text-[1.045rem] font-bold ${toneClass(tone)}`}>{children}</div>
     </div>
   );
+}
+
+function SelectionUnitMetric({ label, value }: { label: string; value: string }) {
+  return <div className="text-center"><div className="uppercase text-[.65rem] tracking-[.06em] text-muted">{label}</div><div className="font-bold text-a mt-0.5">{value}</div></div>;
 }

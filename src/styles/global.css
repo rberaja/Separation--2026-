@@ -360,6 +360,48 @@
   display: none;
 }
 
+/* Data cards use a dense, report-like layout. Increase only their supporting
+   text by one to two visual steps, including opened property-card details,
+   without changing headings, numeric values, or editable controls. */
+.data-embedded > .min-h-screen > main article [class~="text-[.5rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.51rem]"] {
+  font-size: 0.62rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.52rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.53rem]"] {
+  font-size: 0.65rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.56rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.57rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.58rem]"] {
+  font-size: 0.68rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.59rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.6rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.61rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.62rem]"] {
+  font-size: 0.72rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.65rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.66rem]"] {
+  font-size: 0.76rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.67rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.68rem]"] {
+  font-size: 0.78rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.7rem]"] {
+  font-size: 0.8rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.72rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.73rem]"] {
+  font-size: 0.82rem;
+}
+.data-embedded > .min-h-screen > main article [class~="text-[.74rem]"],
+.data-embedded > .min-h-screen > main article [class~="text-[.75rem]"] {
+  font-size: 0.84rem;
+}
+
 @media print {
   @page {
     size: letter landscape;

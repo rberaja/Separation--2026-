@@ -64,9 +64,8 @@ function PartitionGroup({ name, members, collapsed, onToggleCollapsed }: { name:
   const unique = (field: 'zoning' | 'cert40yr') => [...new Set(members.map((property) => property[field].trim()).filter(Boolean))].join(' · ') || '—';
   return <section className={`card overflow-hidden border-l-4 ${ASSIGN_BORDER[assignment]}`}>
     <header className="px-3 py-2.5 border-b border-border bg-surface2 flex flex-wrap items-start justify-between gap-3">
-      <div><div className="font-mono uppercase text-[.62rem] tracking-[.07em] text-muted">Grouped selection unit · {members.length} properties</div><h3 className="font-serif text-[1.08rem] font-bold mt-1">{name}</h3><div className="mt-1 font-mono text-[.61rem] text-muted"><span>Zoning: {unique('zoning')}</span><span className="ml-3">Next 40-Yr Certification: {unique('cert40yr')}</span></div></div>
-      <div className="flex flex-wrap gap-x-5 gap-y-1 text-right font-mono text-[.67rem]">
-        <GroupMetric label="Net Present Value Equity" value={fmtMoney(totals.equityNpv)} />
+      <div><div className="font-mono uppercase text-[.72rem] tracking-[.07em] text-muted">Grouped selection unit · {members.length} properties</div><h3 className="font-serif text-[1.08rem] font-bold mt-1">{name}</h3><div className="mt-1 font-mono text-[.71rem] text-muted"><span>Zoning: {unique('zoning')}</span><span className="ml-3">Next 40-Yr Certification: {unique('cert40yr')}</span></div></div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1 text-right font-mono text-[.77rem]">
         <GroupMetric label="Adjusted Value" value={fmtMoney(totals.adjustedValue)} />
         <GroupMetric label="Net Present Value Debt" value={fmtMoney(totals.debtNpv)} />
         <GroupMetric label="Net Present Value Equity" value={fmtMoney(totals.equityNpv)} />
@@ -75,13 +74,13 @@ function PartitionGroup({ name, members, collapsed, onToggleCollapsed }: { name:
       </div>
       <div className="flex items-center gap-2">
         <div className="flex gap-[3px]" role="group" aria-label={`Assign ${name} to partner`}>
-          {PARTNERS.map((partner) => <button key={partner} type="button" aria-pressed={assignment === partner} onClick={() => dispatch({ type: 'properties/assign', ids: members.map((property) => property.id), partner: assignment === partner ? 'none' : partner })} className={`px-2 py-[3px] rounded-[3px] border-[1.5px] font-mono text-[0.6rem] tracking-[0.05em] font-semibold cursor-pointer transition-all duration-100 ${assignment === partner ? ASSIGN_BTN[partner] : 'border-border bg-transparent text-muted'}`}>{names[partner].split(' ')[0]}</button>)}
+          {PARTNERS.map((partner) => <button key={partner} type="button" aria-pressed={assignment === partner} onClick={() => dispatch({ type: 'properties/assign', ids: members.map((property) => property.id), partner: assignment === partner ? 'none' : partner })} className={`px-2 py-[3px] rounded-[3px] border-[1.5px] font-mono text-[0.7rem] tracking-[0.05em] font-semibold cursor-pointer transition-all duration-100 ${assignment === partner ? ASSIGN_BTN[partner] : 'border-border bg-transparent text-muted'}`}>{names[partner].split(' ')[0]}</button>)}
         </div>
-        <button type="button" className="font-mono text-[.61rem] text-muted hover:text-text cursor-pointer" aria-expanded={!collapsed} onClick={onToggleCollapsed}>{collapsed ? '▾ Expand' : '▴ Collapse'}</button>
+        <button type="button" className="font-mono text-[.71rem] text-muted hover:text-text cursor-pointer" aria-expanded={!collapsed} onClick={onToggleCollapsed}>{collapsed ? '▾ Expand' : '▴ Collapse'}</button>
       </div>
     </header>
     {!collapsed && <div className="p-3 bg-bg flex flex-col gap-[11px]">{members.map((property) => <PropertyCard key={property.id} property={property} showAssignment={false} />)}</div>}
   </section>;
 }
 
-function GroupMetric({ label, value }: { label: string; value: string }) { return <div className="text-center"><div className="uppercase text-[.55rem] tracking-[.06em] text-muted">{label}</div><div className="font-bold text-a mt-0.5">{value}</div></div>; }
+function GroupMetric({ label, value }: { label: string; value: string }) { return <div className="text-center"><div className="uppercase text-[.65rem] tracking-[.06em] text-muted">{label}</div><div className="font-bold text-a mt-0.5">{value}</div></div>; }
