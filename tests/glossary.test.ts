@@ -28,6 +28,7 @@ describe('glossary (parsed from Separation Project Docs/03_RE_Partition_Field_Re
 
   it('keeps the three tax-basis terms distinct', () => {
     expect(GLOSSARY.get(REF.remainingBasis)!.term).toBe('Remaining Tax Basis');
+    expect(GLOSSARY.get(REF.remainingBasis)!.notes).toMatch(/deduction for the selected tax year/i);
     expect(GLOSSARY.get(REF.basisShortfall)!.term).toBe('Basis Shortfall');
     expect(GLOSSARY.get(REF.basisTrueUp)!.term).toBe('Basis True-Up');
     expect(GLOSSARY.get(REF.basisTrueUp)!.notes).toMatch(/not split again/);
