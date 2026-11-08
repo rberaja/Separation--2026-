@@ -4,7 +4,7 @@ import { buildReport, type Report } from '../lib/report';
 import { computeSettlement, type Settlement } from '../lib/settlement';
 import { sortProperties } from '../lib/sort';
 import type { Partner, Property } from '../lib/types';
-import { initialState, reducer, type Action, type AppState } from './reducer';
+import { initialState, reducer, type Action, type AppState, type TierAssignment } from './reducer';
 
 interface AppContextValue {
   state: AppState;
@@ -39,6 +39,10 @@ export function hydratePartitionState(snapshot: unknown): AppState {
       cashEquiv: typeof saved.cashEquiv === 'number' || saved.cashEquiv === null ? saved.cashEquiv : initialState.cashEquiv,
       depreciationYear: Number.isInteger(saved.depreciationYear) && (saved.depreciationYear ?? 0) > 1900 ? saved.depreciationYear! : initialState.depreciationYear,
       collapsedSelectionUnits: Array.isArray(saved.collapsedSelectionUnits) ? saved.collapsedSelectionUnits.filter((key): key is string => typeof key === 'string') : [],
+      tierAssignments: Object.fromEntries(Object.entries(saved.tierAssignments ?? {}).filter(([key, assignment]) => {
+        const candidate = assignment as Partial<TierAssignment>;
+        return typeof key === 'string' && Number.isInteger(candidate.tier) && candidate.tier! >= 0 && candidate.tier! <= 4 && typeof candidate.manual === 'boolean';
+      })) as Record<string, TierAssignment>,
       sort: persistedSort,
       theme: saved.theme === 'dark' || saved.theme === 'light' ? saved.theme : initialState.theme,
       // Upload notices describe a former browser session and should not be restored.

@@ -19,6 +19,13 @@ export interface UploadStatus {
   message: string;
 }
 
+/** Discussion-stage classification only; it never affects financial calculations or assignments. */
+export interface TierAssignment {
+  tier: 0 | 1 | 2 | 3 | 4;
+  /** True for a person-selected tier, false for an applied NPV-Equity suggestion. */
+  manual: boolean;
+}
+
 export interface AppState {
   properties: Property[];
   nextId: number;
@@ -32,6 +39,8 @@ export interface AppState {
   depreciationYear: number;
   /** Collapsed Partition selection-unit cards, controlled from the top toolbar. */
   collapsedSelectionUnits: string[];
+  /** Tier labels keyed by group or individual-property selection unit. */
+  tierAssignments: Record<string, TierAssignment>;
   sort: SortState;
   theme: Theme;
   upload: UploadStatus;
@@ -46,6 +55,7 @@ export const initialState: AppState = {
   cashEquiv: DEFAULTS.cashEquiv,
   depreciationYear: DEFAULTS.depreciationYear,
   collapsedSelectionUnits: [],
+  tierAssignments: {},
   sort: { key: 'name', asc: true },
   theme: 'light',
   upload: { kind: 'idle', message: IDLE_UPLOAD_MESSAGE },
@@ -59,6 +69,8 @@ export type Action =
   | { type: 'properties/unassignAll' }
   | { type: 'selectionUnits/setCollapsed'; keys: string[] }
   | { type: 'selectionUnits/toggleCollapsed'; key: string }
+  | { type: 'tier/set'; key: string; assignment: TierAssignment }
+  | { type: 'tier/setMany'; assignments: Record<string, TierAssignment> }
   | { type: 'property/delete'; id: number }
   | { type: 'properties/clear' }
   | { type: 'properties/clearDataManaged' }
@@ -113,11 +125,17 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, collapsedSelectionUnits: [...keys] };
     }
 
+    case 'tier/set':
+      return { ...state, tierAssignments: { ...state.tierAssignments, [action.key]: action.assignment } };
+
+    case 'tier/setMany':
+      return { ...state, tierAssignments: { ...state.tierAssignments, ...action.assignments } };
+
     case 'property/delete':
       return { ...state, properties: state.properties.filter((p) => p.id !== action.id) };
 
     case 'properties/clear':
-      return { ...state, properties: [], nextId: 1, collapsedSelectionUnits: [], upload: initialState.upload };
+      return { ...state, properties: [], nextId: 1, collapsedSelectionUnits: [], tierAssignments: {}, upload: initialState.upload };
 
     case 'properties/clearDataManaged':
       return { ...state, properties: state.properties.filter((property) => !property.dataManaged), collapsedSelectionUnits: [] };
@@ -130,6 +148,7 @@ export function reducer(state: AppState, action: Action): AppState {
         properties: [],
         nextId: 1,
         collapsedSelectionUnits: [],
+        tierAssignments: {},
         partnerNames: {
           a: meta.partnerAName ?? state.partnerNames.a,
           b: meta.partnerBName ?? state.partnerNames.b,

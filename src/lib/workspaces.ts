@@ -3,7 +3,7 @@
  * The Partition tool is the landing page; the others are companion tools.
  * Each maps to a URL hash so a page can be bookmarked or refreshed.
  */
-export type WorkspaceId = 'partition' | 'depreciation' | 'zoning' | 'partnership';
+export type WorkspaceId = 'partition' | 'depreciation' | 'tierAllocation' | 'zoning' | 'partnership';
 
 export interface Workspace {
   id: WorkspaceId;
@@ -29,6 +29,12 @@ export const WORKSPACES: readonly Workspace[] = [
     hash: '#remaining-depreciation',
     description:
       'Capture each property’s remaining depreciation schedule and convert the Basis Shortfall into the Basis True-Up.',
+  },
+  {
+    id: 'tierAllocation',
+    label: 'Tier Allocation',
+    hash: '#tier-allocation',
+    description: 'Discussion mockup for dividing the portfolio into NPV-Equity tiers and selecting properties fairly.',
   },
   {
     id: 'zoning',

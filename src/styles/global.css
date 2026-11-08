@@ -298,6 +298,51 @@
   z-index: 40;
 }
 
+/* Keep the Tier Allocation controls and their red lower rule directly below
+   the shared header while the tier cards scroll underneath. */
+.tier-allocation-sticky {
+  position: sticky;
+  /* Its inner padding provides the visual inset, so the opaque sticky panel
+     can begin directly below the shared header and cover scrolling content. */
+  top: var(--shared-header-height, 0px);
+  z-index: 40;
+  background: var(--bg);
+  isolation: isolate;
+}
+
+/* Tier Allocation is meant to be read while comparing several columns at
+   once. Raise its supporting labels and metadata one to two visual steps
+   without making headings or large dollar amounts disproportionate. */
+.tier-allocation-readable [class~="text-[.5rem]"],
+.tier-allocation-readable [class~="text-[.51rem]"] {
+  font-size: 0.62rem;
+}
+.tier-allocation-readable [class~="text-[.52rem]"],
+.tier-allocation-readable [class~="text-[.53rem]"] {
+  font-size: 0.65rem;
+}
+.tier-allocation-readable [class~="text-[.56rem]"],
+.tier-allocation-readable [class~="text-[.57rem]"],
+.tier-allocation-readable [class~="text-[.58rem]"] {
+  font-size: 0.68rem;
+}
+.tier-allocation-readable [class~="text-[.62rem]"] {
+  font-size: 0.72rem;
+}
+.tier-allocation-readable [class~="text-[.66rem]"],
+.tier-allocation-readable [class~="text-[.68rem]"] {
+  font-size: 0.78rem;
+}
+.tier-allocation-readable [class~="text-[.7rem]"] {
+  font-size: 0.8rem;
+}
+.tier-allocation-readable [class~="text-[.72rem]"] {
+  font-size: 0.82rem;
+}
+.tier-allocation-readable [class~="text-[.77rem]"] {
+  font-size: 0.86rem;
+}
+
 /* Occupancy through Market Value have their own command row. Hide the empty
    Groups/Tax-Basis command row instead of leaving vertical space above it. */
 .data-embedded > .min-h-screen > .data-controls-sticky > div:has(> input):not(:has(button)) {

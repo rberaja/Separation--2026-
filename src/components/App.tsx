@@ -14,6 +14,7 @@ import { SectionHeading } from './ui/SectionHeading';
 import { SplitHandle, useAsideWidth } from './ui/SplitHandle';
 import { PlannedWorkspace } from './PlannedWorkspace';
 import { TaxBasisMockup } from './TaxBasisMockup';
+import { TierAllocationMockup } from './TierAllocationMockup';
 import { WorkspaceNav, useWorkspace } from './WorkspaceNav';
 import { WORKSPACES } from '../lib/workspaces';
 
@@ -62,6 +63,7 @@ function Pages() {
           )}
         </div>
         {active === 'partition' && <Workspace />}
+        {active === 'tierAllocation' && <TierAllocationMockup />}
         {/* Keep Data mounted while Partition is active so its browser-persisted Groups
             hierarchy can immediately restore the corresponding Partition cards. */}
         <div className="data-embedded" hidden={active !== 'depreciation'}><TaxBasisMockup /></div>
