@@ -41,8 +41,9 @@ export function hydratePartitionState(snapshot: unknown): AppState {
       collapsedSelectionUnits: Array.isArray(saved.collapsedSelectionUnits) ? saved.collapsedSelectionUnits.filter((key): key is string => typeof key === 'string') : [],
       tierAssignments: Object.fromEntries(Object.entries(saved.tierAssignments ?? {}).filter(([key, assignment]) => {
         const candidate = assignment as Partial<TierAssignment>;
-        return typeof key === 'string' && Number.isInteger(candidate.tier) && candidate.tier! >= 0 && candidate.tier! <= 4 && typeof candidate.manual === 'boolean';
+        return typeof key === 'string' && Number.isInteger(candidate.tier) && candidate.tier! >= 0 && candidate.tier! <= 5 && typeof candidate.manual === 'boolean';
       })) as Record<string, TierAssignment>,
+      tierCount: saved.tierCount === 3 || saved.tierCount === 4 || saved.tierCount === 5 ? saved.tierCount : initialState.tierCount,
       sort: persistedSort,
       theme: saved.theme === 'dark' || saved.theme === 'light' ? saved.theme : initialState.theme,
       // Upload notices describe a former browser session and should not be restored.

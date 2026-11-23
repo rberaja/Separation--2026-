@@ -14,6 +14,7 @@ import {
 } from '../lib/types';
 
 export type UploadKind = 'idle' | 'busy' | 'ok' | 'err';
+export type TierCount = 3 | 4 | 5;
 export interface UploadStatus {
   kind: UploadKind;
   message: string;
@@ -21,7 +22,7 @@ export interface UploadStatus {
 
 /** Discussion-stage classification only; it never affects financial calculations or assignments. */
 export interface TierAssignment {
-  tier: 0 | 1 | 2 | 3 | 4;
+  tier: 0 | 1 | 2 | 3 | 4 | 5;
   /** True for a person-selected tier, false for an applied NPV-Equity suggestion. */
   manual: boolean;
 }
@@ -41,6 +42,8 @@ export interface AppState {
   collapsedSelectionUnits: string[];
   /** Tier labels keyed by group or individual-property selection unit. */
   tierAssignments: Record<string, TierAssignment>;
+  /** The selected number of NPV-equity tiers in the allocation workspace. */
+  tierCount: TierCount;
   sort: SortState;
   theme: Theme;
   upload: UploadStatus;
@@ -56,6 +59,7 @@ export const initialState: AppState = {
   depreciationYear: DEFAULTS.depreciationYear,
   collapsedSelectionUnits: [],
   tierAssignments: {},
+  tierCount: 5,
   sort: { key: 'name', asc: true },
   theme: 'light',
   upload: { kind: 'idle', message: IDLE_UPLOAD_MESSAGE },
@@ -71,6 +75,7 @@ export type Action =
   | { type: 'selectionUnits/toggleCollapsed'; key: string }
   | { type: 'tier/set'; key: string; assignment: TierAssignment }
   | { type: 'tier/setMany'; assignments: Record<string, TierAssignment> }
+  | { type: 'tier/setCount'; tierCount: TierCount }
   | { type: 'property/delete'; id: number }
   | { type: 'properties/clear' }
   | { type: 'properties/clearDataManaged' }
@@ -130,6 +135,9 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case 'tier/setMany':
       return { ...state, tierAssignments: { ...state.tierAssignments, ...action.assignments } };
+
+    case 'tier/setCount':
+      return { ...state, tierCount: action.tierCount };
 
     case 'property/delete':
       return { ...state, properties: state.properties.filter((p) => p.id !== action.id) };

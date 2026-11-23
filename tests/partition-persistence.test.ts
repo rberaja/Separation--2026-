@@ -33,6 +33,8 @@ describe('Partition browser persistence', () => {
       cashEquiv: 250_000,
       depreciationYear: 2025,
       collapsedSelectionUnits: ['group:the-600-930'],
+      tierAssignments: { 'group:the-600-930': { tier: 5, manual: true } },
+      tierCount: 5,
       sort: { key: 'eq', asc: false },
       theme: 'dark',
     });
@@ -45,6 +47,8 @@ describe('Partition browser persistence', () => {
     expect(restored.discountRate).toBe(6.5);
     expect(restored.cashEquiv).toBe(250_000);
     expect(restored.collapsedSelectionUnits).toEqual(['group:the-600-930']);
+    expect(restored.tierAssignments).toEqual({ 'group:the-600-930': { tier: 5, manual: true } });
+    expect(restored.tierCount).toBe(5);
     expect(restored.sort).toEqual({ key: 'eq', asc: false });
   });
 
