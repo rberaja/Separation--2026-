@@ -1,5 +1,5 @@
 import { calcAMV, calcNCF, calcNPVEquity, nv } from './finance';
-import type { Property, SortKey, SortState } from './types';
+import type { Assignment, Property, SortKey, SortState } from './types';
 
 export interface SortOption {
   key: SortKey;
@@ -58,4 +58,52 @@ export function sortProperties(
     return sort.asc ? cmp : -cmp;
   });
   return keyed.map(({ p }) => p);
+}
+
+/** A group or individual property as presented by the Partition workspace. */
+export interface SelectionUnit {
+  key: string;
+  name: string;
+  properties: readonly Property[];
+  /** True when the unit represents a Group rather than one individual property. */
+  grouped?: boolean;
+}
+
+function unitAssignment(properties: readonly Property[]): Assignment {
+  const assignment = properties[0]?.assign ?? 'none';
+  return properties.every((property) => property.assign === assignment) ? assignment : 'none';
+}
+
+function selectionUnitSortValue(unit: SelectionUnit, sort: SortState, discountRate: number): string | number {
+  if (sort.key === 'name') return unit.name.toLowerCase();
+  if (sort.key === 'partner') {
+    const assignment = unitAssignment(unit.properties);
+    const rank = { a: 0, b: 1 } as const;
+    return assignment === 'none' ? (sort.asc ? 2 : -1) : rank[assignment];
+  }
+  return unit.properties.reduce((total, property) => {
+    switch (sort.key) {
+      case 'val': return total + calcAMV(property);
+      case 'eq': return total + calcNPVEquity(property, discountRate);
+      case 'ncf': return total + calcNCF(property);
+      case 'bid': return total + nv(property.bidDiff);
+      default: return total;
+    }
+  }, 0);
+}
+
+/** Sort the visible Partition cards by the values displayed on each selection unit. */
+export function sortSelectionUnits(
+  units: readonly SelectionUnit[],
+  sort: SortState,
+  discountRate: number,
+): SelectionUnit[] {
+  return [...units].sort((left, right) => {
+    const leftValue = selectionUnitSortValue(left, sort, discountRate);
+    const rightValue = selectionUnitSortValue(right, sort, discountRate);
+    const cmp = typeof leftValue === 'string' && typeof rightValue === 'string'
+      ? leftValue.localeCompare(rightValue)
+      : Number(leftValue) - Number(rightValue);
+    return sort.asc ? cmp : -cmp;
+  });
 }

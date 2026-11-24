@@ -3,7 +3,8 @@ import { PropertyCard } from './PropertyCard';
 import { SectionHeading } from './ui/SectionHeading';
 import { computeMetrics, nv } from '../lib/finance';
 import { fmtMoney } from '../lib/format';
-import { PARTNERS, type Assignment, type Partner, type Property } from '../lib/types';
+import { sortSelectionUnits } from '../lib/sort';
+import { PARTNERS, type Assignment, type Partner, type Property, type SortState } from '../lib/types';
 
 const ASSIGN_BORDER: Record<Assignment, string> = { none: 'border-l-border2', a: 'border-l-a', b: 'border-l-b' };
 const ASSIGN_BTN: Record<Partner, string> = { a: 'bg-a border-a text-white', b: 'bg-b border-b text-white' };
@@ -11,6 +12,7 @@ const ASSIGN_BTN: Record<Partner, string> = { a: 'bg-a border-a text-white', b: 
 export function PropertyList() {
   const { state, dispatch } = useApp();
   const properties = useSortedProperties();
+  const discountRate = useDiscountRate();
   const collapsed = new Set(state.collapsedSelectionUnits);
   const toggleCollapsed = (key: string) => dispatch({ type: 'selectionUnits/toggleCollapsed', key });
 
@@ -25,14 +27,14 @@ export function PropertyList() {
           Upload property data from the Data workspace to display it here.
         </div>
       ) : (
-        <GroupedPropertyList properties={properties} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+        <GroupedPropertyList properties={properties} sort={state.sort} discountRate={discountRate} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       )}
     </section>
   );
 }
 
 /** Groups are presentation-only summaries: their member properties remain the only values in the settlement math. */
-function GroupedPropertyList({ properties, collapsed, onToggleCollapsed }: { properties: Property[]; collapsed: Set<string>; onToggleCollapsed: (key: string) => void }) {
+function GroupedPropertyList({ properties, sort, discountRate, collapsed, onToggleCollapsed }: { properties: Property[]; sort: SortState; discountRate: number; collapsed: Set<string>; onToggleCollapsed: (key: string) => void }) {
   const groups = new Map<string, Property[]>();
   const individual: Property[] = [];
   for (const property of properties) {
@@ -40,13 +42,17 @@ function GroupedPropertyList({ properties, collapsed, onToggleCollapsed }: { pro
     if (!name) individual.push(property);
     else groups.set(name, [...(groups.get(name) ?? []), property]);
   }
-  return <div className="flex flex-col gap-[11px]">
-    {[...groups.entries()].sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([name, members]) => <PartitionGroup key={name} name={name} members={members} collapsed={collapsed.has(`group:${name}`)} onToggleCollapsed={() => onToggleCollapsed(`group:${name}`)} />)}
-    {individual.map((property) => <PropertyCard key={property.id} property={property} collapsed={collapsed.has(`property:${property.id}`)} onToggleCollapsed={() => onToggleCollapsed(`property:${property.id}`)} />)}
-  </div>;
+  const units = sortSelectionUnits([
+    ...[...groups.entries()].map(([name, members]) => ({ key: `group:${name}`, name, properties: members, grouped: true })),
+    ...individual.map((property) => ({ key: `property:${property.id}`, name: property.name, properties: [property], grouped: false })),
+  ], sort, discountRate);
+  return <div className="flex flex-col gap-[11px]">{units.map((unit) => unit.grouped
+    ? <PartitionGroup key={unit.key} name={unit.name} members={unit.properties} collapsed={collapsed.has(unit.key)} onToggleCollapsed={() => onToggleCollapsed(unit.key)} />
+    : <PropertyCard key={unit.key} property={unit.properties[0]!} collapsed={collapsed.has(unit.key)} onToggleCollapsed={() => onToggleCollapsed(unit.key)} />,
+  )}</div>;
 }
 
-function PartitionGroup({ name, members, collapsed, onToggleCollapsed }: { name: string; members: Property[]; collapsed: boolean; onToggleCollapsed: () => void }) {
+function PartitionGroup({ name, members, collapsed, onToggleCollapsed }: { name: string; members: readonly Property[]; collapsed: boolean; onToggleCollapsed: () => void }) {
   const { dispatch } = useApp();
   const names = usePartnerNames();
   const discountRate = useDiscountRate();

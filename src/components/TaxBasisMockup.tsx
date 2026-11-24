@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react';
 import type { GroupMember } from '../lib/groups-excel';
+import { sortGroupsDisplayUnits, type GroupsSortKey } from '../lib/groups-sort';
 import type { OccupancyRecord } from '../lib/occupancy-excel';
 import { normalizeLoanRecordTerms, parseLoansWorkbook, type LoanRecord } from '../lib/loans-excel';
 import type { CapitalExpenseRecord } from '../lib/capital-expenses-excel';
@@ -15,7 +16,6 @@ type ScheduleItem = { id: string; label: string; method: ExtractedMethod; basis:
 type PropertySchedule = { id: string; property: string; entity: string; source: string; importedAt?: number; schedules: ScheduleItem[] };
 type DealGroup = { id: string; name: string; members: GroupMember[] };
 type Tab = 'groups' | 'data' | 'occupancy' | 'loans' | 'capitalExpenses' | 'marketValue' | 'incomeExpenses';
-type GroupsSortKey = 'name' | 'zoning' | 'cert40yr';
 type GroupWorkbook = { name: string; individualProperties: GroupMember[] };
 type MarketValueImportReport = { fileName: string; sourceKind?: MarketValueSource; omitted: MarketValueRecord[]; missingGroupProperties: string[] };
 type TaxReturnImportReport = {
@@ -655,15 +655,14 @@ function SourceReports({ reports, activeTab }: { reports: StoredSource[]; active
 }
 
 function GroupsTabView({ groups, groupWorkbook, sort, collapsed, onUpdate }: { groups: DealGroup[]; groupWorkbook: { name: string; individualProperties: GroupMember[] } | null; sort: { key: GroupsSortKey; asc: boolean }; collapsed: boolean; onUpdate: (id: string, patch: Partial<DealGroup>) => void }) {
-  const memberValue = (member: GroupMember) => member[sort.key === 'name' ? 'property' : sort.key].toLocaleLowerCase();
-  const compare = (left: string, right: string) => left.localeCompare(right, undefined, { numeric: sort.key === 'cert40yr' }) * (sort.asc ? 1 : -1);
-  const sortedGroups = [...groups].sort((left, right) => compare(sort.key === 'name' ? left.name.toLocaleLowerCase() : left.members.map(memberValue).filter(Boolean).sort()[0] ?? '', sort.key === 'name' ? right.name.toLocaleLowerCase() : right.members.map(memberValue).filter(Boolean).sort()[0] ?? ''));
-  const sortedIndividuals = groupWorkbook ? [...groupWorkbook.individualProperties].sort((left, right) => compare(memberValue(left), memberValue(right))) : [];
+  const displayUnits = sortGroupsDisplayUnits(groups, groupWorkbook?.individualProperties ?? [], sort);
   return <section>
     <h2 className="font-serif text-[1.55rem] font-bold mb-5">Groups, Zoning, and Next 40-Yr Certification</h2>
     {!groupWorkbook && <div className="card mb-5 px-6 py-12 text-center"><h3 className="font-serif text-[1.45rem] font-bold">Upload the Groups workbook</h3><p className="max-w-2xl mx-auto mt-3 text-[.9rem] leading-snug">Use the Upload Groups Excel button in the toolbar. Properties with no group remain individual selection units.</p></div>}
-    <div className="flex flex-col gap-5">{sortedGroups.map((group) => <ImportedGroupCard key={group.id} group={group} collapsed={collapsed} onUpdate={onUpdate} />)}</div>
-    {sortedIndividuals.length > 0 && <IndividualPropertiesCard properties={sortedIndividuals} />}
+    <div className="flex flex-col gap-5">{displayUnits.map((unit) => unit.kind === 'group'
+      ? <ImportedGroupCard key={unit.key} group={unit.group} collapsed={collapsed} onUpdate={onUpdate} />
+      : <ImportedIndividualCard key={unit.key} member={unit.member} collapsed={collapsed} />,
+    )}</div>
   </section>;
 }
 
@@ -673,6 +672,10 @@ function WorkbookPropertyDetails({ member }: { member: GroupMember }) {
 
 function ImportedGroupCard({ group, collapsed, onUpdate }: { group: DealGroup; collapsed: boolean; onUpdate: (id: string, patch: Partial<DealGroup>) => void }) {
   return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border"><input aria-label="Group name" value={group.name} onChange={(event) => onUpdate(group.id, { name: event.target.value })} className="bg-transparent border-b border-border focus:border-ink outline-none font-serif text-[1.08rem] font-bold w-60" /><div className="caption text-[.58rem] mt-1">Combined lot / economic package · {group.members.length} properties</div></header>{!collapsed && <div className="overflow-x-auto"><table className="w-full min-w-[760px] table-fixed text-[.75rem]"><colgroup><col className="w-[56%]" /><col className="w-[9%]" /><col className="w-[12%]" /><col className="w-[23%]" /></colgroup><thead className="font-mono uppercase tracking-[.07em] text-[.58rem] text-muted border-b border-border"><tr><th className="text-left px-4 py-2.5">Member Property</th><th className="text-center px-3 py-2.5">Units</th><th className="text-center px-3 py-2.5">Zoning</th><th className="text-center px-4 py-2.5">Next 40-Year Inspection</th></tr></thead><tbody>{group.members.map((member) => <tr key={member.property} className="border-b last:border-b-0 border-border"><td className="px-4 py-3"><div className="font-semibold">{member.property}</div><div className="font-mono text-[.61rem] text-muted mt-1">{[member.entity, member.city, member.state].filter(Boolean).join(' · ') || '—'}</div></td><td className="px-3 py-3 text-center font-mono">{member.units || '—'}</td><td className="px-3 py-3 text-center">{member.zoning || '—'}</td><td className="px-4 py-3 text-center">{member.cert40yr || '—'}</td></tr>)}</tbody></table></div>}</article>;
+}
+
+function ImportedIndividualCard({ member, collapsed }: { member: GroupMember; collapsed: boolean }) {
+  return <article className="card overflow-hidden"><header className="px-4 py-3 bg-surface2 border-b border-border"><h3 className="font-serif text-[1.08rem] font-bold">{member.property}</h3><div className="caption text-[.58rem] mt-1">Individual selection unit · 1 property</div></header>{!collapsed && <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 py-3 text-[.75rem]"><Detail label="Zoning" value={member.zoning || '—'} /><Detail label="Next 40-year inspection" value={member.cert40yr || '—'} /><Detail label="Units" value={member.units || '—'} /></div>}</article>;
 }
 
 function LegacyImportedGroupCard({ group, properties, assignments, onUpdate, onRemove, onToggleMember }: { group: DealGroup; properties: PropertySchedule[]; assignments: Map<string, string>; onUpdate: (id: string, patch: Partial<DealGroup>) => void; onRemove: (id: string) => void; onToggleMember: (groupId: string, property: PropertySchedule) => void }) {
