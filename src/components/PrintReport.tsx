@@ -4,6 +4,7 @@ import { GAP_LABELS } from '../lib/labels';
 import {
   PROPERTY_CALC_COLUMNS,
   isoDate,
+  groupedReportProperties,
   reportFileStem,
   type CellKind,
   type CellValue,
@@ -147,25 +148,32 @@ function PropertyTable({ report: r, columns }: { report: Report; columns: readon
         {r.properties.length === 0 && (
           <tr><td colSpan={columns.length} className="rpt-left rpt-muted">No properties.</td></tr>
         )}
-        {r.properties.map((p) => (
-          <tr key={p.id}>
-            {columns.map((c) => {
-              if (c.key === 'assign') {
-                return (
-                  <td key={c.key} className={`rpt-left rpt-partner-${p.assign}`}>
-                    {p.assign === 'none' ? 'unassigned' : r.partnerNames[p.assign as Partner]}
-                  </td>
-                );
-              }
-              return (
-                <td key={c.key} className={c.kind === 'text' ? 'rpt-left' : ''}>{fmtCell(p.cells[c.key] ?? null, c.kind)}</td>
-              );
-            })}
-          </tr>
-        ))}
+        {groupedReportProperties(r.properties).flatMap((unit) => [
+          ...(unit.grouped ? [<tr key={`heading-${unit.name}`} className="rpt-group"><td colSpan={columns.length}>{unit.name} · Group total · {unit.properties.length} {unit.properties.length === 1 ? 'property' : 'properties'}</td></tr>] : []),
+          ...(unit.grouped ? [<GroupTotalRow key={`total-${unit.name}`} report={r} properties={unit.properties} columns={columns} />] : []),
+          ...unit.properties.map((property) => <PropertyRow key={property.id} report={r} property={property} columns={columns} childOfGroup={unit.grouped} />),
+        ])}
       </tbody>
     </table>
   );
+}
+
+function PropertyRow({ report: r, property: p, columns, childOfGroup }: { report: Report; property: Report['properties'][number]; columns: readonly { key: string; label: string; kind: CellKind }[]; childOfGroup: boolean }) {
+  return <tr className={childOfGroup ? 'rpt-group-child' : ''}>{columns.map((c) => {
+    if (c.key === 'assign') return <td key={c.key} className={`rpt-left rpt-partner-${p.assign}`}>{p.assign === 'none' ? 'unassigned' : r.partnerNames[p.assign as Partner]}</td>;
+    return <td key={c.key} className={c.kind === 'text' ? 'rpt-left' : ''}>{fmtCell(p.cells[c.key] ?? null, c.kind)}</td>;
+  })}</tr>;
+}
+
+function GroupTotalRow({ report: r, properties, columns }: { report: Report; properties: Report['properties']; columns: readonly { key: string; label: string; kind: CellKind }[] }) {
+  const assignments = new Set(properties.map((property) => property.assign));
+  return <tr className="rpt-group-total">{columns.map((column, index) => {
+    if (index === 0) return <td key={column.key} className="rpt-left">Group total</td>;
+    if (column.key === 'assign') return <td key={column.key} className="rpt-left">{assignments.size === 1 ? (properties[0]!.assign === 'none' ? 'unassigned' : r.partnerNames[properties[0]!.assign as Partner]) : 'mixed'}</td>;
+    if (column.kind === 'text') return <td key={column.key}>{DASH}</td>;
+    const total = properties.reduce((sum, property) => sum + (typeof property.cells[column.key] === 'number' ? property.cells[column.key] as number : 0), 0);
+    return <td key={column.key}>{fmtCell(total, column.kind)}</td>;
+  })}</tr>;
 }
 
 function TotalsTable({ report: r }: { report: Report }) {

@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import type { GroupedExportRecord } from './export-hierarchy';
 import { propertyMatches } from './property-match';
 
 export type MarketValueSource = 'bov' | 'appraisal' | 'income-model' | 'city-appraised' | 'construction-land' | 'comps' | 'legacy';
@@ -54,14 +55,14 @@ const templateDetails: Record<MarketValueTemplateSource, { title: string; filena
 export function buildMarketValueTemplateWorkbook(kind: MarketValueTemplateSource = 'bov'): XLSX.WorkBook { const template = templateDetails[kind]; const workbook = XLSX.utils.book_new(); const sheet = XLSX.utils.aoa_to_sheet([[template.title], ['Property', 'Market Value', 'As Of', 'Value Type'], ...Array.from({ length: 20 }, () => ['', '', '', ''])]); sheet['!cols'] = [32, 18, 16, 22].map((wch) => ({ wch })); XLSX.utils.book_append_sheet(workbook, sheet, 'Market Value'); return workbook; }
 export function downloadMarketValueTemplate(kind: MarketValueTemplateSource = 'bov') { XLSX.writeFile(buildMarketValueTemplateWorkbook(kind), templateDetails[kind].filename); }
 const exportColumns: Array<[MarketValueSource, string]> = [['bov', 'Broker’s Opinion of Value'], ['city-appraised', 'City Assessed Value'], ['comps', 'Comparable Sales'], ['appraisal', 'Appraisal'], ['income-model', 'Income Model'], ['construction-land', 'Construction / Land Value Model'], ['legacy', 'Other / Legacy Value']];
-export function buildMarketValueExportWorkbook(records: readonly MarketValueRecord[], properties: readonly string[] = []): XLSX.WorkBook {
-  const propertyNames = [...properties, ...records.map((record) => record.property)].reduce<string[]>((unique, property) => unique.some((existing) => propertyMatches(existing, property)) ? unique : [...unique, property], []).sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
+export function buildMarketValueExportWorkbook(records: readonly MarketValueRecord[], properties: readonly GroupedExportRecord<{ property: string }>[] = []): XLSX.WorkBook {
+  const propertyEntries = [...properties, ...records.map((record) => ({ group: '', record: { property: record.property } }))].reduce<GroupedExportRecord<{ property: string }>[]>((unique, property) => unique.some((existing) => propertyMatches(existing.record.property, property.record.property)) ? unique : [...unique, property], []);
   const recordFor = (property: string, kind: MarketValueSource) => records.find((record) => propertyMatches(record.property, property) && (record.sourceKind ?? 'legacy') === kind);
   const selectedFor = (property: string) => records.find((record) => propertyMatches(record.property, property) && record.selected) ?? records.find((record) => propertyMatches(record.property, property));
-  const sheet = XLSX.utils.aoa_to_sheet([['Market Value Export'], ['Property', 'Selected Valuation', 'Selected Market Value', ...exportColumns.map(([, label]) => label)], ...propertyNames.map((property) => { const selected = selectedFor(property); return [property, selected?.valueType ?? '', selected?.marketValue ?? '', ...exportColumns.map(([kind]) => recordFor(property, kind)?.marketValue ?? '')]; })]);
-  sheet['!cols'] = [32, 28, 22, ...exportColumns.map(() => 26)].map((wch) => ({ wch }));
+  const sheet = XLSX.utils.aoa_to_sheet([['Market Value Export'], ['Group', 'Property', 'Selected Valuation', 'Selected Market Value', ...exportColumns.map(([, label]) => label)], ...propertyEntries.map(({ group, record }) => { const selected = selectedFor(record.property); return [group || 'Individual property', record.property, selected?.valueType ?? '', selected?.marketValue ?? '', ...exportColumns.map(([kind]) => recordFor(record.property, kind)?.marketValue ?? '')]; })]);
+  sheet['!cols'] = [28, 32, 28, 22, ...exportColumns.map(() => 26)].map((wch) => ({ wch }));
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, 'Market Value');
   return workbook;
 }
-export function downloadMarketValueWorkbook(records: readonly MarketValueRecord[], properties: readonly string[] = []) { XLSX.writeFile(buildMarketValueExportWorkbook(records, properties), 'Market Value Export.xlsx'); }
+export function downloadMarketValueWorkbook(records: readonly MarketValueRecord[], properties: readonly GroupedExportRecord<{ property: string }>[] = []) { XLSX.writeFile(buildMarketValueExportWorkbook(records, properties), 'Market Value Export.xlsx'); }

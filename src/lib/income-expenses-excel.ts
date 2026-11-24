@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import type { GroupedExportRecord } from './export-hierarchy';
 
 export type IncomeExpenseRecord = {
   property: string;
@@ -139,14 +140,14 @@ export function downloadIncomeExpensesTemplate() {
   XLSX.writeFile(buildIncomeExpensesTemplateWorkbook(), 'Income and Expenses Manual Template.xlsx');
 }
 
-export function downloadIncomeExpensesWorkbook(records: readonly IncomeExpenseRecord[]) {
+export function downloadIncomeExpensesWorkbook(records: readonly GroupedExportRecord<IncomeExpenseRecord>[]) {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet([
     ['Income & Expenses Export'],
-    ['Property', 'Total Income', 'Total Expenses', 'NOI', 'As Of', 'Source'],
-    ...records.map((record) => [record.property, record.income, record.expenses, record.noi, record.asOf, record.source]),
+    ['Group', 'Property', 'Total Income', 'Total Expenses', 'NOI', 'As Of', 'Source'],
+    ...records.map(({ group, record }) => [group || 'Individual property', record.property, record.income, record.expenses, record.noi, record.asOf, record.source]),
   ]);
-  sheet['!cols'] = [34, 18, 18, 18, 16, 26].map((wch) => ({ wch }));
+  sheet['!cols'] = [28, 34, 18, 18, 18, 16, 26].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Income & Expenses');
   XLSX.writeFile(workbook, 'Income and Expenses Export.xlsx');
 }

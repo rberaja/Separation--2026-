@@ -83,6 +83,13 @@ export interface ReportPropertyRow {
   cells: Record<string, CellValue>;
 }
 
+export interface ReportPropertyGroup {
+  /** Group name, or the individual property's name when it stands alone. */
+  name: string;
+  grouped: boolean;
+  properties: ReportPropertyRow[];
+}
+
 export interface ReportTotalsRow {
   key: string;
   label: string;
@@ -168,6 +175,20 @@ function propertyRow(p: Property, discountRate: number): ReportPropertyRow {
   }
   for (const c of PROPERTY_CALC_COLUMNS) cells[c.key] = m[c.metric];
   return { id: p.id, name: p.name, groupName: p.groupName.trim(), assign: p.assign, cells };
+}
+
+/** The printable/export hierarchy: every group followed by its properties, then standalone properties. */
+export function groupedReportProperties(properties: readonly ReportPropertyRow[]): ReportPropertyGroup[] {
+  const groups = new Map<string, ReportPropertyRow[]>();
+  const individuals: ReportPropertyRow[] = [];
+  for (const property of properties) {
+    if (property.groupName) groups.set(property.groupName, [...(groups.get(property.groupName) ?? []), property]);
+    else individuals.push(property);
+  }
+  return [
+    ...[...groups.entries()].map(([name, groupProperties]) => ({ name, grouped: true, properties: groupProperties })),
+    ...individuals.map((property) => ({ name: property.name, grouped: false, properties: [property] })),
+  ];
 }
 
 export function buildReport(input: ReportInput): Report {

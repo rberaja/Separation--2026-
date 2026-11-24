@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import type { GroupedExportRecord } from './export-hierarchy';
 
 export type LoanRecord = {
   property: string;
@@ -178,14 +179,14 @@ export function buildLoansTemplateWorkbook(): XLSX.WorkBook {
 
 export function downloadLoansTemplate() { XLSX.writeFile(buildLoansTemplateWorkbook(), 'Loan Schedule Template.xlsx'); }
 
-export function downloadLoansWorkbook(records: readonly LoanRecord[]) {
+export function downloadLoansWorkbook(records: readonly GroupedExportRecord<LoanRecord>[]) {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet([
     ['Loan Schedule Export'],
-    ['Property', 'Lender', 'Loan Type', 'Outstanding Balance', 'Interest Rate', 'Amortization Period', 'Interest-Only Until', 'Remaining IO (yrs)', 'P&I Rate Change Date', 'Monthly Principal & Interest', 'Maturity', 'Report As Of', 'Residual Term (yrs)', 'Source'],
-    ...records.map((record) => [record.property, record.lender, record.loanType, record.outstandingBalance, record.interestRate ?? '', record.amortizationPeriod ?? '', record.interestOnlyUntil, record.interestOnlyYears, record.nextInterestRateDate, record.monthlyDebtService, record.maturityDate, record.reportAsOfDate, record.residualTermYears ?? '', record.source ?? '']),
+    ['Group', 'Property', 'Lender', 'Loan Type', 'Outstanding Balance', 'Interest Rate', 'Amortization Period', 'Interest-Only Until', 'Remaining IO (yrs)', 'P&I Rate Change Date', 'Monthly Principal & Interest', 'Maturity', 'Report As Of', 'Residual Term (yrs)', 'Source'],
+    ...records.map(({ group, record }) => [group || 'Individual property', record.property, record.lender, record.loanType, record.outstandingBalance, record.interestRate ?? '', record.amortizationPeriod ?? '', record.interestOnlyUntil, record.interestOnlyYears, record.nextInterestRateDate, record.monthlyDebtService, record.maturityDate, record.reportAsOfDate, record.residualTermYears ?? '', record.source ?? '']),
   ]);
-  sheet['!cols'] = [34, 28, 20, 20, 16, 22, 22, 18, 23, 28, 18, 18, 20, 28].map((wch) => ({ wch }));
+  sheet['!cols'] = [28, 34, 28, 20, 20, 16, 22, 22, 18, 23, 28, 18, 18, 20, 28].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Loans');
   XLSX.writeFile(workbook, 'Loans Export.xlsx');
 }

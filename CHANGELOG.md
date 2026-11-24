@@ -9,11 +9,21 @@ source of detail for work recorded before this file was added.
 
 ## [Unreleased]
 
+## [8.02] - 2026-11-23
+
 ### Added
 
 - Dedicated project change log.
 - Excel exports now include a `Grouped Schedule` worksheet with each group
   total followed by its member properties, plus standalone-property rows.
+
+### Changed
+
+- Excel exports in each Data tab now carry a `Group` column and place every
+  group’s property rows before standalone properties.
+- PDF output from the Partition report now shows each group total followed by
+  the properties that make up that total. Data-tab PDF output now prints the
+  active Data workspace instead of the unrelated Partition sign-off report.
 
 ## [8.01] - 2026-11-23
 

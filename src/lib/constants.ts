@@ -1,4 +1,4 @@
-export const APP_VERSION = '8.01';
+export const APP_VERSION = '8.02';
 export const TEMPLATE_FILENAME = `RE_Partition_Template_v${APP_VERSION}.xlsx`;
 
 export const DEFAULTS = {

@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
 import { parseWorkbook } from '../src/lib/excel';
 import { TAX } from '../src/lib/labels';
-import { PROPERTY_CALC_COLUMNS, buildReport, isoDate, reportFileStem, settlementSentence } from '../src/lib/report';
+import { PROPERTY_CALC_COLUMNS, buildReport, groupedReportProperties, isoDate, reportFileStem, settlementSentence } from '../src/lib/report';
 import { buildReportWorkbook } from '../src/lib/report-excel';
 import { computeSettlement } from '../src/lib/settlement';
 import { createProperty } from '../src/lib/types';
@@ -68,6 +68,14 @@ describe('buildReport', () => {
     const d = new Date(2026, 8, 13, 16, 5);
     expect(isoDate(d)).toBe('2026-09-13');
     expect(reportFileStem(d)).toBe('RE_Partition_Report_2026-09-13');
+  });
+
+  it('exposes one print/export hierarchy: each group, its properties, then individual properties', () => {
+    const hierarchy = groupedReportProperties(report().properties);
+    expect(hierarchy.map((unit) => [unit.name, unit.grouped, unit.properties.map((property) => property.name)])).toEqual([
+      ['Main Portfolio', true, ['A1', 'B1']],
+      ['Loose', false, ['Loose']],
+    ]);
   });
 });
 

@@ -11,6 +11,7 @@ import { GAP_LABELS } from './labels';
 import {
   PROPERTY_CALC_COLUMNS,
   isoDate,
+  groupedReportProperties,
   reportFileStem,
   type CellKind,
   type CellValue,
@@ -65,22 +66,20 @@ function assignmentLabel(r: Report, assignment: Report['properties'][number]['as
 /** Group totals and their individual source properties; this sheet is for review and printing, not re-import. */
 function groupedScheduleSheet(r: Report): XLSX.WorkSheet {
   const headers: Cell[] = ['Selection unit', 'Level', 'Partner', ...GROUPED_SCHEDULE_COLUMNS.map((column) => column.label === 'Depreciation' ? `Depreciation ${r.depreciationYear}` : column.label)];
-  const groups = new Map<string, typeof r.properties>();
-  const individuals: typeof r.properties = [];
-  for (const property of r.properties) {
-    if (property.groupName) groups.set(property.groupName, [...(groups.get(property.groupName) ?? []), property]);
-    else individuals.push(property);
-  }
   const metricCells = (properties: typeof r.properties): Cell[] => GROUPED_SCHEDULE_COLUMNS.map((column) => cell(properties.reduce((total, property) => total + (typeof property.cells[column.key] === 'number' ? property.cells[column.key] as number : 0), 0), column.kind));
   const propertyRow = (property: Report['properties'][number], level: string): Cell[] => [property.name, level, assignmentLabel(r, property.assign), ...GROUPED_SCHEDULE_COLUMNS.map((column) => cell(property.cells[column.key] ?? null, column.kind))];
   const rows: Cell[][] = [headers];
-  for (const [groupName, properties] of groups) {
+  for (const unit of groupedReportProperties(r.properties)) {
+    const properties = unit.properties;
+    if (!unit.grouped) {
+      rows.push(propertyRow(properties[0]!, 'Individual property'));
+      continue;
+    }
     const assignments = new Set(properties.map((property) => property.assign));
     const groupAssignment = assignments.size === 1 ? assignmentLabel(r, properties[0]!.assign) : 'Mixed assignment';
-    rows.push([groupName, `Group total · ${properties.length} ${properties.length === 1 ? 'property' : 'properties'}`, groupAssignment, ...metricCells(properties)]);
+    rows.push([unit.name, `Group total · ${properties.length} ${properties.length === 1 ? 'property' : 'properties'}`, groupAssignment, ...metricCells(properties)]);
     rows.push(...properties.map((property) => propertyRow(property, 'Group property')));
   }
-  rows.push(...individuals.map((property) => propertyRow(property, 'Individual property')));
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 32 }, { wch: 20 }, { wch: 18 }, ...GROUPED_SCHEDULE_COLUMNS.map(() => ({ wch: 18 }))];
   if (rows.length > 1) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: headers.length - 1 } }) };

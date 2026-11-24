@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import type { GroupedExportRecord } from './export-hierarchy';
 
 export type OccupancyRecord = {
   property: string;
@@ -95,14 +96,14 @@ export function buildOccupancyTemplateWorkbook(): XLSX.WorkBook {
 
 export function downloadOccupancyTemplate() { XLSX.writeFile(buildOccupancyTemplateWorkbook(), 'Rent Roll Occupancy Template.xlsx'); }
 
-export function downloadOccupancyWorkbook(records: readonly OccupancyRecord[]) {
+export function downloadOccupancyWorkbook(records: readonly GroupedExportRecord<OccupancyRecord>[]) {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet([
     ['Occupancy Export'],
-    ['Property', 'Units', 'Occupied Units', 'Occupancy %', 'Scheduled Rent', 'As Of', 'Source'],
-    ...records.map((record) => [record.property, record.units, record.occupiedUnits, record.units ? record.occupiedUnits / record.units : 0, record.scheduledRent, record.asOf, record.source ?? '']),
+    ['Group', 'Property', 'Units', 'Occupied Units', 'Occupancy %', 'Scheduled Rent', 'As Of', 'Source'],
+    ...records.map(({ group, record }) => [group || 'Individual property', record.property, record.units, record.occupiedUnits, record.units ? record.occupiedUnits / record.units : 0, record.scheduledRent, record.asOf, record.source ?? '']),
   ]);
-  sheet['!cols'] = [34, 12, 18, 14, 18, 16, 28].map((wch) => ({ wch }));
+  sheet['!cols'] = [28, 34, 12, 18, 14, 18, 16, 28].map((wch) => ({ wch }));
   XLSX.utils.book_append_sheet(workbook, sheet, 'Occupancy');
   XLSX.writeFile(workbook, 'Occupancy Export.xlsx');
 }

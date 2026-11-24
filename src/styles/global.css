@@ -419,6 +419,18 @@
   #print-report {
     display: block;
   }
+  body[data-print-mode='data'] #app-screen {
+    display: block !important;
+  }
+  body[data-print-mode='data'] #print-report {
+    display: none !important;
+  }
+  body[data-print-mode='data'] #app-screen > .sticky,
+  body[data-print-mode='data'] .data-controls-sticky,
+  body[data-print-mode='data'] button,
+  body[data-print-mode='data'] input {
+    display: none !important;
+  }
   .tip {
     display: none !important;
   }
@@ -558,6 +570,13 @@
   color: var(--rpt-muted);
   background: #f4f2ec;
   padding-top: 4pt;
+}
+.rpt-group-total td {
+  background: #f4f2ec;
+  font-weight: 700;
+}
+.rpt-group-child td:first-child {
+  padding-left: 12pt;
 }
 .rpt-grand td {
   border-top: 1.25pt solid var(--rpt-ink);
