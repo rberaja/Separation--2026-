@@ -48,6 +48,45 @@ function propertiesSheet(r: Report): XLSX.WorkSheet {
   return ws;
 }
 
+const GROUPED_SCHEDULE_COLUMNS: ReadonlyArray<{ key: string; label: string; kind: CellKind }> = [
+  { key: 'market_value', label: 'Market Value', kind: 'money' },
+  { key: 'adj_net_value', label: 'Adjusted Value', kind: 'money' },
+  { key: 'debt_npv', label: 'Debt NPV', kind: 'money' },
+  { key: 'npv_equity', label: 'NPV Equity', kind: 'money' },
+  { key: 'net_cash_flow', label: 'Net Cash Flow / yr', kind: 'money' },
+  { key: 'remaining_tax_basis', label: 'Remaining Tax Basis', kind: 'money' },
+  { key: 'depreciation', label: 'Depreciation', kind: 'money' },
+];
+
+function assignmentLabel(r: Report, assignment: Report['properties'][number]['assign']): string {
+  return assignment === 'none' ? 'Unassigned' : r.partnerNames[assignment];
+}
+
+/** Group totals and their individual source properties; this sheet is for review and printing, not re-import. */
+function groupedScheduleSheet(r: Report): XLSX.WorkSheet {
+  const headers: Cell[] = ['Selection unit', 'Level', 'Partner', ...GROUPED_SCHEDULE_COLUMNS.map((column) => column.label === 'Depreciation' ? `Depreciation ${r.depreciationYear}` : column.label)];
+  const groups = new Map<string, typeof r.properties>();
+  const individuals: typeof r.properties = [];
+  for (const property of r.properties) {
+    if (property.groupName) groups.set(property.groupName, [...(groups.get(property.groupName) ?? []), property]);
+    else individuals.push(property);
+  }
+  const metricCells = (properties: typeof r.properties): Cell[] => GROUPED_SCHEDULE_COLUMNS.map((column) => cell(properties.reduce((total, property) => total + (typeof property.cells[column.key] === 'number' ? property.cells[column.key] as number : 0), 0), column.kind));
+  const propertyRow = (property: Report['properties'][number], level: string): Cell[] => [property.name, level, assignmentLabel(r, property.assign), ...GROUPED_SCHEDULE_COLUMNS.map((column) => cell(property.cells[column.key] ?? null, column.kind))];
+  const rows: Cell[][] = [headers];
+  for (const [groupName, properties] of groups) {
+    const assignments = new Set(properties.map((property) => property.assign));
+    const groupAssignment = assignments.size === 1 ? assignmentLabel(r, properties[0]!.assign) : 'Mixed assignment';
+    rows.push([groupName, `Group total · ${properties.length} ${properties.length === 1 ? 'property' : 'properties'}`, groupAssignment, ...metricCells(properties)]);
+    rows.push(...properties.map((property) => propertyRow(property, 'Group property')));
+  }
+  rows.push(...individuals.map((property) => propertyRow(property, 'Individual property')));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 32 }, { wch: 20 }, { wch: 18 }, ...GROUPED_SCHEDULE_COLUMNS.map(() => ({ wch: 18 }))];
+  if (rows.length > 1) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: headers.length - 1 } }) };
+  return ws;
+}
+
 function summarySheet(r: Report, generatedAt: Date): XLSX.WorkSheet {
   const { a: nameA, b: nameB } = r.partnerNames;
   const signed = (v: number | null): Cell => (v === null ? '—' : money(v));
@@ -107,6 +146,7 @@ export function buildReportWorkbook(r: Report, generatedAt = new Date()): XLSX.W
   const wb = XLSX.utils.book_new();
   // Properties must stay first: `parseWorkbook` reads the first sheet.
   XLSX.utils.book_append_sheet(wb, propertiesSheet(r), 'Properties');
+  XLSX.utils.book_append_sheet(wb, groupedScheduleSheet(r), 'Grouped Schedule');
   XLSX.utils.book_append_sheet(wb, summarySheet(r, generatedAt), 'Summary');
   XLSX.utils.book_append_sheet(wb, metaSheet(r), '_meta');
   return wb;

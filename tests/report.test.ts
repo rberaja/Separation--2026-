@@ -9,8 +9,8 @@ import { createProperty } from '../src/lib/types';
 
 const names = { a: 'Roberto', b: 'Alex' };
 const props = [
-  createProperty(1, { name: 'A1', assign: 'a', marketVal: 1000000, capex: 100000, noi: 60000, loanBal: 400000, loanRate: 5, loanTerm: 5, bidDiff: 10000, remainingBasis: 500000, zoning: 'RM-24', cert40yr: '2031' }),
-  createProperty(2, { name: 'B1', assign: 'b', marketVal: 1500000, capex: 0, noi: 90000, loanBal: 600000, loanRate: 5, loanTerm: 5, bidDiff: -5000, remainingBasis: 700000 }),
+  createProperty(1, { name: 'A1', groupName: 'Main Portfolio', assign: 'a', marketVal: 1000000, capex: 100000, noi: 60000, loanBal: 400000, loanRate: 5, loanTerm: 5, bidDiff: 10000, remainingBasis: 500000, zoning: 'RM-24', cert40yr: '2031' }),
+  createProperty(2, { name: 'B1', groupName: 'Main Portfolio', assign: 'b', marketVal: 1500000, capex: 0, noi: 90000, loanBal: 600000, loanRate: 5, loanTerm: 5, bidDiff: -5000, remainingBasis: 700000 }),
   createProperty(3, { name: 'Loose', assign: 'none', marketVal: 250000 }),
 ];
 
@@ -83,8 +83,8 @@ describe('settlementSentence', () => {
 describe('buildReportWorkbook', () => {
   const wb = buildReportWorkbook(report(), new Date(2026, 8, 13, 16, 5));
 
-  it('puts Properties first so Upload Excel reads it, then Summary and _meta', () => {
-    expect(wb.SheetNames).toEqual(['Properties', 'Summary', '_meta']);
+  it('puts Properties first so Upload Excel reads it, then the grouped review schedule and report sheets', () => {
+    expect(wb.SheetNames).toEqual(['Properties', 'Grouped Schedule', 'Summary', '_meta']);
   });
 
   it('round-trips through parseWorkbook, restoring every property and the settings', () => {
@@ -106,5 +106,15 @@ describe('buildReportWorkbook', () => {
     expect(flat.some((v) => v.includes('pays'))).toBe(true);
     expect(flat).toContain(TAX.basisShortfall);
     expect(flat.some((v) => v.startsWith(TAX.basisTrueUp))).toBe(true);
+  });
+
+  it('writes group totals followed by their properties and standalone properties', () => {
+    const rows = XLSX.utils.sheet_to_json<(string | number)[]>(wb.Sheets['Grouped Schedule']!, { header: 1, defval: '' });
+    expect(rows[0]).toEqual(expect.arrayContaining(['Selection unit', 'Level', 'Market Value', 'NPV Equity']));
+    expect(rows[1]?.slice(0, 3)).toEqual(['Main Portfolio', 'Group total · 2 properties', 'Mixed assignment']);
+    expect(rows[1]?.[3]).toBe(2_500_000);
+    expect(rows[2]?.slice(0, 2)).toEqual(['A1', 'Group property']);
+    expect(rows[3]?.slice(0, 2)).toEqual(['B1', 'Group property']);
+    expect(rows[4]?.slice(0, 2)).toEqual(['Loose', 'Individual property']);
   });
 });

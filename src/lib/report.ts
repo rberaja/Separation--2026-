@@ -76,6 +76,8 @@ export const PROPERTY_CALC_COLUMNS: readonly (ReportColumn & { metric: keyof Pro
 export interface ReportPropertyRow {
   id: number;
   name: string;
+  /** Data Groups selection unit; blank when the property stands alone. */
+  groupName: string;
   assign: Assignment;
   /** Values keyed by column key, for every column in both column lists. */
   cells: Record<string, CellValue>;
@@ -165,7 +167,7 @@ function propertyRow(p: Property, discountRate: number): ReportPropertyRow {
     cells[c.key] = c.field === 'assign' && v === 'none' ? '' : v;
   }
   for (const c of PROPERTY_CALC_COLUMNS) cells[c.key] = m[c.metric];
-  return { id: p.id, name: p.name, assign: p.assign, cells };
+  return { id: p.id, name: p.name, groupName: p.groupName.trim(), assign: p.assign, cells };
 }
 
 export function buildReport(input: ReportInput): Report {
